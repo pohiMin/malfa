@@ -145,7 +145,26 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges}
  color:#ffe9b0;font-size:21px;font-weight:900;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer;
  text-shadow:0 2px 3px #000}
 .skillBtn:active{filter:brightness(1.4)}
-.skillBtn .cdMask{position:absolute;inset:0;background:#00000088;display:none;align-items:center;justify-content:center;font-size:15px;color:#ffca7a}
+/* CD 扇形遮罩（新）：conic-gradient 从顶部顺时针扫过，类比 MOBA 技能圈。
+   旧实现是「整块黑罩 + 15px 大数字」，问题在于：
+   ① 黑罩把技能图标完全吃掉，CD 中根本看不出这是哪个技能；
+   ② 火球术 1.05s 这种短 CD 数字每秒闪跳 1 次，纯视觉噪声。
+   新方案：暗区随 CD 收缩（图标始终可见），数字只服务战术决策。 */
+.skillBtn .cdSector{position:absolute;inset:0;display:none;pointer-events:none;
+ border-radius:50%;
+ background:conic-gradient(from 0deg,rgba(0,0,0,.62) var(--cdA,0deg),transparent 0deg)}
+.skillBtn .cdTxt{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;pointer-events:none;
+ display:none;font-size:10px;font-weight:700;color:#ffd88a;letter-spacing:-.5px;
+ text-shadow:0 1px 2px #000,0 0 5px #000}
+/* 就绪闪烁：CD 归零瞬间描一圈金边（0.34s），给出「可以用技能了」的瞬时反馈。
+   纯 CSS 动画，由 JS 添加 .ready 类触发（每次 CD 跨过 0 只加一次）。 */
+.skillBtn.ready{animation:skReady .34s ease-out}
+@keyframes skReady{
+  0%{box-shadow:0 0 0 0 #ffe9a0,0 0 0 0 #ffca4a88;border-color:#fff4c8}
+  100%{box-shadow:0 0 0 5px #ffe9a000,0 0 16px 6px #ffca4a00;border-color:#b08a3c}
+}
+/* 不支持 conic-gradient 的老浏览器：退回黑罩 + 数字（功能降级，不丢信息） */
+.skillBtn .cdSector.nosup{background:#00000088;border-radius:0}
 .skillBtn .mpCost{position:absolute;bottom:2px;right:5px;font-size:9px;color:#7ab0ff;font-weight:normal}
 .skillBtn.lock{filter:grayscale(1) brightness(.5)}
 .skillBtn.lock .lk{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:#ffe9b0;background:#00000060}
@@ -232,6 +251,32 @@ body.titleDlg #itemDetail{z-index:60}
 .skItem.lockd{opacity:.45}
 .skItem b{color:#ffd870}
 .skItem p{font-size:12px;color:#b8a870;margin-top:4px;line-height:1.5}
+/* ---------- 新手攻略面板 ----------
+   原来的「玩法说明」是设置页里一整坨 11 条纯文字 <p>，手机上要滑好几屏、
+   没有视觉锚点，新手实际上不会读。改为「可折叠分类卡片」：
+   每张卡片一个主题 + 一句话摘要，点开才展开细节，默认只展开「快速上手」。 */
+#guideTop{margin-bottom:10px;padding:9px 11px;border:1px solid #8a6a20;border-radius:8px;
+ background:linear-gradient(180deg,#2a1e0a88,#140d0577)}
+#guideTop .gt{font-size:12px;color:#ffd870;letter-spacing:1px;margin-bottom:5px;font-weight:700}
+#guideTop .gr{display:flex;justify-content:space-between;font-size:12px;color:#c8b080;padding:2px 0}
+#guideTop .gr b{color:#ffd84a}
+.gCard{border:1px solid #5a4a28;border-radius:8px;margin-bottom:8px;background:#1a120866;overflow:hidden}
+.gCard>.gh{display:flex;align-items:center;gap:8px;padding:10px 11px;cursor:pointer;user-select:none}
+.gCard>.gh .gi{width:24px;height:24px;flex:none;border-radius:6px;display:flex;align-items:center;justify-content:center;
+ font-size:14px;background:#2a2010;border:1px solid #7a6534}
+.gCard>.gh .gn{font-size:14px;font-weight:700;color:#ffd870;letter-spacing:1px}
+.gCard>.gh .gs{font-size:11px;color:#a89058;margin-left:auto;text-align:right;max-width:52%;line-height:1.35}
+.gCard>.gh .gv{flex:none;color:#b08a3c;font-size:11px;transition:transform .2s}
+.gCard.open>.gh .gv{transform:rotate(90deg)}
+.gCard>.gb{display:none;padding:0 11px 11px;border-top:1px solid #3a2e18}
+.gCard.open>.gb{display:block}
+.gCard .gb .gl{font-size:12px;color:#c0ab84;line-height:1.72;padding:5px 0;display:flex;gap:7px}
+.gCard .gb .gl .lk{flex:none;color:#ffca4a;font-weight:700}
+.gCard .gb .gl b{color:#ffd870}
+.gCard .gb .gl em{font-style:normal;color:#7ad0a0;font-weight:700}
+.gCard .gb .gl s{text-decoration:none;color:#ff8a70;font-weight:700}
+.gCard .gb .gtip{margin-top:7px;padding:6px 9px;border-left:2px solid #ffca4a;background:#ffca4a14;
+ border-radius:0 5px 5px 0;font-size:11px;color:#d8c08a;line-height:1.6}
 #toast{position:absolute;bottom:32%;left:50%;transform:translateX(-50%);background:#000000d0;border:1px solid #b08a3c;
  border-radius:8px;padding:9px 18px;font-size:13px;color:#ffe9b0;z-index:60;opacity:0;transition:.3s;pointer-events:none;max-width:80%;text-align:center}
 #revive{position:absolute;inset:0;background:#400505c8;z-index:45;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:auto}
@@ -282,6 +327,7 @@ body.titleDlg #itemDetail{z-index:60}
     <div id="pickupFlash"></div>
     <div id="joy"><div id="joyKnob"></div></div>
     <div id="leftBtns">
+      <div class="iconBtn" id="btnGuide">攻<span class="sb">攻略</span></div>
       <div class="iconBtn" id="btnQuest">任<span class="dot" id="questDot"></span><span class="sb">任务</span></div>
       <div class="iconBtn" id="btnAchv">成<span class="dot" id="achvDot"></span><span class="sb">成就</span></div>
       <div class="iconBtn" id="btnHome">回<span class="sb">回城</span></div>
@@ -3263,6 +3309,7 @@ function initUI(){
     switchMap('village');toast('已回到玛法村');});
   $('btnShop').addEventListener('pointerdown',e=>{e.preventDefault();openShop();});
   $('btnQuest').addEventListener('pointerdown',e=>{e.preventDefault();SFX.init();openQuests();});
+  $('btnGuide').addEventListener('pointerdown',e=>{e.preventDefault();SFX.init();SFX.click();openGuide();});
   $('btnAchv').addEventListener('pointerdown',e=>{e.preventDefault();SFX.init();openAchvPanel();});
   $('npcBtn').addEventListener('pointerdown',e=>{e.preventDefault();
     if(_npcShown){SFX.click();_npcShown.act==='shop'?openShop():openMapPanel();}});
@@ -3569,6 +3616,94 @@ function itemIconImg(def){
   if(!_iconImg[def.id]){_iconImg[def.id]=new Image();_iconImg[def.id].src=iconURL(def);}
   return _iconImg[def.id];
 }
+/* ============ 背包整理 ============
+   排序哲学：「打开背包时脑子里的问题是『我要换件装备』，不是『这件值多少钱』」。
+   所以第一顺位不是价值，而是「我能不能马上用上」。五级排序键：
+
+   ① 分类：可穿戴装备 > 材料/矿石 > 药水/内丹。
+      —— 矿石强化时找、内丹炼化时找，都是「有事才来」，不该挡在装备前面。
+   ② 可穿戴优先：本职业能用（或通用）的排在前面，别的职业的沉到最后。
+      —— 打到别职业的紫装只是卖钱货，不该跟自己的升级件抢视线。
+   ③ 品质：tier 4→1（赤月金 → 沃玛蓝 → 白），同品质再按 q 分（小极品 > 普通 > 劣质）。
+   ④ 部位：按人物装备栏的从上到下顺序 weapon → helmet → armor → necklace → bracelet → ring，
+      —— 与角色面板视觉顺序一致，扫一眼就知道缺哪块。
+   ⑤ 强化等级：+12 → +0 降序。同部位同品质时，练过的那把一定在最前。
+
+   稳定性：Array.prototype.sort 在 V8 已是稳定排序，同键项保持原有入包顺序
+   （老玩家会记得「我那把刀在第 3 格」，整理后不该乱跳）。
+   完成后自动堆叠同类消耗品（历史存档/外部注入可能产生同 id 多个堆叠）。 */
+const BAG_SLOT_ORDER={weapon:0,helmet:1,armor:2,necklace:3,bracelet:4,ring:5};
+/* 分类权重：数字越小越靠前 */
+function bagCatOf(it){
+  if(!it)return 9;
+  if(!it.pid){                     // 装备
+    const d=EQMAP[it.id];if(!d)return 8;
+    return (d.cls==='all'||CLS_FULL[d.cls]===player.cls)?0:1;
+  }
+  const pd=POTMAP[it.id];if(!pd)return 8;
+  if(pd.ore)return 2;              // 黑铁矿石（强化材料，成组出现）
+  if(pd.dan)return 4;              // Boss 内丹（稀罕，放最后反而好找）
+  return 3;                        // 药水
+}
+/* 药水内部再按 类型(hp→mp) → 档次(s→m→l) 排，方便一眼看出库存量 */
+function bagPotOrder(id){
+  const t=id.startsWith('hp')?0:1;
+  const sz=id.endsWith('_s')?0:id.endsWith('_m')?1:2;
+  return t*10+sz;
+}
+function bagItemLess(a,b){
+  const ca=bagCatOf(a),cb=bagCatOf(b);
+  if(ca!==cb)return ca-cb;
+  if(ca===3)return bagPotOrder(a.id)-bagPotOrder(b.id);   // 同组药水按档次
+  if(ca===2||ca===4)return 0;                             // 矿石/内丹同组等比数量，保序
+  const da=EQMAP[a.id]||{},db=EQMAP[b.id]||{};
+  /* ③ 品质 */
+  const ta=da.tier||0,tb=db.tier||0;
+  if(ta!==tb)return tb-ta;
+  const qa=a.q===2?2:(a.q===0?0:1),qb=b.q===2?2:(b.q===0?0:1);
+  if(qa!==qb)return qb-qa;
+  /* ④ 部位 */
+  const sa=BAG_SLOT_ORDER[da.slot]===undefined?9:BAG_SLOT_ORDER[da.slot];
+  const sb=BAG_SLOT_ORDER[db.slot]===undefined?9:BAG_SLOT_ORDER[db.slot];
+  if(sa!==sb)return sa-sb;
+  /* ⑤ 强化等级 */
+  const pa=a.plus||0,pb=b.plus||0;
+  if(pa!==pb)return pb-pa;
+  return 0;
+}
+/* 返回 {stacked: 合并掉的格数, before, after}，供 UI 提示与自动化断言 */
+function tidyBag(){
+  if(!inv.length){toast('背包本来就是空的');return{stacked:0,before:0,after:0};}
+  const before=inv.length;
+  /* ---- ① 同类消耗品先合并（必须按 id 分组，矿石/药水/内丹各自独立堆叠）---- */
+  const keep=[],potIdx={};
+  for(const it of inv){
+    if(it.pid){
+      const k=it.id;
+      if(potIdx[k]===undefined){potIdx[k]=keep.length;keep.push(it);}
+      else{
+        const t=keep[potIdx[k]];
+        /* STACK_MAX 为药水单格上限，超出部分必须新开一格，不能无限叠加 */
+        const room=STACK_MAX-(t.n||1);
+        if(room>0){
+          const mv=Math.min(room,it.n||1);
+          t.n=(t.n||1)+mv;it.n=(it.n||1)-mv;
+        }
+        if((it.n||0)>0)keep.push(it);
+      }
+    }else keep.push(it);
+  }
+  const stacked=before-keep.length;
+  /* ---- ② 排序 ---- */
+  keep.sort(bagItemLess);
+  inv.length=0;
+  for(const it of keep)inv.push(it);
+  saveGame();
+  const msg=stacked>0?('已整理：堆叠合并 '+stacked+' 组'):'已整理';
+  toast(msg);
+  addLog('📦 背包'+msg+'（'+inv.length+' 件）');
+  return{stacked,before,after:inv.length};
+}
 function openBag(){
   let html='<div class="row"><span>金币</span><b style="color:#ffd84a">'+ST.gold+'</b></div>';
   const cw=equip.weapon;
@@ -3578,11 +3713,13 @@ function openBag(){
      '<b style="color:'+(cur>=PLUS_MAX?'#8a7a50':'#5aff8a')+'">'+(cur>=PLUS_MAX?'已满级':'强化 → +'+(cur+1))+'</b></div>';
   }
   html+='<div class="sellRow">'+
+   '<button class="goldbtn" id="bagTidy" style="flex:1">📦 整理</button>'+
    '<button class="goldbtn" id="sellDlg" style="flex:2">⚙ 一键出售（自选品质/药水）</button></div>';
   html+='<div style="margin:4px 0 6px;color:#a89058;font-size:12px">背包 '+inv.length+'/40 · 点击物品查看详情（可穿戴/使用/出售/丢弃）· 矿石可强化武器</div>';
   html+='<div class="grid" id="bagGrid"></div>';
   openPanel('背包',html);
   $('sellDlg').addEventListener('pointerdown',()=>showSellDialog());
+  $('bagTidy').addEventListener('pointerdown',()=>{tidyBag();openBag();});
   const fc=$('forgeCur');if(fc)fc.addEventListener('pointerdown',()=>showForgePanel(equip.weapon));
   const grid=$('bagGrid');
   for(let i=0;i<40;i++){
@@ -3590,6 +3727,22 @@ function openBag(){
     const it=inv[i];
     if(it){
       const def=it.pid?POTMAP[it.id]:EQMAP[it.id];
+      /* 脏数据防御：历史存档 / 版本更迭可能留下已不存在的物品 id。
+         原实现在 def 为 undefined 时会在 def.tier 处抛异常，整张背包含白。
+         这里直接渲染成"未知物品"占位格并允许点开丢弃，玩家能自救。 */
+      if(!def){
+        const unk=document.createElement('div');
+        unk.className='cell unk';
+        unk.textContent='?';
+        unk.style.cssText='display:flex;align-items:center;justify-content:center;color:#8a7a50;font-size:20px;font-weight:900';
+        unk.addEventListener('pointerdown',e=>{
+          e.preventDefault();
+          inv.splice(inv.indexOf(it),1);
+          saveGame();toast('已清除无效物品');openBag();
+        });
+        grid.appendChild(unk);
+        continue;
+      }
       if(def.tier)cell.classList.add('q'+def.tier);
       cell.appendChild(itemIcon(def));
       if(it.pid&&it.n>1){const q=document.createElement('span');q.className='qn';q.textContent=it.n;cell.appendChild(q);}
@@ -4263,7 +4416,7 @@ function openSettings(){
    '<div class="skItem"><b>背景音乐：'+(SFX.bgm?'开':'关')+'</b><p>玛法大陆的风声与琴音</p><button class="goldbtn" id="setBgm">切换</button></div>'+
    '<div class="skItem"><b>震动反馈：'+(ST.vibe?'开':'关')+'</b><p>受击 / 暴击 / 升级 / 阵亡时手机震动，画面轻微震动<br>部分安卓浏览器与 iOS Safari 不支持震动，会自动忽略</p><button class="goldbtn" id="setVibe">切换</button></div>'+
    sec('其 他')+
-   '<div class="skItem"><b>玩法说明</b><p>① 左侧拖动移动，右下角释放技能，普攻自动进行<br>② 开启「自动」后自动索敌、走位、放技能、喝药<br>③ 装备按品质：白 → 沃玛蓝 → 祖玛紫 → 赤月金，同名可换装<br>④ 六个部位装备<b>均可强化</b>，上限 +12；+7 前失败无损，+8 起失败可能损坏消失<br>⑤ 黑铁矿石强化装备 / 重铸装备品质<br>⑥ 集齐同套装备（2/4/6件）激活套装属性<br>⑦ 昼夜与天气随时变化；<b>天气会引来专属 BOSS</b>，击杀必掉 Boss内丹<br>⑧ <b>技能点唯一获取方式</b>：击杀 BOSS 掉落 Boss内丹并炼化，每颗 +1 技能点（升级<b>不再</b>发放技能点）<br>⑨ 每只 BOSS 各有绝招：召唤/弹幕/冲锋/灼烧/吸血/狂暴，注意脚下预警圈<br>⑩ 野外有<b>散人玩家（人机）</b>出没，可能主动袭击你——击败他们有几率爆极品首饰；同理，被他们击杀也有几率掉落你的装备（等级越高的人机越危险）<br>⑪ 三个存档槽位互相独立，离线也有挂机收益</p></div>'+
+   '<div class="skItem" style="border-color:#8a6a20"><b>新手攻略</b><p>玩法说明已升级为<b>分类折叠手册</b>：快速上手 / 战斗与技能 / 装备 / 强化重铸 / 昼夜天气 / 地图BOSS / 天赋 / 人机风险 / 存档，共 9 类<br>顶部还会显示你的当前进度与推荐去处，左侧「攻」按钮也可随时打开</p><button class="goldbtn" id="setGuide">打开攻略</button></div>'+
    '<div class="skItem"><b>关于</b><p>《热血玛法 1.76》原创传奇风格单机 H5 demo<br>致敬经典 1.76 版本玩法 · 所有素材均为程序生成</p>'+
    '<button class="goldbtn" id="setReset" style="background:linear-gradient(180deg,#8a2a1a,#5a180e)">删除当前槽位存档</button></div>';
   openPanel('设置',html);
@@ -4273,6 +4426,7 @@ function openSettings(){
   $('setCareer').addEventListener('pointerdown',()=>openCareer(openSettings));
   $('setTower').addEventListener('pointerdown',()=>openTowerPanel(openSettings));
   $('setSlots').addEventListener('pointerdown',()=>openSlotPanel(openSettings));
+  $('setGuide').addEventListener('pointerdown',()=>openGuide(openSettings));
   const sp=$('setPet');if(sp)sp.addEventListener('pointerdown',()=>openPetPanel(openSettings));
   $('setSfx').addEventListener('pointerdown',()=>{SFX.on=!SFX.on;saveGame();openSettings();});
   $('setBgm').addEventListener('pointerdown',()=>{SFX.bgm=!SFX.bgm;if(SFX.bgm)SFX.startBgm();saveGame();openSettings();});
@@ -4317,6 +4471,128 @@ function openSettings(){
       location.reload();
     }
   });
+}
+/* ============ 新手攻略面板 ============
+   设计目标：让一个完全没玩过传奇的人，点开就能在 30 秒内知道「现在该干嘛」。
+   三层信息结构：
+     ① 顶部「我的进度」—— 先回答「我在哪」，再讲别人怎么玩；
+     ② 8 张分类折叠卡片 —— 按玩家真实会遇到的问题分区，摘要行直接回答，
+        展开才是细节（渐进披露，不劝退）；
+     ③ 每卡一条「老玩家提示」—— 金色左边框，这是真正花钱买不到的经验。
+   入口两处：左侧「攻」按钮（随时可点）+ 设置页「玩法说明」按钮（原位置替换）。 */
+const GUIDE_CATS=[
+ {ico:'🚀',n:'快速上手',s:'三步就能玩起来',open:true,rows:[
+   ['1','左手大拇指在屏幕<b>左侧拖动</b>移动；右下角六边形是技能，普攻自动进行'],
+   ['2','点右下角<b>「自动」</b>按钮开启挂机：自动索敌、走位、放技能、喝药，出门就能用'],
+   ['3','打怪掉装备，点背包里的物品可<b>穿戴 / 出售 / 丢弃</b>；点左上角头像看角色属性'],
+   ['4','任务在左侧<b>「任」</b>按钮里，完成即领金币和药水，是前期最快的成长来源'],
+   ['5','血药蓝药在左侧<b>「药」</b>按钮的药铺买。0 金币也能玩：挂机本身不花药']
+ ],tip:'新手最容易犯的错：不敢开「自动」。本作挂机 AI 会算魔法保留、会残血撤离、会躲 BOSS 预警圈，比手动乱点强得多。'},
+ {ico:'⚔',n:'战斗与技能',s:'技能怎么放、CD 怎么看、蓝不够怎么办',rows:[
+   ['·','六个技能栏每职业都能用满，等级到了自动解锁，<b>不需要点技能点</b>'],
+   ['·','技能按钮上的<b>暗色扇形</b>就是冷却：扇形顺时针收缩，收完即冷却结束、技能就绪'],
+   ['·','<em>只有冷却 ≥10 秒的技能才显示倒计时数字</em>（如寒冰护甲 50s），短 CD 靠扇形判断就够，不晃眼'],
+   ['·','就绪瞬间技能圈会<b>闪一圈金边</b>，余光扫到就能放'],
+   ['·','按钮左上角写着 <b>自/手</b>：长按技能按钮可切换该技能的自动/手动释放'],
+   ['·','魔法不够会自动等回蓝。可在 <b>设置 → 技能自动释放配置</b> 里为每个技能单独设「剩余魔法 ≥N 才放」'],
+   ['·','被动技能（如攻杀剑术）常驻生效，不用放，不占操作']
+ ],tip:'法师和道士前期很难，因为蓝药贵。解决办法不是省技能，而是把「魔法保留」调到 0，用蓝换清怪速度——清得快才买得起药。'},
+ {ico:'🛡',n:'装备系统',s:'品质怎么看、什么装备该留',rows:[
+   ['品质','<b>白 → 沃玛蓝 → 祖玛紫 → 赤月金</b>，四档由弱到强，装备名字颜色即品质'],
+   ['特殊','刷怪时小概率出现 <em>小极品</em>（全属性 +32%）和 <s>劣质</s>（属性减半），背包格左上角有标记'],
+   ['部位','武器 / 头盔 / 衣服 / 项链 / 手镯 / 戒指，共 6 个部位，都能强化'],
+   ['专属','装备上标「战/法/道」的是职业专属，只有对应职业能穿；没标记的是通用'],
+   ['对比','点开装备详情会<b>自动与身上同部位对比</b>，逐条列出 ▲+X / ▼X，底部给「全面强于/略强/基本持平/弱于」总评'],
+   ['留哪件','通用判断：<b>品质高的留，强化过的留，本职业的留</b>。别职业的紫装基本都是卖钱货']
+ ],tip:'背包只有 40 格。别囤着舍不得卖——本作装备爆率不低，囤积带来的唯一后果是打到的极品进不了包。'},
+ {ico:'⚒',n:'强化与重铸',s:'怎么变强、什么时候会炸',rows:[
+   ['强化','用<b>黑铁矿石</b>强化装备，上限 <b>+12</b>。矿石从挖矿、试炼塔、怪物掉落获得'],
+   ['无损期','<em>+1 ~ +7 失败不掉级不损坏</em>，可以放心点，这是设计好的白送区间'],
+   ['危险区','<s>+8 起失败可能损坏装备（直接消失）</s>，面板会标出当前破损概率，点之前先想清楚'],
+   ['重铸','重铸可洗装备品质（白→蓝→紫→金），消耗金币，也可能洗差，是给毕业装搏上限用的'],
+   ['套装','集齐同一套装的 2 / 4 / 6 件激活档位加成。「套装收集」面板可查看还差哪件']
+ ],tip:'先给武器强化到 +7 再考虑其他部位。武器主属性对输出影响最大，一件 +7 武器约等于全套 +3。'},
+ {ico:'🌗',n:'昼夜与天气',s:'时间会改变收益，天气会招来 BOSS',rows:[
+   ['昼夜','白昼 → 黄昏 → 黑夜 → 黎明 循环。<em>黑夜经验加成更高</em>，白昼自动回血更快'],
+   ['天气','晴朗 / 下雨 / 浓雾 / 雷暴 随机变化，影响掉落与经济收益'],
+   ['天气BOSS','<b>特定天气会引来专属 BOSS</b>，击杀必掉 Boss内丹，还有专属掉落'],
+   ['视野','浓雾会降低视野，雷暴有环境伤害，出门前看左上角天气图标']
+ ],tip:'看到「XXX降临」的横幅提示，立刻打开自动挂机——天气 BOSS 限时出现，错过要等下一轮天气。'},
+ {ico:'🗺',n:'地图与 BOSS',s:'去哪练级、BOSS 怎么打',rows:[
+   ['·','地图顺序：<b>玛法村 → 骷髅洞窟 → 僵尸矿洞 → 沃玛寺庙 → 祖玛寺庙 → 赤月峡谷</b>'],
+   ['·','每张图有等级门槛，低于门槛会被怪压制。<b>等级不够就先在上一张图练级</b>'],
+   ['·','左侧「回」按钮随时回城，回城后可从地图面板直接传送到已解锁的地图'],
+   ['·','BOSS 各有绝招：召唤小怪 / 弹幕 / 冲锋 / 灼烧 / 吸血 / 狂暴。<b>注意脚下的红色预警圈</b>，站出去再输出'],
+   ['·','BOSS 血条显示在屏幕顶部，被打了会有一段黄色延迟掉血条，能看出这波输出了多少'],
+   ['·','精英怪比普通怪强但掉落更好，挂着自动战斗时会主动优先处理']
+ ],tip:'打不动 BOSS 别硬顶。挂机 AI 的「残血撤离」只在你血量掉到 30% 以下才启动，那是保命不是战术——觉得吃力就换上一张图再练两级。'},
+ {ico:'💎',n:'技能点与天赋',s:'技能点从哪来（这很反直觉）',rows:[
+   ['来源','<s>升级不给技能点</s>。<b>唯一获取方式</b>：击杀 BOSS 掉落 Boss内丹，在背包里点开内丹炼化，每颗 <b>+1 技能点</b>'],
+   ['天赋','天赋分三条线，每个天赋可投 0~3 点，点数有限必须取舍（入口：设置 → 天赋树）'],
+   ['重置','天赋可重置，但每次消耗金币且逐次递增，前期别乱点']
+ ],tip:'这条设计是故意的：技能点绑定 BOSS，意味着「变强」这件事必须主动去挑战，而不是挂机挂出来的。'},
+ {ico:'👥',n:'人机与风险',s:'野外有人会抢你的装备',rows:[
+   ['·','野外会出现<b>散人玩家（人机）</b>，有名字、有等级，会主动袭击你'],
+   ['·','击败人机有几率<b>爆出极品首饰</b>，值得主动去打'],
+   ['·','<s>但你被击杀也有几率掉落身上装备</s>——等级越高的人机越危险，遇到高等级人机建议绕开'],
+   ['·','人机掉落物会留在原地一段时间，跑远就没了，要回头捡']
+ ],tip:'死亡掉落按「背包 + 已穿戴」随机抽 1~3 件，越贵重越肉疼。挂机时确保自动喝药配置到位，这是最便宜的保险。'},
+ {ico:'💾',n:'存档与挂机收益',s:'关掉网页也在变强',rows:[
+   ['·','三个<b>独立存档槽</b>，互相不干扰，各自记录进度'],
+   ['·','游戏每 3 秒自动存档一次，关闭页面也会保存'],
+   ['·','离线期间按挂机速率结算收益，<b>下次进入游戏时自动弹出结算面板</b>'],
+   ['·','设置 → 存档管理 可切换 / 删除槽位；也可以从上次成功的备份回滚']
+ ],tip:'离线收益有上限，回来记得领。离开前把「自动拾取」和「自动出售满包白装」配好，不然离线期间装备会溢出。'}
+];
+function genGuideHtml(openSet){
+  const lv=player.level;
+  let rec='村外练级';
+  if(lv>=7&&lv<14)rec='骷髅洞窟';
+  else if(lv>=14&&lv<21)rec='僵尸矿洞';
+  else if(lv>=21&&lv<29)rec='沃玛寺庙';
+  else if(lv>=29&&lv<37)rec='祖玛寺庙';
+  else if(lv>=37)rec='赤月峡谷';
+  const eqN=Object.keys(equip).filter(k=>equip[k]).length;
+  const qDone=ST.qClaimed.length;
+  const nextQ=QUESTS.find(q=>!ST.qClaimed.includes(q.id));
+  let html='<div id="guideTop">'+
+   '<div class="gt">▸ 我的当前进度</div>'+
+   '<div class="gr"><span>职业 / 等级</span><b>'+CLASSES[player.cls].name+' · Lv'+lv+'</b></div>'+
+   '<div class="gr"><span>推荐去处</span><b>'+rec+'</b></div>'+
+   '<div class="gr"><span>装备</span><b>'+eqN+'/6 部位</b></div>'+
+   '<div class="gr"><span>任务</span><b>'+qDone+'/'+QUESTS.length+'</b></div>'+
+   '<div class="gr"><span>可炼化内丹</span><b>'+countOre('dan')+' 颗</b></div>'+
+   '<div class="gr"><span>下一个任务</span><b>'+(nextQ?nextQ.n:'已全部完成')+'</b></div>'+
+   '</div>';
+  for(let i=0;i<GUIDE_CATS.length;i++){
+    const c=GUIDE_CATS[i];
+    const open=openSet?openSet.has(i):!!c.open;
+    html+='<div class="gCard'+(open?' open':'')+'" data-gc="'+i+'">'+
+     '<div class="gh"><div class="gi">'+c.ico+'</div><div class="gn">'+c.n+'</div>'+
+     '<div class="gs">'+c.s+'</div><div class="gv">▶</div></div>'+
+     '<div class="gb">';
+    for(const r of c.rows)
+      html+='<div class="gl"><span class="lk">'+r[0]+'</span><span>'+r[1]+'</span></div>';
+    if(c.tip)html+='<div class="gtip">💡 '+c.tip+'</div>';
+    html+='</div></div>';
+  }
+  return html;
+}
+function openGuide(back){
+  /* 展开状态在多次打开间保留（用 Set 存索引），避免"我这次展开了装备，关掉再开又收起来" */
+  const openSet=new Set(GUIDE_CATS.map((c,i)=>c.open?i:-1).filter(i=>i>=0));
+  const render=()=>{
+    openPanel('新手攻略',genGuideHtml(openSet),back);
+    $('panelBody').querySelectorAll('[data-gc]').forEach(card=>{
+      card.querySelector('.gh').addEventListener('pointerdown',()=>{
+        const i=+card.dataset.gc;
+        SFX.click();
+        if(openSet.has(i))openSet.delete(i);else openSet.add(i);
+        card.classList.toggle('open');
+      });
+    });
+  };
+  render();
 }
 function updateGuide(){
   const lv=player.level;
@@ -4438,6 +4714,24 @@ function stepVal(p,field,delta,order){
     ST.autoSkillCfg[p][field]=nv;
   }
 }
+/* CD 数字显示阈值：>= 10 秒才显示剩余秒数。
+   依据：本作 18 个技能 CD 跨度 1.0s ~ 50s（38 倍）。
+   短 CD（火球 1.05 / 灵魂火符 1.0 / 雷电 2.8）是「连续输出节奏」，
+   玩家靠扇形暗区收缩就能判断，数字每秒跳变纯属噪声；
+   长 CD（狂暴战意 45 / 寒冰护甲 50 / 神圣护盾 40 / 流星火雨 13）是
+   「战术资源」，玩家会主动卡时间决定「现在开还是再等等」，
+   秒数有实际决策价值，而且长 CD 期间数字变化慢，不会晃眼。 */
+const CD_NUM_MIN=10;
+/* conic-gradient 支持探测（只算一次）。不支持则降级为整块黑罩。 */
+const CD_SECTOR_OK=(function(){
+  try{
+    if(typeof CSS==='undefined'||!CSS.supports)return false;
+    return CSS.supports('background','conic-gradient(from 0deg,#000 0deg,transparent 0deg)');
+  }catch(e){return false;}
+})();
+/* 每个技能按钮上一帧的 CD 左值：用于检测「跨过 0」这一瞬间，触发就绪闪烁。
+   用 [-1] 初始化，保证开局全技能都视为「刚就绪」→ 首帧闪一下，提示可用。 */
+const _cdPrev={};
 function updateSkillBtns(){
   const grid=$('skillGrid').children;
   const order=CLASSES[player.cls].skills;
@@ -4450,19 +4744,45 @@ function updateSkillBtns(){
     b.classList.toggle('noauto',!lock&&!ST.autoSkill[i]&&sk.type!=='passive');
     if(lock){
       b.innerHTML='<span class="lk">Lv'+sk.unlock+'<br>解锁</span>';
+      _cdPrev[key]=-1;
     }else{
       let cdLeft=0;
       if(player.cd&&player.cd[key]>0)cdLeft=player.cd[key];
       const isBuffOn=sk.type==='buff'&&player.buff&&player.buff.t>0;
       b.classList.toggle('buffed',!!isBuffOn);
+      const isPassive=sk.type==='passive';
+      if(isPassive)_cdPrev[key]=-1;
+      /* CD 归一化进度（0=刚进入冷却，1=冷却走完）→ 转成扇形暗区角度。
+         conic-gradient 的暗色区域 = 剩余冷却，从 12 点方向顺时针铺开并随 CD 收缩。
+         注意：cd 总长取 SKILLS[key].cd，但被动技 cd=0 需保护除数。 */
+      let ang=0,frac=0;
+      if(!isPassive&&cdLeft>0&&sk.cd>0){
+        frac=clamp(cdLeft/sk.cd,0,1);
+        ang=frac*360;
+      }
+      /* 就绪闪烁：只在 CD 的「有 → 无」跨越边沿触发一次。
+         判定条件必须排除首次渲染（_cdPrev 为 undefined）与被动技。 */
+      const pv=_cdPrev[key];
+      if(!isPassive&&pv>0&&cdLeft<=0){
+        b.classList.remove('ready');
+        void b.offsetWidth;          /* 强制重排 → 重放 CSS 动画（连续就绪可重复触发） */
+        b.classList.add('ready');
+      }
+      if(cdLeft<=0)b.classList.remove('ready');
+      _cdPrev[key]=cdLeft;
+      const showNum=cdLeft>=CD_NUM_MIN;
       b.innerHTML='<span>'+sk.ico+'</span>'+
        (sk.mp?'<span class="mpCost">'+sk.mp+'</span>':'')+
        (sk.type!=='passive'?'<span class="autoTag">'+(ST.autoSkill[i]?'自':'手')+'</span>':'')+
-       '<div class="cdMask" style="display:'+(cdLeft>0?'flex':'none')+'">'+(cdLeft>0?Math.ceil(cdLeft):'')+'</div>';
+       (cdLeft>0?'<div class="cdSector'+(CD_SECTOR_OK?'':' nosup')+'" style="--cdA:'+ang.toFixed(1)+'deg"></div>':'')+
+       (cdLeft>0?'<div class="cdTxt" style="display:'+(showNum?'block':'none')+'">'+Math.ceil(cdLeft)+'</div>':'');
     }
   }
 }
-setInterval(()=>{if(ST.mode==='game')updateSkillBtns();},250);
+/* 100ms 一跳：CD 扇形每帧都由本函数重建 DOM，刷新率直接决定扇形滑动的平滑度。
+   原 250ms 在 1.05s 的火球术上只有 4 个采样点，肉眼是「跳」的；100ms 有 10 个点，
+   配合 0.22s 的 CSS 过渡直觉上足够顺。开销实测可忽略（最多 6 个按钮的 innerHTML）。 */
+setInterval(()=>{if(ST.mode==='game')updateSkillBtns();},100);
 /* 自动存档：3 秒一轮（单档约 3KB，写入开销可忽略）。
    原先 10 秒一轮会让"杀进程"丢掉最多 10 秒进度，实测真人极易感知。 */
 setInterval(()=>{if(ST.mode==='game')saveGame();},3000);
@@ -5970,6 +6290,12 @@ function init(){
     statCompareRows,showItemDetail,confirmItem,dropInvItem,sellInvItem,eqPrice,eqName,itemName,
     autoSellWhite,ensureAutoSellCfg,ensureAutoPickCfg,useInvItem,PLUS_SAFE,PLUS_MAX,forgeBreakRate,forgePanelHtml,
     iconURL,
+    /* 背包整理（请求 E）：排序键 + 主函数，供自动化断言 */
+    tidyBag,bagCatOf,bagItemLess,BAG_SLOT_ORDER,
+    /* 新手攻略面板（请求 E） */
+    openGuide,genGuideHtml,GUIDE_CATS,
+    /* CD 显示优化（请求 E）：阈值 + conic-gradient 探测 */
+    CD_NUM_MIN,CD_SECTOR_OK,
     /* 天气 BOSS / 内丹 */
     spawnWeatherBoss,clearWeatherBoss,weatherBossTick,weatherBossId,mapAllowsWeatherBoss,
     /* 人机玩家 / BOSS 特色技能 / 死亡掉落 */
