@@ -220,6 +220,71 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges}
 .cell .mk.pl{color:#ffd84a;background:rgba(60,42,8,.85);border:1px solid #8a6a20} /* 强化 +N */
 .cell .clsTag{position:absolute;top:2px;right:3px;font-size:9px;line-height:1;padding:1px 3px;border-radius:3px;background:rgba(20,14,6,.8);text-shadow:0 1px 1px #000;pointer-events:none}
 .cell .em{font-size:22px}
+
+/* ================= 「角色 · 背包」合并面板（方案 A-2）=================
+   布局：左列 4 格 + 中间人物立绘 + 右列 4 格，左右对称、人物居中。
+   竖向空间如何分配：装备区固定高度（含 4 格与人物），属性压 3 行，
+   剩余全部让给背包网格 —— 换装时最需要看到的是"背包里有什么"。 */
+.cbTop{display:flex;align-items:center;justify-content:space-between;font-size:11px;color:#a89058;padding:0 0 8px}
+.cbTop b{color:#ffd84a;font-size:12px}
+.eqWrap{display:flex;gap:9px;align-items:stretch}
+.eqCol{width:100px;flex:none;display:flex;flex-direction:column;gap:7px}
+.eqSlot{border-radius:8px;background:linear-gradient(180deg,#241a0c,#0e0904);display:flex;flex-direction:column;
+ align-items:center;justify-content:center;position:relative;cursor:pointer;overflow:hidden;flex:none}
+.eqSlot .esn{font-size:8.5px;color:#7a6534;line-height:1;letter-spacing:.4px}
+.eqSlot .esv{font-size:10.5px;font-weight:700;margin-top:3px;line-height:1.15;text-align:center;padding:0 2px}
+.eqSlot .epl{position:absolute;right:3px;bottom:2px;font-size:9px;font-weight:700;color:#ffd84a;text-shadow:0 1px 2px #000}
+.eqSlot .eq2{position:absolute;left:2px;top:2px;font-size:8px;padding:1px 3px;border-radius:3px;background:#ffca4a;color:#2a1c00;font-weight:700}
+.eqSlot .eq0{position:absolute;left:2px;top:2px;font-size:8px;padding:1px 3px;border-radius:3px;background:#3a3a36;color:#d8d8d0}
+/* 空槽：虚线 + 只留部位名，明确"这里还能放" */
+.eqSlot.empty{border:1.4px dashed #4a3e22;background:#120c06}
+.eqSlot.empty .esn{color:#5a4a28;font-size:9px}
+.eqSlot:active{filter:brightness(1.3)}
+/* 中间人物：径向渐变营造"站在光里"的舞台感，避免大块死黑 */
+.eqMid{flex:1;min-width:0;border-radius:10px;border:1.5px solid #8a6a20;position:relative;overflow:hidden;
+ background:radial-gradient(circle at 50% 58%,#403014 0%,#1a1208 58%,#0e0904 100%);
+ display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 0}
+.eqMid .eqName{font-size:13.5px;color:#ffe9b0;font-weight:700;letter-spacing:3px;z-index:2}
+.eqMid .eqSub{font-size:9.5px;color:#a89058;z-index:2;margin-top:1px}
+.eqMid canvas{width:100%;max-width:128px;height:auto;image-rendering:pixelated;z-index:2;margin-top:3px}
+.eqMid .eqAura{position:absolute;width:136px;height:136px;border-radius:50%;border:1.5px dashed #8a6a2055;top:82px}
+.eqMid .eqPed{width:112px;height:8px;border-radius:50%;background:radial-gradient(ellipse at center,#ffd84a55,#ffd84a00 70%);margin:1px 0 2px}
+.eqMid .eqSet{font-size:9px;color:#ffd84a;z-index:2;text-align:center;padding:0 4px;line-height:1.3}
+.eqStat{border-top:1px dashed #3a2e18;margin-top:10px;padding-top:7px;font-size:11.5px;line-height:1.85}
+.eqStat>div{display:flex}
+.eqStat span{color:#a89058}
+.eqStat b{margin-left:auto;color:#ffd870}
+/* ---- 背包筛选 chip ---- */
+.bagHead{display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:700;
+ color:#ffd870;margin:10px 0 6px}
+.bagHead b{color:#ffd870}
+.bagChips{margin-bottom:7px;display:flex;flex-wrap:wrap;gap:4px}
+.bagChip{display:inline-flex;align-items:center;justify-content:center;height:20px;padding:0 9px;border-radius:10px;
+ font-size:9.5px;border:1px solid #4a3e22;background:#241a0c;color:#8a7a50;cursor:pointer;white-space:nowrap}
+.bagChip:active{filter:brightness(1.3)}
+.bagChip.on{background:#3a2a10;border-color:#b08a3c;color:#ffe9b0;font-weight:700}
+/* ---- 操作工具条 ---- */
+.bagTools{display:flex;gap:5px;margin-bottom:8px}
+.bagBtn{flex:1;display:inline-flex;align-items:center;justify-content:center;height:26px;border-radius:6px;
+ font-size:10.5px;font-weight:700;border:1.3px solid #8a6a20;background:#241a0c;color:#ffe9b0;cursor:pointer;white-space:nowrap}
+.bagBtn:active{filter:brightness(1.3)}
+.bagBtn.danger{border-color:#a84a2a;background:#3a1a10;color:#ffb0a0}
+.bagBtn.danger.on{background:#6a2a1a;border-color:#ff8a6a;color:#ffe0d0}
+.bagBtn.sell{border-color:#c8a03c;background:#2a2410;color:#ffd84a}
+.bagBtn[disabled]{opacity:.4}
+/* ---- 批量操作条（勾选模式下浮在网格下方） ---- */
+.bagBatchBar{display:flex;gap:5px;margin-top:8px;padding-top:8px;border-top:1px dashed #3a2e18}
+/* ---- 背包格新增状态 ---- */
+.cell.dimmed{opacity:.26}                               /* 被筛选排除：置灰但保留位置 */
+.cell.checked{border-color:#5aff8a;box-shadow:0 0 0 1.5px #5aff8a88,0 0 10px #5aff8a55}
+.cell.checked::after{content:'✓';position:absolute;left:2px;top:2px;width:14px;height:14px;border-radius:4px;
+ background:#5aff8a;color:#0a1a0e;font-size:10px;font-weight:900;display:flex;align-items:center;justify-content:center}
+/* 「↑可装」角标：最高优先级信息，金色描边 + 金底，在 40px 格里最跳 */
+.cell .mkUp{position:absolute;left:2px;bottom:2px;font-size:8px;line-height:1;padding:1px 3px;border-radius:3px;
+ background:#ffca4a;color:#2a1c00;font-weight:900;pointer-events:none;box-shadow:0 0 6px #ffca4a88}
+.bagTip{font-size:9.5px;color:#6a5a38;margin-top:7px;line-height:1.6}
+/* 勾选模式下角标让位：勾选圈占左上，避免与品质标记叠字 */
+.cell.checked .marks,.cell.checked .mkUp{display:none}
 .q1{border-color:#8a8a82}.q2{border-color:#4a90d8}.q3{border-color:#a84ae8}.q4{border-color:#ffca4a}
 .tq1{color:#d8d8d0}.tq2{color:#6ab0ff}.tq3{color:#c88aff}.tq4{color:#ffd870}
 #itemDetail{position:absolute;left:0;right:0;bottom:0;margin:0 auto;max-width:420px;width:94%;padding:14px;z-index:41}
@@ -1755,7 +1820,37 @@ const player={cls:'warrior',name:'玛法勇士',level:1,exp:0,x:0,y:0,hp:50,mp:1
  skills:[],flash:0,shieldT:0,buff:null,potT:0,regenT:0,lastHurt:0,dead:false,reviveT:0,castT:0,acted:false,weaponAnim:0};
 let pet=null,petCarry={lvl:0,exp:0}; /* petCarry: 跨死亡/存档保留的宠物成长 */
 const inv=[]; // {id,n} 药水堆叠 / 装备单件
-const equip={weapon:null,helmet:null,armor:null,necklace:null,bracelet:null,ring:null};
+/* 装备槽位（8 格）：手镯可双持、戒指可双持 —— 与传奇端游规格一致。
+   ★ 所有"遍历装备"的逻辑（recalcStats / setCounts / maxEquipTier / 强化回收校验等）
+     都用 for(const k in equip)，新增字段自动纳入，无需逐个改；
+     但**判断某件装备是否被穿戴**的地方必须显式列出全部槽位，见 EQ_SLOTS。 */
+const equip={weapon:null,helmet:null,armor:null,necklace:null,
+             bracelet:null,bracelet2:null,ring:null,ring2:null};
+/* 槽位顺序与中文名：面板渲染、卸下逻辑、套装计数都以此为唯一来源。
+   排列原则：越常换的越靠上、越靠外（武器/衣服优先），饰品在下方。 */
+const EQ_SLOTS=[
+  ['weapon','武器'],['armor','衣服'],['helmet','头盔'],['ring','戒指①'],
+  ['necklace','项链'],['bracelet','手镯①'],['bracelet2','手镯②'],['ring2','戒指②']
+];
+const EQ_SLOT_NAME={weapon:'武器',armor:'衣服',helmet:'头盔',necklace:'项链',
+  bracelet:'手镯①',bracelet2:'手镯②',ring:'戒指①',ring2:'戒指②'};
+/* 某件装备当前是否被穿在身上（返回槽位名，未穿戴返回 null）。
+   ★ 替代旧写法 equip.weapon===it||equip.helmet===it||... —— 旧写法加了新槽位后
+     会漏判，导致"已装备的装备还能被卖掉/丢掉"的严重 bug。 */
+function eqWornSlot(it){
+  for(const k in equip)if(equip[k]===it)return k;
+  return null;
+}
+/* 同部位槽位列表：换装时优先找空的，满了则替换第一个（戒指/手镯各有两格）。
+   例：装戒指 → 先看 ring 是否空，空则进 ring；否则进 ring2；都满则替换 ring。 */
+function eqSlotsOf(slot){
+  if(slot==='bracelet')return['bracelet','bracelet2'];
+  if(slot==='ring')return['ring','ring2'];
+  return [slot];
+}
+/* 该装备定义对应的"基础部位"（把 bracelet2/ring2 折回 bracelet/ring）。
+   装备定义 EQMAP[].slot 只会是基础的 6 种，不存在 bracelet2。 */
+function baseSlotOf(s){return s==='bracelet2'?'bracelet':(s==='ring2'?'ring':s);}
 const monsters=()=>MAP.mobs;
 let projectiles=[],aoes=[],particles=[],texts=[],slashes=[];
 /* BOSS 灼烧地带（地面持续伤害区域，如赤月恶魔的熔岩、天气 BOSS 的领域） */
@@ -2923,12 +3018,19 @@ function useInvItem(idx,silent){
     if(e.cls!=='all'&&CLS_FULL[e.cls]!==player.cls){toast('「'+e.n+'」是'+({w:'战士',m:'法师',t:'道士'})[e.cls]+'专属装备，无法穿戴');return;}
     /* 穿戴等级门槛：由 tier 推导（见 EQ_REQ_LV） */
     if(!eqLvOk(e)){toast('等级不足，需 Lv'+eqReqLv(e)+' 才能穿戴「'+e.n+'」（当前 Lv'+player.level+'）');return;}
-    const old=equip[e.slot];
-    equip[e.slot]=it;
+    /* 双槽位（手镯/戒指）穿戴规则：优先填第一个空槽；两个都满了就替换①。
+       不替换②是刻意的——①是玩家更早带上的那件，替换它是"换新"的自然预期；
+       若替换②，玩家会觉得"我明明换的是右边那个，怎么左边的变了"。 */
+    const cand=eqSlotsOf(e.slot);
+    let slot=cand.find(k=>!equip[k])||cand[0];
+    const old=equip[slot];
+    equip[slot]=it;
     inv.splice(idx,1);
     if(old)inv.push(old);
     recalcStats();SFX.pickup();
-    addLog('装备了 『'+eqName(it)+'』');
+    /* 日志带上具体槽位，双戒指/双手镯时玩家能分辨装到了哪一格 */
+    const extra=cand.length>1?(' → '+EQ_SLOT_NAME[slot]):'';
+    addLog('装备了 『'+eqName(it)+'』'+extra);
     questNotifyCheck();
     openBag();
   }
@@ -3107,8 +3209,9 @@ function autoSellCanFree(){
   for(const it of inv){
     if(it.plus)continue;                                  // 强化过的不卖
     if(it.pid)continue;                                   // 药水矿石不卖
-    if(equip.weapon===it||equip.helmet===it||equip.armor===it||
-       equip.necklace===it||equip.bracelet===it||equip.ring===it)continue;
+    /* ★ 用 eqWornSlot 代替硬编码槽位列表：双戒指/双手镯上线后，旧写法会漏掉
+       bracelet2/ring2 —— 穿在右手上的装备会被自动出售卖掉，属严重数据损坏。 */
+    if(eqWornSlot(it))continue;
     const def=EQMAP[it.id];if(!def)continue;
     if(cfg.t[def.tier]&&(cfg.oc||def.cls==='all'||def.cls===player.cls))return true;
   }
@@ -3795,6 +3898,37 @@ function bagPotOrder(id){
   const sz=id.endsWith('_s')?0:id.endsWith('_m')?1:2;
   return t*10+sz;
 }
+/* 装备战力分：把一件装备的属性按 CMP_W 权重折算成单一分数。
+   用于「↑可装」角标判定与智能整理排序 —— 与详情页的「综合评估」同一套权重，
+   保证按钮上标了「可装」，点进去的综合评估也是「强于当前装备」，两处结论一致。
+   ★ 折算规则必须与 recalcStats 逐字对齐，否则"标了可装，装上却没提升"：
+     · 品质用 qmul()（取 EQQ[q].mul 倍率），不是把品质下标 0/1/2 当乘数 ——
+       旧写法 q=qOf(it) 会把"普通品质"当成 ×1、"小极品"当成 ×2，
+       而真实倍率是 ×1 与 ×1.32，导致小极品被高估、劣质被低估；
+     · 强化每级 +12% 对**所有部位**生效（见 recalcStats 的 pm=Math.pow(1.12,e.plus)），
+       不是只对武器生效 —— 旧写法把头盔/戒指的 +N 当成 0，两件只差强化等级时
+       分数完全相同，「↑可装」永远是 false，玩家永远换不掉手里的旧装。 */
+function eqScore(it){
+  const d=EQMAP[it.id];if(!d||!d.st)return 0;
+  const q=qmul(it),pm=plusMul(it);
+  let s=0;
+  for(const k in d.st)s+=(d.st[k]||0)*q*pm*(CMP_W[k]||0);
+  return s;
+}
+/* 该背包装备是否"值得换上"：同部位存在空槽（手镯②/戒指②空着）→ 可装；
+   否则与同部位所有已穿戴装备比较，分数更高 → 可装。
+   ★ 只在等级达标时标角标 —— 标了却穿不上会让玩家白高兴一场。 */
+function canEquipUpgrade(it){
+  if(it.pid)return false;
+  const d=EQMAP[it.id];if(!d||!d.slot)return false;
+  if(!eqLvOk(d))return false;
+  if(d.cls!=='all'&&CLS_FULL[d.cls]!==player.cls)return false;
+  const slots=eqSlotsOf(d.slot);
+  if(slots.some(k=>!equip[k]))return true;          // 有空槽，装上就是提升
+  const my=eqScore(it);
+  /* 与同部位已穿戴的最强那件比：只要能顶掉任何一格就算可装 */
+  return slots.some(k=>equip[k]&&my>eqScore(equip[k]));
+}
 function bagItemLess(a,b){
   const ca=bagCatOf(a),cb=bagCatOf(b);
   if(ca!==cb)return ca-cb;
@@ -3815,9 +3949,35 @@ function bagItemLess(a,b){
   if(pa!==pb)return pb-pa;
   return 0;
 }
-/* 返回 {stacked: 合并掉的格数, before, after}，供 UI 提示与自动化断言 */
-function tidyBag(){
-  if(!inv.length){toast('背包本来就是空的');return{stacked:0,before:0,after:0};}
+/* 智能排序（「智能整理」用）：在常规排序之上，把"可装"整体提到最前、
+   "已明显落后于当前装备"的沉到最后。让玩家一眼看出该换哪件、该清哪些。
+   ★ 分层权重放大到 10000，确保任意两层的相对顺序绝对不受层内排序影响。 */
+function bagSmartLess(a,b){
+  const la=smartRank(a),lb=smartRank(b);
+  if(la!==lb)return la-lb;
+  return bagItemLess(a,b);
+}
+let _smartRankCache=null,_smartRankStamp=0;
+function smartRank(it){
+  /* 同一帧内避免重复计算（比较函数会被调用 O(n log n) 次） */
+  const now=performance.now();
+  if(_smartRankStamp!==Math.floor(now/50)){_smartRankCache=new Map();_smartRankStamp=Math.floor(now/50);}
+  if(_smartRankCache.has(it))return _smartRankCache.get(it);
+  let r;
+  if(!it.pid&&EQMAP[it.id]&&EQMAP[it.id].slot){
+    if(canEquipUpgrade(it))r=0;                          // 层①：值得换上
+    else r=3;                                            // 层④：落后/无提升 → 沉底
+  }else if(it.pid){
+    const pd=POTMAP[it.id];
+    r=(pd&&(pd.ore||pd.dan))?2:1;                        // 层②药水（常吃）→ 层③材料
+  }else r=3;
+  _smartRankCache.set(it,r);
+  return r;
+}
+/* 返回 {stacked: 合并掉的格数, before, after}，供 UI 提示与自动化断言
+   smart=true 走「智能整理」：可装 → 药水 → 材料 → 淘汰装备 */
+function tidyBag(smart){
+  if(!inv.length){toast('背包本来就是空的');return{stacked:0,before:0,after:0,smart:!!smart};}
   const before=inv.length;
   /* ---- ① 同类消耗品先合并（必须按 id 分组，矿石/药水/内丹各自独立堆叠）---- */
   const keep=[],potIdx={};
@@ -3839,32 +3999,177 @@ function tidyBag(){
   }
   const stacked=before-keep.length;
   /* ---- ② 排序 ---- */
-  keep.sort(bagItemLess);
+  keep.sort(smart?bagSmartLess:bagItemLess);
   inv.length=0;
   for(const it of keep)inv.push(it);
   saveGame();
-  const msg=stacked>0?('已整理：堆叠合并 '+stacked+' 组'):'已整理';
+  const msg=(stacked>0?('已整理：堆叠合并 '+stacked+' 组'):'已整理')+(smart?'（智能排序）':'');
   toast(msg);
   addLog('📦 背包'+msg+'（'+inv.length+' 件）');
-  return{stacked,before,after:inv.length};
+  return{stacked,before,after:inv.length,smart:!!smart};
 }
+/* ============ 角色 · 背包（合并面板，方案 A-2）============
+   设计要点：
+     · 一个面板同时承载「装备」与「背包」，点头像 / 点「背」进同一页 ——
+       换装的完整动作是「看身上 → 挑背包 → 换上 → 再看身上」，
+       拆成两页会强迫玩家在切换里丢失对比上下文。
+     · 布局：左列 4 格（武器/衣服/头盔/戒指①）
+             中间人物立绘（真实职业精灵 + 武器光效 + 台座）
+             右列 4 格（项链/手镯①/手镯②/戒指②）
+       左右对称 4+4，人物居中 —— 视觉重心落在角色身上，装备环绕。
+     · 背包区：筛选 chip → 操作工具条 → 网格。
+   ---- 背包筛选状态（跨面板打开保持，玩家不用每次重选） ---- */
+let bagFilter='all';
+/* 批量勾选模式：false=普通（点格子看详情）；true=勾选（点格子打勾） */
+let bagBatch=false;
+const bagSel=new Set();     // 批量模式下选中的物品对象引用（存引用而非下标，避免整理后错位）
+/* 筛选定义：每个 chip 一个谓词，count 用于显示可点数量 */
+const BAG_FILTERS=[
+  ['all',  '全部', null],
+  ['can',  '可装', it=>canEquipUpgrade(it)],
+  ['mat',  '材料', it=>it.pid&&POTMAP[it.id]&&(POTMAP[it.id].ore||POTMAP[it.id].dan)],
+  ['pot',  '药水', it=>it.pid&&POTMAP[it.id]&&!POTMAP[it.id].ore&&!POTMAP[it.id].dan],
+  ['gear', '装备', it=>!it.pid]
+];
+function bagPass(it){
+  const f=BAG_FILTERS.find(x=>x[0]===bagFilter);
+  return !f||!f[2]||f[2](it);
+}
+/* 按当前筛选统计数量，用于 chip 上的数字 */
+function bagCountOf(key){
+  const f=BAG_FILTERS.find(x=>x[0]===key);
+  if(!f||!f[2])return inv.length;
+  let c=0;for(const it of inv)if(f[2](it))c++;
+  return c;
+}
+/* 渲染单个背包装格（抽成函数，因为要重绘旧版/新版两种入口） */
+function bagCellHtml(){return '';}
 function openBag(){
-  let html='<div class="row"><span>金币</span><b style="color:#ffd84a">'+ST.gold+'</b></div>';
-  const cw=equip.weapon;
-  if(cw){ // 身上武器快捷强化
-    const cur=cw.plus||0;
-    html+='<div class="row" style="cursor:pointer" id="forgeCur"><span>⚒ 当前武器：<b style="color:#ffd84a">'+eqName(cw)+'</b></span>'+
-     '<b style="color:'+(cur>=PLUS_MAX?'#8a7a50':'#5aff8a')+'">'+(cur>=PLUS_MAX?'已满级':'强化 → +'+(cur+1))+'</b></div>';
+  const c=CLASSES[player.cls];
+  const g=$('bagGrid');   /* 旧变量名复用只为保持函数内引用清晰 */
+
+  /* ---------- ① 装备区 ---------- */
+  const leftSlots=EQ_SLOTS.slice(0,4), rightSlots=EQ_SLOTS.slice(4);
+  const slotHtml=(k,n,h)=>{
+    const e=equip[k];
+    if(!e)return '<div class="eqSlot empty" style="height:'+h+'px" data-slot="'+k+'">'+
+      '<span class="esn">'+n+'</span></div>';
+    const def=EQMAP[e.id]||{};
+    const q=Math.max(0,Math.min(EQQ.length-1,(e.q|0)||1));
+    return '<div class="eqSlot q'+((def.tier||1))+'" style="height:'+h+'px;border:2px solid '+TIER_COLOR[def.tier||1]+'" data-slot="'+k+'">'+
+      '<span class="esn">'+n+'</span>'+
+      '<span class="esv" style="color:'+(q===2?'#ffca4a':TIER_COLOR[def.tier||1])+'">'+eqName(e)+'</span>'+
+      (e.plus?'<span class="epl">+'+e.plus+'</span>':'')+
+      (q===2?'<span class="eq2">极</span>':(q===0?'<span class="eq0">劣</span>':''))+
+      '</div>';
+  };
+  let slots='<div class="eqWrap">'+
+    '<div class="eqCol">'+leftSlots.map(([k,n],i)=>slotHtml(k,n,i===0?72:66)).join('')+'</div>'+
+    /* 中间人物：立绘用真实职业精灵（与左上角头像同源），下面叠光武光效与台座 */
+    '<div class="eqMid">'+
+      '<div class="eqAura"></div>'+
+      '<div class="eqName">'+player.name+'</div>'+
+      '<div class="eqSub">'+c.name+' · Lv.'+player.level+'</div>'+
+      '<canvas id="eqAv"></canvas>'+
+      '<div class="eqPed"></div>'+
+      '<div class="eqSet">'+((setBonus().list.length)?('✦ 套装 '+setBonus().list.map(x=>x.count).join('/')+' 件生效'):('战力 '+Math.floor((player.atk+player.matk)*2+player.def*1.2+player.mdef+player.maxHp*.15)))+'</div>'+
+    '</div>'+
+    '<div class="eqCol">'+rightSlots.map(([k,n])=>slotHtml(k,n,66)).join('')+'</div>'+
+    '</div>';
+
+  /* ---------- ② 属性（压缩 3 行，给背包让出竖向空间） ---------- */
+  const setH=genSetHtml();
+  const statRow='<div class="eqStat">'+
+    '<div><span>生命 / 魔法</span><b>'+Math.floor(player.hp)+' / '+Math.floor(player.mp)+'</b></div>'+
+    '<div><span>攻击 / 道术</span><b>'+player.atk+' / '+player.matk+'</b></div>'+
+    '<div><span>防御 / 魔防</span><b>'+player.def+' / '+player.mdef+'</b></div>'+
+    '</div><div id="eqSetBox" class="hidden">'+setH+'</div>';
+
+  /* ---------- ③ 背包工具条 ---------- */
+  const chips=BAG_FILTERS.map(([k,n])=>{
+    const c2=bagCountOf(k);
+    return '<span class="bagChip'+(bagFilter===k?' on':'')+'" data-bf="'+k+'">'+n+(c2?' '+c2:'')+'</span>';
+  }).join('');
+  const tool='<div class="bagHead"><span>背包 <b>'+inv.length+'</b>/40</span>'+
+    (bagBatch?'<span style="color:#ffb0a0;font-weight:700">已选 '+bagSel.size+' 件</span>':'')+'</div>'+
+    '<div class="bagChips">'+chips+'</div>'+
+    '<div class="bagTools">'+
+      '<span class="bagBtn" data-act="tidy">📦 整理</span>'+
+      '<span class="bagBtn" data-act="smart">✨ 智能</span>'+
+      '<span class="bagBtn" data-act="sell">⚙ 一键出售</span>'+
+      '<span class="bagBtn danger'+(bagBatch?' on':'')+'" data-act="batch">🗑 '+(bagBatch?'退出批量':'批量')+'</span>'+
+    '</div>';
+
+  const html='<div class="cbTop"><span>'+c.tag+' '+player.name+' · Lv.'+player.level+' · 击杀 '+ST.kills+'</span>'+
+    '<b>💰 '+ST.gold+'</b></div>'+
+    slots+statRow+tool+'<div class="grid" id="bagGrid"></div>'+
+    (bagBatch?'<div class="bagBatchBar">'+
+      '<span class="bagBtn" data-bat="all">全选可见</span>'+
+      '<span class="bagBtn" data-bat="none">清空</span>'+
+      '<span class="bagBtn sell" data-bat="sell">出售选中</span>'+
+      '<span class="bagBtn danger" data-bat="drop">丢弃选中</span>'+
+      '</div>':'')+
+    '<div class="bagTip">点装备格 → 强化 / 卸下　·　点背包格 → '+(bagBatch?'勾选':'详情（装备 / 使用 / 出售 / 丢弃）')+'</div>';
+
+  openPanel('角色 · 背包',html);
+
+  /* ---------- ④ 人物立绘 ---------- */
+  const cv=$('eqAv');
+  if(cv){
+    const spr=SPRITES['h_'+player.cls],img=spr&&spr.f&&spr.f[0];
+    if(img){cv.width=img.width;cv.height=img.height;cv.getContext('2d').drawImage(img,0,0);}
+    else cv.style.display='none';
   }
-  html+='<div class="sellRow">'+
-   '<button class="goldbtn" id="bagTidy" style="flex:1">📦 整理</button>'+
-   '<button class="goldbtn" id="sellDlg" style="flex:2">⚙ 一键出售（自选品质/药水）</button></div>';
-  html+='<div style="margin:4px 0 6px;color:#a89058;font-size:12px">背包 '+inv.length+'/40 · 点击物品查看详情（可穿戴/使用/出售/丢弃）· 矿石可强化武器</div>';
-  html+='<div class="grid" id="bagGrid"></div>';
-  openPanel('背包',html);
-  $('sellDlg').addEventListener('pointerdown',()=>showSellDialog());
-  $('bagTidy').addEventListener('pointerdown',()=>{tidyBag();openBag();});
-  const fc=$('forgeCur');if(fc)fc.addEventListener('pointerdown',()=>showForgePanel(equip.weapon));
+
+  /* ---------- ⑤ 装备槽交互 ---------- */
+  $('panelBody').querySelectorAll('[data-slot]').forEach(cell=>{
+    cell.addEventListener('pointerdown',e=>{
+      e.preventDefault();
+      const k=cell.dataset.slot,eq=equip[k];
+      if(!eq){ /* 空槽：提示怎么装，而不是静默无响应 */
+        const bs=baseSlotOf(k);
+        toast('「'+EQ_SLOT_NAME[k]+'」还空着——在下方背包里点对应部位的装备即可穿上');
+        return;
+      }
+      showItemDetailOff(EQMAP[eq.id],k);
+    });
+  });
+
+  /* ---------- ⑥ 筛选 chip ---------- */
+  $('panelBody').querySelectorAll('[data-bf]').forEach(el=>{
+    el.addEventListener('pointerdown',e=>{
+      e.preventDefault();SFX.click();
+      bagFilter=el.dataset.bf;
+      openBag();
+    });
+  });
+
+  /* ---------- ⑦ 工具条 ---------- */
+  $('panelBody').querySelectorAll('[data-act]').forEach(el=>{
+    el.addEventListener('pointerdown',e=>{
+      e.preventDefault();
+      const a=el.dataset.act;
+      if(a==='tidy'){tidyBag(false);openBag();}
+      else if(a==='smart'){tidyBag(true);openBag();}
+      else if(a==='sell'){showSellDialog();}
+      else if(a==='batch'){
+        bagBatch=!bagBatch;bagSel.clear();SFX.click();openBag();
+      }
+    });
+  });
+  /* ---------- ⑧ 批量操作条 ---------- */
+  $('panelBody').querySelectorAll('[data-bat]').forEach(el=>{
+    el.addEventListener('pointerdown',e=>{
+      e.preventDefault();
+      const a=el.dataset.bat;
+      if(a==='all'){inv.forEach(it=>{if(bagPass(it))bagSel.add(it);});openBag();}
+      else if(a==='none'){bagSel.clear();openBag();}
+      else if(a==='sell')batchSell();
+      else if(a==='drop')batchDrop();
+    });
+  });
+
+  /* ---------- ⑨ 背包网格 ---------- */
   const grid=$('bagGrid');
   for(let i=0;i<40;i++){
     const cell=document.createElement('div');cell.className='cell';
@@ -3888,13 +4193,17 @@ function openBag(){
         continue;
       }
       if(def.tier)cell.classList.add('q'+def.tier);
+      /* 筛选：不符合当前 chip 的格子置灰保留（保留位置感，不做移除——
+         移除会让物品"跳位"，玩家刚记住的位置就变了） */
+      if(!bagPass(it))cell.classList.add('dimmed');
+      if(bagBatch&&bagSel.has(it))cell.classList.add('checked');
       cell.appendChild(itemIcon(def));
       if(it.pid&&it.n>1){const q=document.createElement('span');q.className='qn';q.textContent=it.n;cell.appendChild(q);}
-      /* ---- 角标分区渲染（修复：原先 4 个角标挤在 40px 格内互相重叠）----
-         左上 = 品质标记栈（小极品/劣质 + 强化等级，竖向堆叠，各占一行）
-         右上 = 职业专属
-         右下 = 堆叠数量（上方已渲染）
-         三区使用不同锚点，且左上栈限宽，彻底避免重叠 */
+      /* ---- 角标分区渲染 ----
+         左上 = 「↑可装」（最高优先级信息：该换了）
+         左中/上 = 品质标记栈（小极品/劣质 + 强化等级）
+         右上 = 职业专属；右下 = 堆叠数量 */
+      if(canEquipUpgrade(it))cell.appendChild(Object.assign(document.createElement('span'),{className:'mkUp',textContent:'↑可装'}));
       const marks=[];
       if(!it.pid&&(it.q===2||it.q===0))
         marks.push('<span class="mk '+(it.q===2?'q2s':'q0s')+'">'+(it.q===2?'小极品':'劣质')+'</span>');
@@ -3903,33 +4212,118 @@ function openBag(){
         const box=document.createElement('div');box.className='marks';
         box.innerHTML=marks.join('');cell.appendChild(box);
       }
-      if(!it.pid&&def.cls&&def.cls!=='all'){ // 职业专属角标（右上，独立区）
+      if(!it.pid&&def.cls&&def.cls!=='all'){
         const cn=document.createElement('span');
         cn.className='clsTag';
         cn.style.color=({w:'#ff8a70',m:'#7ab0ff',t:'#5ad8a0'})[def.cls];
         cn.textContent=({w:'战',m:'法',t:'道'})[def.cls];cell.appendChild(cn);
       }
-      /* 单击 = 查看详情（丢弃/出售在详情面板内操作）。
-         原「长按 650ms 出售」在移动端实测不可用（浏览器原生长按菜单/选中
-         会抢占事件，且手指轻微移动即触发 pointerleave 被取消），故移除。 */
-      cell.addEventListener('pointerdown',e=>{e.preventDefault();showItemDetail(def,i);});
+      /* 普通模式 = 看详情；批量模式 = 打勾选中 */
+      cell.addEventListener('pointerdown',e=>{
+        e.preventDefault();
+        if(bagBatch){
+          if(bagSel.has(it))bagSel.delete(it);else bagSel.add(it);
+          SFX.click();openBag();
+        }else showItemDetail(def,i);
+      });
     }
     grid.appendChild(cell);
   }
 }
+/* 批量出售选中：与一键出售共用同一套「不可售」保护（内丹/矿石跳过、
+   强化装备 0 返还），并统计实际成交与总价 —— 绝不让玩家在批量里被套利坑。 */
+function batchSell(){
+  if(!bagSel.size){toast('还没有勾选任何物品');return;}
+  let total=0,cnt=0,skip=0,recycle=0;
+  const keep=[];
+  for(const it of inv){
+    if(!bagSel.has(it)){keep.push(it);continue;}
+    const pd=it.pid?POTMAP[it.id]:null;
+    if(pd&&(pd.ore||pd.dan)){skip++;keep.push(it);continue;}   // 珍贵/材料：不参与
+    if(eqWornSlot(it)){skip++;keep.push(it);continue;}         // 穿在身上的：不卖
+    if((it.plus||0)>0){recycle++;cnt++;continue;}              // 强化过：0 返还但计入清理数
+    total+=it.pid?Math.floor((pd?pd.price:90)*.3):eqPrice(it);
+    cnt++;
+  }
+  if(!cnt){toast(skip?('选中的 '+skip+' 件都不可出售'):'没有可出售的物品');return;}
+  const doIt=()=>{
+    inv.length=0;keep.forEach(x=>inv.push(x));
+    ST.gold=Math.min(GOLD_MAX||99999999,ST.gold+total);
+    bagSel.clear();bagBatch=false;
+    hideItemDetail();saveGame();
+    banner('批量出售完成','出售 '+cnt+' 件 · 获得 '+total+' 金币'+(recycle?('（含 '+recycle+' 件强化装回收 0G）'):''));
+    SFX.gold();updateQuestBtn();openBag();
+  };
+  const d=$('itemDetail');showItemDetailBox();
+  d.innerHTML='<div style="text-align:center;padding:6px 0">'+
+   '<div style="font-size:15px;color:#ffca4a;font-weight:900">确认批量出售？</div>'+
+   '<div style="margin:8px 0;font-size:14px">共 '+cnt+' 件</div>'+
+   '<div style="font-size:12px;color:#a89058;line-height:1.7">预计获得 <b style="color:#ffd84a">'+total+'</b> 金币'+
+   (recycle?'<br><span style="color:#ffb0a0">其中 '+recycle+' 件强化装备按规则回收，返还 0 金币</span>':'')+
+   (skip?'<br><span style="color:#8a7a50">'+skip+' 件因不可售（内丹/矿石/已穿戴）已自动跳过</span>':'')+'</div>'+
+   '<div style="margin-top:12px"><button class="goldbtn" style="margin:0 4px" id="bsNo">取消</button>'+
+   '<button class="goldbtn" style="margin:0 4px;background:#4a1e1e;border-color:#8a3a3a;color:#ffb0a0" id="bsYes">确认出售</button></div></div>';
+  $('bsYes').addEventListener('pointerdown',doIt);
+  $('bsNo').addEventListener('pointerdown',()=>{hideItemDetail();openBag();});
+}
+/* 批量丢弃：二次确认显示总价值，防手滑把一堆好东西清掉 */
+function batchDrop(){
+  if(!bagSel.size){toast('还没有勾选任何物品');return;}
+  let value=0;
+  for(const it of bagSel){
+    if(eqWornSlot(it))continue;
+    const pd=it.pid?POTMAP[it.id]:null;
+    value+=it.pid?Math.floor((pd?pd.price:90)*.3):eqPrice(it);
+  }
+  const cnt=bagSel.size;
+  const d=$('itemDetail');showItemDetailBox();
+  d.innerHTML='<div style="text-align:center;padding:6px 0">'+
+   '<div style="font-size:15px;color:#ff8a70;font-weight:900">确认丢弃？</div>'+
+   '<div style="margin:8px 0;font-size:14px">共 '+cnt+' 件</div>'+
+   '<div style="font-size:12px;color:#a89058;line-height:1.7">'+
+   '丢弃后物品将<b style="color:#ffb0a0">永久消失，无法找回</b><br>'+
+   '这些物品若出售约值 <b style="color:#ffd84a">'+value+'</b> 金币<br>'+
+   '<span style="color:#8a7a50">建议先考虑「出售选中」——同样的清理效果还能换钱</span></div>'+
+   '<div style="margin-top:12px"><button class="goldbtn" style="margin:0 4px" id="bdNo">取消</button>'+
+   '<button class="goldbtn" style="margin:0 4px;background:#4a1e1e;border-color:#8a3a3a;color:#ffb0a0" id="bdYes">确认丢弃</button></div></div>';
+  $('bdYes').addEventListener('pointerdown',()=>{
+    const keep=[];let n=0;
+    for(const it of inv){
+      if(bagSel.has(it)&&!eqWornSlot(it)){n++;continue;}
+      keep.push(it);
+    }
+    inv.length=0;keep.forEach(x=>inv.push(x));
+    bagSel.clear();bagBatch=false;
+    hideItemDetail();saveGame();
+    addLog('丢弃了 '+n+' 件物品');toast('已丢弃 '+n+' 件');
+    SFX.click();openBag();
+  });
+  $('bdNo').addEventListener('pointerdown',()=>{hideItemDetail();openBag();});
+}
+/* 兼容旧调用点：点头像和点「背」都进同一个合并面板 */
+function openChar(){openBag();}
 /* 属性权重：折算成"战力分"用于优劣总评。
    攻击类权重最高（直接决定清怪速度），防御类次之，HP/MP 按比例给分。 */
 const CMP_W={atk:2.0,matk:2.0,def:1.2,mdef:1.0,hp:.15,mp:.10};
 function statCompareRows(def,q,plus){
-  // 与当前已穿戴同部位装备对比（计入品质与强化系数）
-  const cur=equip[def.slot];
+  /* 与当前已穿戴同部位装备对比（计入品质与强化系数）。
+     ★ 双槽位（手镯/戒指）：取该部位已穿戴两件中"更强的那件"作为对比基准 ——
+       玩家想知道的是"换上它有没有进步"，跟弱的那件比没有参考价值；
+       若同部位有空槽，则不存在对比对象，只显示本件属性（视为纯提升）。 */
+  const cands=eqSlotsOf(def.slot).map(k=>equip[k]).filter(Boolean);
+  let cur=null,curScore=-Infinity;
+  for(const cc of cands){const s=eqScore(cc);if(s>curScore){curScore=s;cur=cc;}}
   const curDef=cur?EQMAP[cur.id]:null;
-  const myMul=qmul({q})*(def.slot==='weapon'?Math.pow(1.12,plus||0):1);
+  /* ★ 折算必须与 eqScore / recalcStats 三方一致：
+       品质用 qmul()、强化对所有部位生效。
+       旧写法把 plus 系数限定在 weapon 上，导致两件只差强化等级的头盔/戒指
+       在详情页显示"基本持平"，而背包角标也用同一套错误系数 → 玩家永远换不掉旧装。 */
+  const myMul=qmul({q})*plusMul({plus});
   const keys=['atk','matk','def','mdef','hp','mp'];
   let rows='',score=0,nUp=0,nDown=0,nSame=0;
   for(const k of keys){
     const nv=(def.st&&def.st[k]||0)*myMul;
-    const cv=curDef?(curDef.st[k]||0)*qmul(cur)*(curDef.slot==='weapon'?plusMul(cur):1):0;
+    const cv=curDef?(curDef.st[k]||0)*qmul(cur)*plusMul(cur):0;
     if(!nv&&!cv)continue;
     const delta=Math.floor(nv)-Math.floor(cv);
     if(curDef){
@@ -3990,14 +4384,20 @@ function showItemDetail(def,idx){
   let forgeBtn='';
   if(def.slot&&it&&!it.pid)forgeBtn=forgePanelHtml(it,false);
   if(def.slot){
-    const cur=equip[def.slot];
-    // 同 id 且品质/强化等级完全一致才算"已装备"，否则允许更换（如普通→小极品同名装备）
-    const same=cur&&cur.id===def.id&&qOf(cur)===q&&(cur.plus||0)===plus;
+    /* 双槽位（手镯/戒指）：同 id 且品质/强化等级完全一致、且已在**任一**格上，
+       才算"已装备"（避免玩家把左手那只再装到右手上，白占一格）。
+       有空槽时按钮文案用「装备到 手镯②」，让玩家知道会进哪一格。 */
+    const slots=eqSlotsOf(def.slot);
+    const wornK=slots.find(k=>{const e=equip[k];
+      return e&&e.id===def.id&&qOf(e)===q&&(e.plus||0)===plus;});
+    const freeK=slots.find(k=>!equip[k]);
     const lvOk=eqLvOk(def);
     const reqLv=eqReqLv(def);
-    if(!same){
+    if(!wornK){
       if(lvOk){
-        extra='<button class="goldbtn" style="margin:10px 4px 0 0" id="dtUse">'+(cur?'更换':'装备')+'</button>';
+        const txt=freeK?('装备到 '+EQ_SLOT_NAME[freeK]):'更换';
+        extra='<button class="goldbtn" style="margin:10px 4px 0 0" id="dtUse">'+txt+'</button>';
+        if(freeK&&slots.length>1)extra+='<span style="font-size:11px;color:#8a7a50;margin-left:6px">同名装备可双持</span>';
       }else{
         /* 未达等级：不给按钮，改成明确的红字说明 ——
            给个禁用的灰按钮不如直接说清「差几级」，玩家知道该去练级而不是以为卡 bug */
@@ -4024,18 +4424,22 @@ function showItemDetail(def,idx){
     const isDan=it.pid&&POTMAP[it.id]&&POTMAP[it.id].dan;
     const isOre=it.pid&&POTMAP[it.id]&&POTMAP[it.id].ore;
     const recycle=(it.plus||0)>0;
-    const canSell=!isDan&&!isOre;
+    /* ★ 已在身上的装备不允许从背包详情里出售/丢弃（双槽位上线后，
+       玩家可能通过"装左手→右键仍在背包"的错觉误操作卖掉身上装备）。 */
+    const wornK=eqWornSlot(it);
+    const canSell=!isDan&&!isOre&&!wornK;
     const sp=recycle?0:(it.pid?Math.floor((POTMAP[it.id]?POTMAP[it.id].price:90)*.3):eqPrice(it));
-    if(recycle)sellMsg='强化装备回收不返还金币（防止"低买高卖"式套利），仅作为清理背包的正式途径';
+    if(wornK)sellMsg='该装备正穿戴在「'+EQ_SLOT_NAME[wornK]+'」上，请先在装备栏卸下';
+    else if(recycle)sellMsg='强化装备回收不返还金币（防止"低买高卖"式套利），仅作为清理背包的正式途径';
     else if(canSell)sellMsg='出售可获得 '+sp+' 金币';
-    const sellTxt=recycle?'♻ 回收 0G':(canSell?('出售 '+sp+'G'):(isDan?'珍贵·不可售':'强化材料·不可售'));
+    const sellTxt=wornK?('已装备·'+EQ_SLOT_NAME[wornK]):(recycle?'♻ 回收 0G':(canSell?('出售 '+sp+'G'):(isDan?'珍贵·不可售':'强化材料·不可售')));
     tradeBtn='<button class="goldbtn" style="margin:10px 4px 0 0;'+(canSell?'':'opacity:.4')+'" id="dtSell"'+(canSell?'':' disabled')+'>'+
       sellTxt+'</button>'+
-      '<button class="goldbtn" style="margin:10px 4px 0 0;background:#4a1e1e;border-color:#8a3a3a;color:#ffb0a0" id="dtDrop">丢弃</button>';
+      '<button class="goldbtn" style="margin:10px 4px 0 0;background:#4a1e1e;border-color:#8a3a3a;color:#ffb0a0;'+(wornK?'opacity:.4':'')+'" id="dtDrop"'+(wornK?' disabled':'')+'>丢弃</button>';
   }
   d.innerHTML='<div style="display:flex;gap:12px;align-items:center"><div id="dtIcon"></div>'+
    '<div><b class="tq'+(def.tier||1)+'" style="font-size:16px">'+(def.slot?eqName({id:def.id,q,plus}):def.n)+'</b>'+
-   (def.slot?'<div style="font-size:11px;color:#a89058;margin-top:3px">'+({weapon:'武器',armor:'衣服',helmet:'头盔',necklace:'项链',bracelet:'手镯',ring:'戒指'})[def.slot]+
+   (def.slot?'<div style="font-size:11px;color:#a89058;margin-top:3px">'+EQ_SLOT_NAME[baseSlotOf(def.slot)]+
    (def.cls&&def.cls!=='all'?' · '+({w:'战士',m:'法师',t:'道士'})[def.cls]+'专属':'')+' · '+TIER_NAME[def.tier]+'品质'+
    (q!==1?' · <span style="color:'+EQQ[q].color+'">'+EQQ[q].n+(q===2?'(+32%)':'(-30%)')+'</span>':'')+
    (plus?' · <span style="color:#ffd84a">强化+'+plus+'</span>':'')+
@@ -4073,7 +4477,8 @@ function confirmItem(act,def,it,msg,onYes){
   const d=$('itemDetail');showItemDetailBox();
   const nm=itemName(it);
   const nn=(it.pid&&it.n>1)?(' ×'+it.n):'';
-  const canDo=!((act==='出售'||act==='丢弃')&&!inv.includes(it)); // 物品已不在背包则拒绝
+  /* 物品仍在背包、且未被穿戴，才允许出售/丢弃 */
+  const canDo=!((act==='出售'||act==='丢弃')&&(!inv.includes(it)||eqWornSlot(it)));
   d.innerHTML='<div style="text-align:center;padding:6px 0">'+
    '<div style="font-size:15px;color:#ffca4a;font-weight:900">确认'+act+'？</div>'+
    '<div style="margin:8px 0;font-size:14px">'+nm+nn+'</div>'+
@@ -4106,61 +4511,55 @@ function dropInvItem(idx){
   toast('已丢弃 '+nmP+nn);
   SFX.click();openBag();
 }
-function openChar(){
-  const c=CLASSES[player.cls];
-  const slots=[['weapon','武器'],['helmet','头盔'],['armor','衣服'],['necklace','项链'],['bracelet','手镯'],['ring','戒指']];
-  let sHtml='<div class="equipSlot">';
-  for(const[k,n]of slots){
-    const e=equip[k];
-    sHtml+='<div class="cell'+(e?' q'+EQMAP[e.id].tier:'')+'" data-slot="'+k+'">'+
-      (e?'<div id="eq_'+k+'"></div><span class="qn" style="left:3px;right:auto;font-size:9px;color:'+(e.q===2?'#ffca4a':TIER_COLOR[EQMAP[e.id].tier])+'">'+eqName(e).slice(0,4)+'</span>':'<span style="font-size:10px;color:#5a4a28">'+n+'</span>')+'</div>';
-  }
-  sHtml+='</div>';
-  const html='<div style="display:flex;gap:12px;align-items:center;margin-bottom:10px">'+
-   '<div style="width:48px;height:48px;border:2px solid '+c.color+';border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;color:'+c.color+'">'+c.tag+'</div>'+
-   '<div><b style="font-size:17px;color:#ffe9b0">'+player.name+'</b><div style="font-size:12px;color:#a89058">'+c.name+' · Lv.'+player.level+' · 击杀 '+ST.kills+'</div></div></div>'+
-   sHtml+
-   '<div class="bigStat" style="margin-top:12px">'+
-   '<div class="row"><span>生命 / 魔法</span><b>'+Math.floor(player.hp)+'/'+player.maxHp+' · '+Math.floor(player.mp)+'/'+player.maxMp+'</b></div>'+
-   '<div class="row"><span>物理攻击</span><b>'+player.atk+'</b></div>'+
-   '<div class="row"><span>魔法/道术</span><b>'+player.matk+'</b></div>'+
-   '<div class="row"><span>物防 / 魔防</span><b>'+player.def+' / '+player.mdef+'</b></div>'+
-   '<div class="row"><span>经验</span><b>'+player.exp+' / '+expNeed(player.level)+'</b></div>'+
-   '</div>'+genSetHtml()+'<div style="font-size:11px;color:#6a5a38;margin-top:8px">点击装备格可卸下</div>';
-  openPanel('角色',html);
-  for(const[k]of slots){
-    const e=equip[k];if(!e)continue;
-    const el=$('eq_'+k);if(el)el.appendChild(itemIcon(EQMAP[e.id]));
-  }
-  $('panelBody').querySelectorAll('[data-slot]').forEach(cell=>{
-    cell.addEventListener('pointerdown',()=>{
-      const k=cell.dataset.slot;const e=equip[k];if(!e)return;
-      const def=EQMAP[e.id];
-      showItemDetailOff(def,k);
-    });
-  });
-}
+/* 已穿戴装备的详情（从装备槽点开）。
+   与背包物品详情的区别：
+     · 没有「装备/使用」（已经在身上了）
+     · 有「卸下」
+     · **有「强化」** —— 玩家反馈：想强化身上的武器必须先卸下 → 回背包找到它 → 点开强化，
+       三步且中途容易找不到（同名装备有强化等级差异时尤其费劲）。
+       这里直接复用 forgePanelHtml / forgeDo，强化完原地刷新，不跳走。 */
 function showItemDetailOff(def,slot){
   const d=$('itemDetail');showItemDetailBox();
   const cur=equip[slot];
-  const q=cur?qOf(cur):1;
+  if(!cur){hideItemDetail();return;}      /* 槽位在打开瞬间被清空（如卸下后重绘）→ 安全退出 */
+  const q=qOf(cur);
   let stats='';
   if(def.st)for(const k in def.st){
-    const v=Math.floor((def.st[k]||0)*qmul(cur||{q:1}));
+    const v=Math.floor((def.st[k]||0)*qmul(cur));
     stats+='<div class="row"><span>'+STAT_NAMES[k]+'</span><b>+'+v+'</b></div>';
   }
+  /* 强化区：与背包物品详情同一套面板（6 部位全可强化） */
+  const forgeBtn=forgePanelHtml(cur,false);
   d.innerHTML='<div style="display:flex;gap:12px;align-items:center"><div id="dtIcon2"></div>'+
-   '<div><b class="tq'+def.tier+'" style="font-size:16px">'+eqName(cur||{id:def.id,q:1})+'</b><div style="font-size:11px;color:#a89058;margin-top:3px">已装备 · '+TIER_NAME[def.tier]+'品质'+
-   (q!==1?' · <span style="color:'+EQQ[q].color+'">'+EQQ[q].n+'</span>':'')+'</div></div></div>'+
+   '<div><b class="tq'+def.tier+'" style="font-size:16px">'+eqName(cur)+'</b>'+
+   '<div style="font-size:11px;color:#a89058;margin-top:3px">已装备于 <span style="color:#8ad8ff">'+EQ_SLOT_NAME[slot]+'</span> · '+TIER_NAME[def.tier]+'品质'+
+   (q!==1?' · <span style="color:'+EQQ[q].color+'">'+EQQ[q].n+'</span>':'')+
+   (cur.plus?' · <span style="color:#ffd84a">强化+'+cur.plus+'</span>':'')+
+   '</div></div></div>'+
    '<div style="margin-top:8px">'+stats+'</div>'+
+   forgeBtn+
    '<div><button class="goldbtn" style="margin:10px 4px 0 0" id="dtOff">卸下</button>'+
    '<button class="goldbtn" style="margin:10px 0 0" id="dtClose2">关闭</button></div>';
   $('dtIcon2').appendChild(itemIcon(def));
   $('dtClose2').addEventListener('pointerdown',()=>hideItemDetail());
+  /* 就地强化：强化成功/失败后原地重开本槽位详情，+N 立刻可见，
+     且不会像旧版那样跳回背包导致玩家丢失"我正在强化右手戒指"的上下文。 */
+  const f=$('dtForge');
+  if(f)f.addEventListener('pointerdown',()=>{
+    const keepSlot=slot;
+    forgeDo(cur,()=>{
+      const still=equip[keepSlot]===cur;
+      openBag();
+      if(still){hideItemDetail();showItemDetailOff(def,keepSlot);}
+      else{ /* 装备碎了或槽位被换掉：留在背包，给一声提示 */
+        toast('「'+def.n+'」已不在装备栏');
+      }
+    });
+  });
   $('dtOff').addEventListener('pointerdown',()=>{
-    if(inv.length>=40){toast('背包已满');return;}
+    if(inv.length>=40){toast('背包已满，无法卸下');return;}
     inv.push(equip[slot]);equip[slot]=null;
-    recalcStats();hideItemDetail();openChar();
+    recalcStats();saveGame();hideItemDetail();openBag();
   });
 }
 function openSkillPanel(back){ // 保留给设置入口
@@ -5015,7 +5414,7 @@ const SAVE_KEY=i=>'mf176_save_'+i;      // 槽位 1~3
 const SAVE_BAK=i=>'mf176_bak_'+i;       // 上一次成功的存档（回滚用）
 const META_KEY='mf176_meta';            // 存档指纹：即使槽位全空也能判断"这里曾经玩过"
 const LEGACY_KEY='mf176_save';          // 旧版单存档，首次启动自动迁移到槽位1
-const SAVE_VER=4;                       // 存档结构版本（迁移用，见 MIGRATIONS）
+const SAVE_VER=5;                       // 存档结构版本（迁移用，见 MIGRATIONS）
 let curSlot=1;
 /* 存档健康状态：写入失败时置位，UI 顶部显示常驻警示条 */
 const SaveHealth={ok:true,msg:'',failCount:0,lastOk:0};
@@ -5188,6 +5587,16 @@ const MIGRATIONS={
     if(!Array.isArray(o.qClaimed))o.qClaimed=[];
     if(!o.qKills||typeof o.qKills!=='object')o.qKills={};
     if(!o.talents||typeof o.talents!=='object')o.talents={};
+  },
+  /* v4 → v5：装备槽位从 6 格扩到 8 格（手镯②、戒指②）。
+     ★ 迁移原则：旧档的 bracelet/ring 原样留在①，② 一律置空 ——
+       绝不"猜"玩家想把哪件移到右手，也绝不复制装备（复制会凭空变出属性）。
+       同时把 8 个槽位全部显式补齐为 null，避免旧档缺字段时
+       面板渲染拿到 undefined（forEach 遍历 equip 时 .tier 会抛异常）。 */
+  5:function(o){
+    const e=(o.equip&&typeof o.equip==='object')?o.equip:{};
+    for(const k in equip)if(e[k]===undefined)e[k]=null;
+    o.equip=e;
   }
 };
 function migrateSave(o){
@@ -6730,6 +7139,15 @@ function init(){
     openGuide,genGuideHtml,GUIDE_CATS,
     /* CD 显示优化（请求 E）：阈值 + conic-gradient 探测 */
     CD_RING_OK,SPRITES,
+    /* 「角色 · 背包」合并面板（请求 N）：8 槽位 + 智能整理 + 批量操作，
+       全部暴露供自动化断言 —— 双槽位/可装角标/就地强化 都是易错点，
+       没有钩子就只能靠肉眼看截图，回归价值为零。 */
+    EQ_SLOTS,EQ_SLOT_NAME,baseSlotOf,eqSlotsOf,eqWornSlot,
+    eqScore,canEquipUpgrade,bagSmartLess,smartRank,bagPass,bagCountOf,BAG_FILTERS,
+    batchSell,batchDrop,
+    get bagFilter(){return bagFilter;},set bagFilter(v){bagFilter=v;},
+    get bagBatch(){return bagBatch;},set bagBatch(v){bagBatch=v;},
+    get bagSel(){return bagSel;},
     /* 传送阵交互（请求 G）：踩踏传送 + 参数，供自动化断言 */
     updatePortal,PORTAL_R,PORTAL_CD,openTowerPortalPanel,
     get portalCd(){return portalCd;},
