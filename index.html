@@ -171,9 +171,10 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges}
   0%{box-shadow:0 0 0 0 #ffe9a0,0 0 0 0 #ffca4a88;border-color:#fff4c8}
   100%{box-shadow:0 0 0 5px #ffe9a000,0 0 16px 6px #ffca4a00;border-color:#b08a3c}
 }
-/* 耗蓝角标：右上角（左上留白保持干净，右下原位置会压技能名大字） */
-.skillBtn .mpCost{position:absolute;top:2px;right:4px;font-size:9px;color:#8ab8ff;font-weight:normal;
- text-shadow:0 1px 2px #000}
+/* 耗蓝角标已移除（v5）：原右上角的小蓝字（召 16 / 狂 20 …）显示的是技能 MP 消耗，
+   但玩家普遍误读成「技能读秒」——截图反馈"技能按钮右上方还是显示技能时间"。
+   技能的蓝耗信息在详情页 / 天赋树里都有（"耗蓝 N"），按钮上无需重复，
+   一处数字承担两种语义只会造成歧义，故整块移除，按钮面回归「图标 + 红环 + 名字明暗」三元素。 */
 .skillBtn.lock{filter:grayscale(1) brightness(.5)}
 .skillBtn.lock .lk{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:#ffe9b0;background:#00000060}
 .skillBtn.passive{border-style:dashed;filter:none}
@@ -4696,6 +4697,7 @@ const GUIDE_CATS=[
    ['·','技能按钮上的<b>红色描边环</b>就是冷却：红环顺时针收缩，收完即冷却结束、技能就绪'],
    ['·','就绪瞬间技能圈会<b>闪一圈金边</b>，余光扫到就能放'],
    ['·','技能名<b>亮=自动释放、暗=手动</b>：长按技能按钮可切换该技能的自动/手动'],
+   ['·','技能按钮上<b>不显示任何数字</b>：蓝耗只在技能详情页与天赋树里看，按钮只表达状态'],
    ['·','魔法不够会自动等回蓝。可在 <b>设置 → 技能自动释放配置</b> 里为每个技能单独设「剩余魔法 ≥N 才放」'],
    ['·','被动技能（如攻杀剑术）常驻生效，不用放，不占操作']
  ],tip:'法师和道士前期很难，因为蓝药贵。解决办法不是省技能，而是把「魔法保留」调到 0，用蓝换清怪速度——清得快才买得起药。'},
@@ -4933,8 +4935,10 @@ function stepVal(p,field,delta,order){
     ST.autoSkillCfg[p][field]=nv;
   }
 }
-/* CD 读秒数字已彻底取消（v4，玩家反馈"每秒跳动的数字是视觉噪声"）。
-   红环收缩是唯一的冷却表达，环收完即就绪（另有金边闪烁提示）。 */
+/* v4 起技能按钮不再显示任何数字：读秒（玩家反馈"每秒跳动是视觉噪声"）与
+   耗蓝角标（玩家误读成"技能时间"）都已移除。
+   红环收缩是唯一的冷却表达，环收完即就绪（另有金边闪烁提示）；
+   蓝耗只在技能详情页 / 天赋树显示。 */
 /* mask 支持探测：CD 红环用 radial-gradient mask 挖空中心。
    不支持时红环会糊成实心红盘，必须退回暗色扇形（.nomask）。 */
 const CD_RING_OK=(function(){
@@ -4989,10 +4993,10 @@ function updateSkillBtns(){
         b.classList.remove('ready'); /* 重新进入 CD 时清掉上一次的 ready 残留 */
       }
       _cdPrev[key]=cdLeft;
-      /* v4 渲染：图标恒定金色（不再变灰），自动/手动靠 .noauto 的名字明暗，
-         CD 靠红色描边环（弧长=剩余冷却）。读秒数字已按玩家反馈彻底取消。 */
+      /* v5 渲染（最终版）：按钮面只剩三个元素 —— 图标 / CD 红环 / 锁定罩。
+         图标恒定金色（不再变灰），自动/手动靠 .noauto 的名字明暗，CD 靠红色描边环。
+         读秒数字（v4 取消）与耗蓝角标（v5 取消，易被误读成倒计时）均已移除。 */
       b.innerHTML='<span>'+sk.ico+'</span>'+
-       (sk.mp?'<span class="mpCost">'+sk.mp+'</span>':'')+
        (cdLeft>0?'<div class="cdRing'+(CD_RING_OK?'':' nomask')+'" style="--cdA:'+ang.toFixed(1)+'deg"></div>':'');
     }
   }
