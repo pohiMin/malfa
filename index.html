@@ -420,8 +420,29 @@ const $=id=>document.getElementById(id);
 const TOWER_MAX=15;
 const TOWER_TIME=75;             // 每层限时（秒）
 const TOWER_DAN_STEP=5;          // 每 5 层 1 颗 Boss内丹
-const TOWER_EQ_P=0.06;           // 非内丹层掉落 +9 极品装备的概率
+const TOWER_EQ_P=0.04;           // 非内丹层掉落 +9 极品装备的概率（4%，需 <5%）
 const TOWER_EQ_PLUS=9;           // 塔产装备的强化等级
+
+/* ============ 装备穿戴等级限制 ============
+   设计：不给 60 多件装备逐条写等级字段，而是**由 tier 推导**。
+   依据是本作 tier 与地图推荐等级本来就一一对应：
+     tier1 白装 → 玛法村/骷髅洞窟（1+）
+     tier2 蓝装 → 沃玛寺庙（22+）
+     tier3 紫装 → 祖玛寺庙（30+）
+     tier4 金装 → 赤月峡谷（38+）
+   这样「装备门槛」与「地图门槛」完全一致，玩家看到一个等级数字就够了。
+   为什么需要这个限制：试炼塔会产出 +9 的 tier4 金装，若不限等级，
+   1 级小号爬塔摸到一件就能直接穿上，把前 37 级的成长曲线整个跳过。
+   加限制后，塔产装备变成「提前攒下的毕业装备」，而不是「插队入场券」。 */
+const EQ_REQ_LV={1:1,2:22,3:30,4:38};
+function eqReqLv(def){
+  if(!def||!def.slot)return 1;
+  const lv=EQ_REQ_LV[def.tier|0];
+  return lv===undefined?1:lv;
+}
+function eqLvOk(def){
+  return player.level>=eqReqLv(def);
+}
 
 /* ============ 传送阵交互 ============
    原实现里 drawPortal() 只是画了 3 个椭圆光环和「◈ 传送阵 ◈」几个字，
@@ -2879,6 +2900,8 @@ function useInvItem(idx,silent){
   }else{
     const e=EQMAP[it.id];
     if(e.cls!=='all'&&CLS_FULL[e.cls]!==player.cls){toast('「'+e.n+'」是'+({w:'战士',m:'法师',t:'道士'})[e.cls]+'专属装备，无法穿戴');return;}
+    /* 穿戴等级门槛：由 tier 推导（见 EQ_REQ_LV） */
+    if(!eqLvOk(e)){toast('等级不足，需 Lv'+eqReqLv(e)+' 才能穿戴「'+e.n+'」（当前 Lv'+player.level+'）');return;}
     const old=equip[e.slot];
     equip[e.slot]=it;
     inv.splice(idx,1);
@@ -3945,7 +3968,20 @@ function showItemDetail(def,idx){
     const cur=equip[def.slot];
     // 同 id 且品质/强化等级完全一致才算"已装备"，否则允许更换（如普通→小极品同名装备）
     const same=cur&&cur.id===def.id&&qOf(cur)===q&&(cur.plus||0)===plus;
-    if(!same)extra='<button class="goldbtn" style="margin:10px 4px 0 0" id="dtUse">'+(cur?'更换':'装备')+'</button>';
+    const lvOk=eqLvOk(def);
+    const reqLv=eqReqLv(def);
+    if(!same){
+      if(lvOk){
+        extra='<button class="goldbtn" style="margin:10px 4px 0 0" id="dtUse">'+(cur?'更换':'装备')+'</button>';
+      }else{
+        /* 未达等级：不给按钮，改成明确的红字说明 ——
+           给个禁用的灰按钮不如直接说清「差几级」，玩家知道该去练级而不是以为卡 bug */
+        extra='<div style="margin:10px 0 0;padding:8px 10px;border:1px solid #8a3a3a;border-radius:6px;'+
+          'background:#2a0e0e88;font-size:12px;color:#ffb0a0;line-height:1.6">'+
+          '⚠ 等级不足：需 <b style="color:#ffd84a">Lv'+reqLv+'</b> 才能穿戴'+
+          '（当前 Lv'+player.level+'，还差 '+(reqLv-player.level)+' 级）</div>';
+      }
+    }
   }
   /* 道具（有实际效果的）显示「使用」按钮：药水 / Boss 内丹 */
   if(it&&it.pid&&(def.heal||def.mana||def.dan))
@@ -3972,7 +4008,11 @@ function showItemDetail(def,idx){
    (def.slot?'<div style="font-size:11px;color:#a89058;margin-top:3px">'+({weapon:'武器',armor:'衣服',helmet:'头盔',necklace:'项链',bracelet:'手镯',ring:'戒指'})[def.slot]+
    (def.cls&&def.cls!=='all'?' · '+({w:'战士',m:'法师',t:'道士'})[def.cls]+'专属':'')+' · '+TIER_NAME[def.tier]+'品质'+
    (q!==1?' · <span style="color:'+EQQ[q].color+'">'+EQQ[q].n+(q===2?'(+32%)':'(-30%)')+'</span>':'')+
-   (plus?' · <span style="color:#ffd84a">强化+'+plus+'</span>':'')+'</div>':'<div style="font-size:11px;color:#a89058;margin-top:3px">'+(def.ore?'强化材料':def.dan?'稀有道具 · 炼化得技能点':'消耗品')+'</div>')+
+   (plus?' · <span style="color:#ffd84a">强化+'+plus+'</span>':'')+
+   /* 等级需求：与 tier 档位绑定的硬门槛，未满足时标红以便一眼看出 */
+   (eqReqLv(def)>1?' · <span style="color:'+(eqLvOk(def)?'#8ad8ff':'#ff8a70')+'" id="dtReqLv">'+
+     '需 Lv'+eqReqLv(def)+(eqLvOk(def)?'':'（未达）')+'</span>':'')+
+   '</div>':'<div style="font-size:11px;color:#a89058;margin-top:3px">'+(def.ore?'强化材料':def.dan?'稀有道具 · 炼化得技能点':'消耗品')+'</div>')+
    '</div></div><div style="margin-top:8px">'+stats+
    (def.d?'<div style="font-size:11px;color:#8a7a50;margin-top:6px">「'+def.d+'」</div>':'')+'</div>'+
    forgeBtn+
@@ -4386,9 +4426,10 @@ function genTowerPanel(){
    '💪 层数越高怪物越强（每层属性 +22%），因此<b>不需要等级门槛</b>，几级都能来试<br>'+
    '<b style="color:#ff8a70">⚠ 塔内不产经验、不产金币</b> —— 这里是装备与技能点的定向获取渠道，不是练级刷钱场<br>'+
    '🎁 <b style="color:#c88aff">每 '+TOWER_DAN_STEP+' 层必得 1 颗 Boss内丹</b>（炼化得 1 技能点）<br>'+
-   '🎁 其余楼层 <b style="color:#ffd84a">约 '+(TOWER_EQ_P*100)+'%</b> 概率掉落 <b>+'+TOWER_EQ_PLUS+' 强化的小极品装备</b><br>'+
+   '🎁 其余楼层 <b style="color:#ffd84a">约 '+(TOWER_EQ_P*100)+'%</b> 概率掉落 <b>+'+TOWER_EQ_PLUS+' 强化的小极品装备</b>（赤月金品质，穿戴需 <b style="color:#8ad8ff">Lv'+EQ_REQ_LV[4]+'</b>）<br>'+
    '🎁 全通额外再给 2 颗 Boss内丹（一轮 15 层共 5 颗）<br>'+
-   '✅ 中途阵亡或超时，<b>已到手的奖励全部保留</b>，只是停止继续爬层</div>';
+   '✅ 中途阵亡或超时，<b>已到手的奖励全部保留</b>，只是停止继续爬层<br>'+
+   '◈ 塔内每层有传送阵，踩上去可选择<b>继续挑战</b>或<b>放弃回村</b></div>';
   if(inTower){
     const t=ST.tower;
     html+='<div class="skItem" style="border-color:#ffd870"><b style="color:#ffd870">⚔ 挑战进行中</b>'+
@@ -4624,6 +4665,7 @@ const GUIDE_CATS=[
    ['特殊','刷怪时小概率出现 <em>小极品</em>（全属性 +32%）和 <s>劣质</s>（属性减半），背包格左上角有标记'],
    ['部位','武器 / 头盔 / 衣服 / 项链 / 手镯 / 戒指，共 6 个部位，都能强化'],
    ['专属','装备上标「战/法/道」的是职业专属，只有对应职业能穿；没标记的是通用'],
+   ['等级','<b>穿戴有等级门槛</b>，与品质档绑定：白装 1 级 / 沃玛蓝 22 级 / 祖玛紫 30 级 / 赤月金 38 级。未达等级时详情页会显示「等级不足，需 LvN」，按钮不给点'],
    ['对比','点开装备详情会<b>自动与身上同部位对比</b>，逐条列出 ▲+X / ▼X，底部给「全面强于/略强/基本持平/弱于」总评'],
    ['留哪件','通用判断：<b>品质高的留，强化过的留，本职业的留</b>。别职业的紫装基本都是卖钱货']
  ],tip:'背包只有 40 格。别囤着舍不得卖——本作装备爆率不低，囤积带来的唯一后果是打到的极品进不了包。'},
@@ -4661,8 +4703,10 @@ const GUIDE_CATS=[
    ['定位','共 <b>'+TOWER_MAX+' 层</b>限时挑战（每层 '+TOWER_TIME+' 秒），清空当层全部怪物即上一层。<br>塔的定位是<b>装备与技能点的定向获取渠道</b>，不是练级刷钱的地方'],
    ['不产资源','<s>塔内不产经验、不产金币</s>。想练级刷钱请回野外挂机 —— 这条是刻意的，避免玩家长期赖在塔里绕过地图推进'],
    ['内丹','<b style="color:#c88aff">每 '+TOWER_DAN_STEP+' 层必得 1 颗 Boss内丹</b>（= 1 技能点），15 层共 3 颗；<b>全通额外再给 2 颗</b>，一轮合计 5 颗'],
-   ['极品装备','其余楼层 <b>约 '+(TOWER_EQ_P*100)+'%</b> 概率掉落 <b>+'+TOWER_EQ_PLUS+' 强化的小极品装备</b>（赤月金品质）'],
+   ['极品装备','其余楼层 <b>约 '+(TOWER_EQ_P*100)+'%</b> 概率掉落 <b>+'+TOWER_EQ_PLUS+' 强化的小极品装备</b>（赤月金品质）。概率刻意压得很低，属于「搏上限」的意外之喜'],
    ['为什么给 +'+TOWER_EQ_PLUS,'+8 起强化有损坏风险，普通玩家很难靠自己把装备点到 +9。塔里直接给成品，等于<b>用挑战换掉养成风险</b>'],
+   ['穿了未必能穿','塔产是<b>赤月金品质</b>（tier4），穿戴需 <b>Lv38</b>。低等级爬塔拿到也先<u>囤着</u>，等级到了再穿 —— 提前攒下毕业装备，而不是提前穿上'],
+   ['传送阵','塔内每层也有<b>传送阵</b>。踩上去弹出面板：<b>继续挑战</b>（关掉继续打）或 <b>放弃并回村</b>（结束挑战，已得奖励保留）。想中途换图或补药时用它'],
    ['失败不亏','超时或阵亡只会结束挑战，<b>已到手的奖励全部保留</b>，不倒扣、不清空'],
    ['难度','每层怪物属性 +22%，没有等级门槛 —— 几级都能进，能爬多高取决于装备与操作']
  ],tip:'爬塔前先补满药水。塔里没有金币产出，意味着<b>药水是纯支出</b>——带不够药，爬到一半就会因为喝不上药而卡死。'},
@@ -5453,6 +5497,11 @@ function enterTowerFloor(floor){
 }
 function updateTower(dt){
   const t=ST.tower;if(!t||player.mapId!=='tower')return;
+  /* 传送阵面板（或任何面板）打开时暂停限时计时 ——
+     玩家在读「继续 / 回村」的说明时不该被扣时间。
+     面板关闭后计时自然恢复，不需要额外的停表状态。 */
+  const p=$('panel');
+  if(p&&!p.classList.contains('hidden'))return;
   t.t-=dt;
   t.alive=MAP.mobs.filter(m=>!m.dead).length;
   if(t.alive<=0){towerFloorClear();return;}
@@ -6028,9 +6077,11 @@ function updateTopHud(){
 function drawPortal(ctx,x,y){
   /* 靠近高亮：让玩家一眼看出「这个圈是可以踩的」。
      near 取 PORTAL_R*2.2 —— 视觉提示范围要比触发范围宽松，
-     否则玩家看到发光时其实已经踩进去了，来不及反应。 */
+     否则玩家看到发光时其实已经踩进去了，来不及反应。
+     塔内同样高亮（塔内踩阵弹「继续 / 回村」面板）。 */
   const dist=(typeof player!=='undefined'&&player)?Math.hypot(player.x-x,player.y-y):9999;
-  const near=dist<PORTAL_R*2.2&&!ST.tower&&player.mapId!=='tower';
+  const inTower=!!ST.tower;
+  const near=dist<PORTAL_R*2.2;
   ctx.save();ctx.translate(x,y);
   if(near){
     /* 外层呼吸辉光：半径随时间脉动，明确"可交互" */
@@ -6056,7 +6107,7 @@ function drawPortal(ctx,x,y){
     const inZone=dist<PORTAL_R;
     ctx.font='bold 11px sans-serif';
     ctx.fillStyle=inZone?'#5aff8a':'#ffe9b0';
-    ctx.fillText(inZone?'✦ 传送中…':'站入阵中 · 选择目的地',0,-44);
+    ctx.fillText(inZone?'✦ 传送中…':(inTower?'站入阵中 · 继续 / 回村':'站入阵中 · 选择目的地'),0,-44);
   }
   ctx.restore();
 }
@@ -6080,18 +6131,22 @@ function drawNPCs(ctx){
     }
   }
 }
-/* ---------- 传送阵：踩上去自动开启地图选择 ----------
-   旧实现的问题：drawPortal 只是装饰画，玩家走上去毫无反应
-   （能换图其实靠的是走近「传送使」NPC）。这里补上真正的踩踏传送。
-   触发条件（全部满足才传）：
-     ① 在游戏态、未阵亡、不在试炼塔内（塔是独立挑战，不该被传送打断）
+/* ---------- 传送阵：踩上去触发 ----------
+   触发条件（全部满足才触发）：
+     ① 在游戏态、未阵亡
      ② 玩家到阵心距离 < PORTAL_R
      ③ 冷却已过（防"传送后仍站在阵内 → 立刻再次弹出"的死循环）
+   两张分支：
+     · 普通地图 → 打开地图选择面板（传送到别的地图）
+     · 试炼塔内 → 打开「继续挑战 / 放弃回村」专用面板
+   塔内为什么单开一个面板：塔是连续挑战，直接把地图面板丢出来会让
+   玩家误触跳到别的地图，而 ST.tower 的挑战状态还挂着 —— 既没结算
+   又不在塔里，成了一个卡死态。给专用面板，两个出口都明确。
    松开按钮（离开阵心）即可解除"待触发"状态，避免站在阵里反复弹面板。 */
 let _portalArmed=false;
 function updatePortal(dt){
   if(portalCd>0)portalCd=Math.max(0,portalCd-(dt||1/60));
-  if(ST.mode!=='game'||!MAP||player.dead||ST.tower||player.mapId==='tower')return;
+  if(ST.mode!=='game'||!MAP||player.dead)return;
   const d=Math.hypot(player.x-MAP.portal.x,player.y-MAP.portal.y);
   const inside=d<PORTAL_R;
   /* 进出检测：踩进去的那一帧触发（而不是站在里面每帧都触发） */
@@ -6099,11 +6154,42 @@ function updatePortal(dt){
     _portalArmed=true;
     portalCd=PORTAL_CD;
     SFX.click();
-    addLog('◈ 踏入传送阵 —— 选择目的地');
-    openMapPanel();
+    if(ST.tower){
+      addLog('◈ 踏入传送阵 —— 继续挑战 或 放弃回村');
+      openTowerPortalPanel();
+    }else{
+      addLog('◈ 踏入传送阵 —— 选择目的地');
+      openMapPanel();
+    }
     return;
   }
   if(!inside)_portalArmed=false;
+}
+/* 塔内传送阵面板：两个出口都走既有流程，不新增状态机
+     · 继续 → 关面板，回到当前层继续打（塔计时继续走，不额外惩罚）
+     · 回村 → 走 failTower 结算（已得奖励保留，与超时/阵亡同一条路径） */
+function openTowerPortalPanel(){
+  const t=ST.tower;if(!t)return;
+  const left=Math.max(0,Math.ceil(t.t));
+  const html='<div style="font-size:12px;color:#a89058;line-height:1.8;margin-bottom:10px">'+
+   '你站在试炼塔第 <b style="color:#ffd870">'+t.floor+'</b> 层的传送阵上。<br>'+
+   '本层剩余时间 <b style="color:#ffd84a">'+left+'</b> 秒 · 剩余怪物 <b style="color:#ff8a70">'+(t.alive||0)+'</b> 只'+
+   '</div>'+
+   '<div class="skItem" style="border-color:#8ad8a0"><b style="color:#c8ffd8">继续挑战</b>'+
+   '<p>关闭本面板，回到第 '+t.floor+' 层继续清怪（计时不停，无额外惩罚）。</p>'+
+   '<button class="goldbtn" id="tpGo" style="border-color:#8ad8a0;color:#c8ffd8">继续挑战</button></div>'+
+   '<div class="skItem" style="border-color:#8a3a3a"><b style="color:#ffb0a0">放弃并回村</b>'+
+   '<p>结束本次挑战，回到玛法村。<b>已到手的奖励全部保留</b>（内丹 / 装备不回收），'+
+   '层数进度会记入最佳纪录。想换个地图或补给药水时用这个。</p>'+
+   '<button class="goldbtn" id="tpQuit" style="background:linear-gradient(180deg,#8a2a1a,#5a180e)">放弃并回村</button></div>';
+  openPanel('◈ 试炼塔 · 传送阵',html);
+  const go=$('tpGo');
+  if(go)go.addEventListener('pointerdown',()=>{SFX.click();closePanel();});
+  const qt=$('tpQuit');
+  if(qt)qt.addEventListener('pointerdown',()=>{
+    SFX.click();closePanel();
+    failTower('主动放弃，止步第 '+(ST.tower?ST.tower.floor:1)+' 层');
+  });
 }
 
 /* NPC 交互按钮：靠近时出现，点击打开面板 */
@@ -6607,10 +6693,12 @@ function init(){
     /* CD 显示优化（请求 E）：阈值 + conic-gradient 探测 */
     CD_NUM_MIN,CD_SECTOR_OK,
     /* 传送阵交互（请求 G）：踩踏传送 + 参数，供自动化断言 */
-    updatePortal,PORTAL_R,PORTAL_CD,
+    updatePortal,PORTAL_R,PORTAL_CD,openTowerPortalPanel,
     get portalCd(){return portalCd;},
     setPortalCd(v){portalCd=v;},
     get portalArmed(){return _portalArmed;},
+    /* 装备穿戴等级（本轮）：tier → 等级门槛 */
+    EQ_REQ_LV,eqReqLv,eqLvOk,
     /* 「添加到桌面」安装引导（请求 G） */
     initPwa,showPwaBar,closePwaBar,pwaIsIOS,pwaIsStandalone,pwaHintOff,
     get deferredPrompt(){return _deferredPrompt;},
