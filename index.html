@@ -283,6 +283,27 @@ body.titleDlg #itemDetail{z-index:60}
 #revive h2{color:#ff8a70;font-size:30px;letter-spacing:6px;text-shadow:0 2px 6px #000}
 #revive p{margin-top:12px;color:#e8d9b0;font-size:14px}
 #errFlag{position:absolute;top:40%;left:8px;right:8px;background:#800;color:#fff;font-size:11px;padding:8px;z-index:99;border-radius:6px;word-break:break-all}
+
+/* ---------- 「添加到桌面」安装引导条（请求 G）----------
+   底部浮出的一条提示，可关闭且记住选择（localStorage 存 pwaHintOff）。
+   放在 z-index:62 —— 高于游戏 UI，低于物品详情（80）与题目弹窗，
+   保证不遮挡关键弹窗；bottom 抬到 96px 避开右下技能区与 NPC 按钮。 */
+#pwaBar{position:absolute;left:10px;right:10px;bottom:calc(96px + env(safe-area-inset-bottom));
+ z-index:62;display:none;align-items:center;gap:10px;padding:11px 13px;
+ background:linear-gradient(180deg,#1c2a1aee,#0e180eee);border:1.5px solid #8ad8a0;border-radius:12px;
+ box-shadow:0 6px 22px #000a,0 0 0 1px #000a inset;animation:pwaIn .34s ease-out;pointer-events:auto}
+#pwaBar.show{display:flex}
+@keyframes pwaIn{from{opacity:0;transform:translateY(18px)}}
+#pwaBar .pi{font-size:22px;flex:none;filter:drop-shadow(0 1px 2px #000)}
+#pwaBar .pt{flex:1;min-width:0}
+#pwaBar .pt b{display:block;font-size:13px;color:#c8ffd8;text-shadow:0 1px 2px #000}
+#pwaBar .pt small{display:block;font-size:11px;color:#8ab89a;margin-top:2px;line-height:1.5}
+#pwaBar .pgo{flex:none;padding:8px 14px;font-size:12px;font-weight:900;border-radius:8px;cursor:pointer;
+ background:linear-gradient(180deg,#7ad08a,#3a8a4a);border:1px solid #a8f0b8;color:#0a1a0e;text-shadow:0 1px 0 #ffffff55}
+#pwaBar .pgo:active{filter:brightness(1.15)}
+#pwaBar .pno{flex:none;width:26px;height:26px;line-height:1;font-size:15px;border-radius:50%;cursor:pointer;
+ background:#00000055;border:1px solid #5a6a58;color:#a8c0a8}
+#pwaBar .pno:active{background:#00000099}
 </style>
 </head>
 <body>
@@ -315,9 +336,10 @@ body.titleDlg #itemDetail{z-index:60}
         <div id="mapName">玛法村</div>
       </div>
       <div id="topBtns">
-        <div class="iconBtn" id="btnBag">背</div>
-        <div class="iconBtn" id="btnMap">图</div>
-        <div class="iconBtn" id="btnSet">设</div>
+        <div class="iconBtn" id="btnBag" title="背包">背</div>
+        <div class="iconBtn" id="btnMap" title="地图 / 传送">图</div>
+        <div class="iconBtn" id="btnGuide" title="新手攻略">攻</div>
+        <div class="iconBtn" id="btnSet" title="设置 / 存档">设</div>
       </div>
     </div>
     <div id="bossBar"><div class="bn"></div><div class="bar"><i></i></div></div>
@@ -327,7 +349,6 @@ body.titleDlg #itemDetail{z-index:60}
     <div id="pickupFlash"></div>
     <div id="joy"><div id="joyKnob"></div></div>
     <div id="leftBtns">
-      <div class="iconBtn" id="btnGuide">攻<span class="sb">攻略</span></div>
       <div class="iconBtn" id="btnQuest">任<span class="dot" id="questDot"></span><span class="sb">任务</span></div>
       <div class="iconBtn" id="btnAchv">成<span class="dot" id="achvDot"></span><span class="sb">成就</span></div>
       <div class="iconBtn" id="btnHome">回<span class="sb">回城</span></div>
@@ -349,6 +370,9 @@ body.titleDlg #itemDetail{z-index:60}
   <div id="revive" class="hidden"><h2>您已阵亡</h2><p id="reviveTip">3 秒后回城复活…</p></div>
   <div id="toast"></div>
 </div>
+<!-- 「添加到桌面」安装引导条（请求 G）：内容由 JS 按平台填充（安卓走系统安装弹窗，iOS 走手动指引） -->
+<div id="pwaBar"><span class="pi">📲</span><div class="pt"><b>添加到桌面</b><small>像 App 一样打开 · 离线也能玩</small></div>
+ <button class="pgo" id="pwaGo">立即添加</button><button class="pno" id="pwaNo">✕</button></div>
 <!-- 物品详情遮罩：半透明，点它（下方地图/血条/按钮露出的"红白区域"）即关闭详情。
      挂在 body 层（原先在 gameUI 内）：标题画面的槽位覆盖/读档失败等弹窗也能复用，
      且 body 与 gameUI 同为全屏定位上下文，游戏内几何完全不变 -->
@@ -398,6 +422,20 @@ const TOWER_TIME=75;             // 每层限时（秒）
 const TOWER_DAN_STEP=5;          // 每 5 层 1 颗 Boss内丹
 const TOWER_EQ_P=0.06;           // 非内丹层掉落 +9 极品装备的概率
 const TOWER_EQ_PLUS=9;           // 塔产装备的强化等级
+
+/* ============ 传送阵交互 ============
+   原实现里 drawPortal() 只是画了 3 个椭圆光环和「◈ 传送阵 ◈」几个字，
+   完全没有判定逻辑 —— 开关地图实际靠的是走近「传送使」NPC 弹按钮。
+   玩家反馈「走上传送阵没反应」就是这个原因。
+   现补上踩踏传送：站进阵心即为触发，弹出地图选择面板。
+   · PORTAL_R 取 40px（约等于一个身位），比 NPC 判定（85px）更严格，
+     避免在阵边路过就被传走；
+   · PORTAL_CD 为触发冷却（秒）：传送后面板关闭、玩家仍站在阵内时，
+     若不冷却会立刻再次触发；换图后玩家被放到新图出生点（阵外），
+     但为防"出生点恰好在阵内"的地图设计，仍保留冷却兜底。 */
+const PORTAL_R=40;
+const PORTAL_CD=4;
+let portalCd=0;
 const CLASSES={
  warrior:{name:'战士',tag:'战',hp:58,hpG:30,mp:22,mpG:5,atk:14,atkG:3.0,matk:3,matkG:.4,def:6,defG:1.3,mdef:2,mdefG:.85,
    spd:162,range:56,atkCd:.75,dr:.12,color:'#ff8a70',desc:'血厚防高近身肉搏',skills:['flame','halfmoon','charge','assault','whirlwind','warcry']},
@@ -3363,6 +3401,10 @@ function initUI(){
     switchMap('village');toast('已回到玛法村');});
   $('btnShop').addEventListener('pointerdown',e=>{e.preventDefault();openShop();});
   $('btnQuest').addEventListener('pointerdown',e=>{e.preventDefault();SFX.init();openQuests();});
+  /* 「攻略」已从左下角移到右上角按钮列（#topBtns）：
+     左下角原先是摇杆触摸区 + 日志区（#logBox bottom:150px）+ 5 个按钮（3 行共 152px，
+     顶到 bottom:168px），三者叠在一起 —— 既遮挡信息提示，拖摇杆时也必然压到按钮。
+     移到右上角后 #leftBtns 只剩 4 个（2 行 99px，顶到 115px），自然让开了 150px 的日志区。 */
   $('btnGuide').addEventListener('pointerdown',e=>{e.preventDefault();SFX.init();SFX.click();openGuide();});
   $('btnAchv').addEventListener('pointerdown',e=>{e.preventDefault();SFX.init();openAchvPanel();});
   $('npcBtn').addEventListener('pointerdown',e=>{e.preventDefault();
@@ -4389,6 +4431,10 @@ function genSlotPanel(){
        (s.name+' · '+clsInfo.name+' Lv.'+s.level+' · '+(MAPMAP[s.mapId]?MAPMAP[s.mapId].n:'—')+' · '+s.gold+'G'))+'</div>'+
      '<div style="font-size:10px;color:#6a5a38;margin-top:2px">'+(s.empty?'':saveTimeText(s.ts))+'</div></div>'+
      '<div style="display:flex;flex-direction:column;gap:4px">'+
+     /* 注意：属性名 data-slotUse 被 HTML 解析器小写化为 data-slotuse，
+        所以 dataset 只能写 dataset.slotuse（dataset.slotUse 会取到 undefined）。
+        这里保留驼峰写法是为了 CSS 可读性（属性选择器对属性名大小写不敏感）；
+        查询时必须用全小写选择器 [data-slotuse="N"]。 */
      (s.empty?'':'<button class="goldbtn" data-slotUse="'+s.slot+'" style="padding:4px 11px;font-size:11px">'+(cur?'重新载入':'载入')+'</button>')+
      (s.empty||cur?'':'<button class="goldbtn" data-slotDel="'+s.slot+'" style="padding:4px 11px;font-size:11px;background:linear-gradient(180deg,#8a2a1a,#5a180e)">删除</button>')+
      '</div></div></div>';
@@ -4398,19 +4444,28 @@ function genSlotPanel(){
 }
 function openSlotPanel(back){
   openPanel('存档管理',genSlotPanel(),back);
+  /* ★ 这里踩过一个真实 bug：按钮上的属性是 data-slotUse，HTML 解析器会把它
+     小写成 data-slotuse，因此 dataset 只能取 .slotuse。原代码写的是
+     b.dataset.slot（取不存在的属性）→ 恒为 undefined → parseInt(undefined)
+     得 NaN → loadGame(NaN) 内部 "NaN||curSlot" 又回落到当前槽位。
+     结果：【点任何槽位都只是重载当前存档，永远切不过去】——这正是玩家反馈
+     「角色无法切换其他存档」的真正原因，与入口深浅无关。 */
   $('panelBody').querySelectorAll('[data-slotUse]').forEach(b=>{
     b.addEventListener('pointerdown',()=>{
-      const sl=parseInt(b.dataset.slot);
+      const sl=parseInt(b.dataset.slotuse,10);
+      if(!(sl>=1&&sl<=SAVE_N)){toast('槽位无效');return;}
       saveGame(curSlot);
       const sv=loadGame(sl);
       if(!sv){toast('该槽位无存档');return;}
+      if(sl===curSlot){toast('已在该槽位');closePanel();return;}
       closePanel();
       if(confirm('载入存档槽 #'+sl+' ？当前进度已保存到 #'+curSlot+'。'))startGame(null,sv,sl);
     });
   });
   $('panelBody').querySelectorAll('[data-slotDel]').forEach(b=>{
     b.addEventListener('pointerdown',()=>{
-      const sl=parseInt(b.dataset.slot);
+      const sl=parseInt(b.dataset.slotdel,10);
+      if(!(sl>=1&&sl<=SAVE_N)){toast('槽位无效');return;}
       if(confirm('确定删除存档槽 #'+sl+' ？（不可恢复）')){delSave(sl);openSlotPanel(back);}
     });
   });
@@ -4455,13 +4510,20 @@ function openSettings(){
   /* 分区标题条：把功能入口与自动化开关分组，便于查找 */
   const sec=t=>'<div style="margin:14px 0 7px;padding:5px 10px;border-left:3px solid #ffd84a;'+
    'background:rgba(255,216,74,.08);color:#ffd84a;font-size:13px;font-weight:900;letter-spacing:2px">'+t+'</div>';
-  const html=sec('功 能')+
+  /* 存档置顶条（请求 G）：原先「存档管理」埋在「功 能」区中间，
+     玩家要 设置→滚动→找到存档→管理存档 共两层，体感像"切不了存档"。
+     现提到设置页最顶部，一眼可见、一键进入。 */
+  const slotBar='<div class="skItem" style="border-color:#8ad8ff;background:linear-gradient(180deg,#0e1a26,#0a1218);margin-bottom:4px">'+
+   '<b style="color:#8ad8ff">💾 存档 · 当前槽位 <span style="color:#ffd84a">#'+curSlot+'</span></b>'+
+   '<p>三个独立存档槽，可在标题画面或此处随时切换角色。<br>'+
+   '切换时当前进度会先自动保存回 #'+curSlot+'，不会丢档。</p>'+
+   '<button class="goldbtn" id="setSlots" style="border-color:#8ad8ff;color:#c8e8ff">切换 / 管理存档</button></div>';
+  const html=sec('功 能')+slotBar+
    '<div class="skItem"><b>技能列表</b><p>查看当前职业全部技能与解锁等级</p><button class="goldbtn" id="setSkills">查看技能</button></div>'+
    '<div class="skItem" style="border-color:#7ab0ff"><b>技能天赋树</b><p>现有技能点：<b style="color:#7ab0ff">'+(ST.skillPt||0)+'</b> 点 · 已投入 '+talentSpent()+' 点<br>给每个技能加点，提升伤害/降低CD与耗蓝/强化宠物<br><span style="color:#c88aff;font-size:11px">技能点唯一来源：炼化 Boss内丹（中级以上地图图主 BOSS 约 30% 掉落，试炼塔每 5 层必得 1 颗）</span></p><button class="goldbtn" id="setTalent">打开天赋树</button></div>'+
    '<div class="skItem" style="border-color:#ffd870"><b>生涯记录</b><p>战斗 / 经济 / 锻造 / 探险四类统计与派生指标（DPS、金币每分钟）</p><button class="goldbtn" id="setCareer">查看生涯</button></div>'+
    (player.cls==='taoist'?'<div class="skItem" style="border-color:#c88aff"><b>宠物 · 进化</b><p>骷髅卫士 → 骷髅统领 → 神兽麒麟，查看形态进度与进化条件</p><button class="goldbtn" id="setPet">打开宠物面板</button></div>':'')+
    '<div class="skItem" style="border-color:#ff8a70"><b>试炼塔</b><p>共 '+TOWER_MAX+' 层限时挑战。<b style="color:#ff8a70">不产经验与金币</b> —— 每 '+TOWER_DAN_STEP+' 层必得 1 颗 Boss内丹，其他层约 '+(TOWER_EQ_P*100)+'% 概率掉落 <b>+'+TOWER_EQ_PLUS+' 强化的小极品装备</b>，全通额外再给 2 颗内丹</p><button class="goldbtn" id="setTower">进入试炼</button></div>'+
-   '<div class="skItem" style="border-color:#8ad8ff"><b>存档管理</b><p>当前槽位 <b style="color:#ffd84a">#'+curSlot+'</b> · 可切换 / 删除三个独立存档</p><button class="goldbtn" id="setSlots">管理存档</button></div>'+
    sec('⚙ 自动化')+
    tog('auto','自动挂机',!!ST.auto)+
    '<div class="skItem" style="border-color:#8a6a20"><b>技能自动释放配置</b><p>可对每个技能单独开关自动释放、调整触发条件（生命阈值、敌人数、魔法保留）</p><button class="goldbtn" id="setSkillCfg">打开技能配置</button></div>'+
@@ -4474,7 +4536,7 @@ function openSettings(){
    '<div class="skItem"><b>背景音乐：'+(SFX.bgm?'开':'关')+'</b><p>玛法大陆的风声与琴音</p><button class="goldbtn" id="setBgm">切换</button></div>'+
    '<div class="skItem"><b>震动反馈：'+(ST.vibe?'开':'关')+'</b><p>受击 / 暴击 / 升级 / 阵亡时手机震动，画面轻微震动<br>部分安卓浏览器与 iOS Safari 不支持震动，会自动忽略</p><button class="goldbtn" id="setVibe">切换</button></div>'+
    sec('其 他')+
-   '<div class="skItem" style="border-color:#8a6a20"><b>新手攻略</b><p>玩法说明已升级为<b>分类折叠手册</b>：快速上手 / 战斗与技能 / 装备 / 强化重铸 / 昼夜天气 / 地图BOSS / 技能点天赋 / 试炼塔 / 人机风险 / 存档，共 10 类<br>顶部还会显示你的当前进度与推荐去处，左侧「攻」按钮也可随时打开</p><button class="goldbtn" id="setGuide">打开攻略</button></div>'+
+   '<div class="skItem" style="border-color:#8a6a20"><b>新手攻略</b><p>玩法说明已升级为<b>分类折叠手册</b>：快速上手 / 战斗与技能 / 装备 / 强化重铸 / 昼夜天气 / 地图BOSS / 技能点天赋 / 试炼塔 / 人机风险 / 存档，共 10 类<br>顶部还会显示你的当前进度与推荐去处，右上角「攻」按钮也可随时打开</p><button class="goldbtn" id="setGuide">打开攻略</button></div>'+
    '<div class="skItem"><b>关于</b><p>《热血玛法 1.76》原创传奇风格单机 H5 demo<br>致敬经典 1.76 版本玩法 · 所有素材均为程序生成</p>'+
    '<button class="goldbtn" id="setReset" style="background:linear-gradient(180deg,#8a2a1a,#5a180e)">删除当前槽位存档</button></div>';
   openPanel('设置',html);
@@ -4537,14 +4599,16 @@ function openSettings(){
      ② 8 张分类折叠卡片 —— 按玩家真实会遇到的问题分区，摘要行直接回答，
         展开才是细节（渐进披露，不劝退）；
      ③ 每卡一条「老玩家提示」—— 金色左边框，这是真正花钱买不到的经验。
-   入口两处：左侧「攻」按钮（随时可点）+ 设置页「玩法说明」按钮（原位置替换）。 */
+   入口两处：右上角「攻」按钮（随时可点）+ 设置页「玩法说明」按钮（原位置替换）。 */
 const GUIDE_CATS=[
  {ico:'🚀',n:'快速上手',s:'三步就能玩起来',open:true,rows:[
    ['1','左手大拇指在屏幕<b>左侧拖动</b>移动；右下角六边形是技能，普攻自动进行'],
    ['2','点右下角<b>「自动」</b>按钮开启挂机：自动索敌、走位、放技能、喝药，出门就能用'],
    ['3','打怪掉装备，点背包里的物品可<b>穿戴 / 出售 / 丢弃</b>；点左上角头像看角色属性'],
    ['4','任务在左侧<b>「任」</b>按钮里，完成即领金币和药水，是前期最快的成长来源'],
-   ['5','血药蓝药在左侧<b>「药」</b>按钮的药铺买。0 金币也能玩：挂机本身不花药']
+   ['5','血药蓝药在左侧<b>「药」</b>按钮的药铺买。0 金币也能玩：挂机本身不花药'],
+   ['6','<b>走上传送阵</b>（地面的蓝色光圈）即可打开地图选择面板，直接传送到已解锁的地图；也可点右上角<b>「图」</b>按钮手动打开'],
+   ['7','想换角色？点右上角<b>「设」</b>→ 顶部的<b>💾 存档</b>，三个槽位可自由切换，切档前会自动保存当前进度']
  ],tip:'新手最容易犯的错：不敢开「自动」。本作挂机 AI 会算魔法保留、会残血撤离、会躲 BOSS 预警圈，比手动乱点强得多。'},
  {ico:'⚔',n:'战斗与技能',s:'技能怎么放、CD 怎么看、蓝不够怎么办',rows:[
    ['·','六个技能栏每职业都能用满，等级到了自动解锁，<b>不需要点技能点</b>'],
@@ -4580,6 +4644,7 @@ const GUIDE_CATS=[
  {ico:'🗺',n:'地图与 BOSS',s:'去哪练级、BOSS 怎么打',rows:[
    ['·','地图顺序：<b>玛法村 → 骷髅洞窟 → 僵尸矿洞 → 沃玛寺庙 → 祖玛寺庙 → 赤月峡谷</b>'],
    ['·','每张图有等级门槛，低于门槛会被怪压制。<b>等级不够就先在上一张图练级</b>'],
+   ['·','<b>踩上传送阵</b>（地面蓝色光圈）会立刻弹出地图面板；点右上角「图」按钮同样可以打开，两者等效'],
    ['·','左侧「回」按钮随时回城，回城后可从地图面板直接传送到已解锁的地图'],
    ['·','BOSS 各有绝招：召唤小怪 / 弹幕 / 冲锋 / 灼烧 / 吸血 / 狂暴。<b>注意脚下的红色预警圈</b>，站出去再输出'],
    ['·','BOSS 血条显示在屏幕顶部，被打了会有一段黄色延迟掉血条，能看出这波输出了多少'],
@@ -4611,6 +4676,7 @@ const GUIDE_CATS=[
    ['·','三个<b>独立存档槽</b>，互相不干扰，各自记录进度'],
    ['·','游戏每 3 秒自动存档一次，关闭页面也会保存'],
    ['·','离线期间按挂机速率结算收益，<b>下次进入游戏时自动弹出结算面板</b>'],
+   ['切档','点右上角 <b>「设」</b> → 设置页<b>最顶部的 💾 存档</b> → 「切换 / 管理存档」，选中任一槽位即切换角色（当前进度会先自动存回原槽位）'],
    ['·','设置 → 存档管理 可切换 / 删除槽位；也可以从上次成功的备份回滚']
  ],tip:'离线收益有上限，回来记得领。离开前把「自动拾取」和「自动出售满包白装」配好，不然离线期间装备会溢出。'}
 ];
@@ -5504,6 +5570,10 @@ function switchMap(id){
   MAP=genMap(def);
   player.mapId=id;
   player.x=MAP.spawn.x;player.y=MAP.spawn.y;
+  /* 重置传送阵状态：armed 不清会让上一张图的「已触发」吞掉新图第一次踩踏；
+     cd 不清会让玩家刚切图就踩阵时毫无反应（前一张图的 4 秒冷却还在倒计时）。
+     两处都要清 —— 每张图的传送阵都应是「新鲜可用」的。 */
+  _portalArmed=false;portalCd=0;
   projectiles=[];aoes=[];zones=[];player.target=null;bossRef=null;
   fillMobs();
   $('mapName').textContent=def.n;
@@ -5956,17 +6026,38 @@ function updateTopHud(){
   }else bb.style.display='none';
 }
 function drawPortal(ctx,x,y){
+  /* 靠近高亮：让玩家一眼看出「这个圈是可以踩的」。
+     near 取 PORTAL_R*2.2 —— 视觉提示范围要比触发范围宽松，
+     否则玩家看到发光时其实已经踩进去了，来不及反应。 */
+  const dist=(typeof player!=='undefined'&&player)?Math.hypot(player.x-x,player.y-y):9999;
+  const near=dist<PORTAL_R*2.2&&!ST.tower&&player.mapId!=='tower';
   ctx.save();ctx.translate(x,y);
+  if(near){
+    /* 外层呼吸辉光：半径随时间脉动，明确"可交互" */
+    const pr=PORTAL_R+6+Math.sin(ST.time*4)*4;
+    ctx.globalAlpha=.22+.1*Math.sin(ST.time*4);
+    ctx.fillStyle='#8ad8ff';
+    ctx.beginPath();ctx.ellipse(0,0,pr,pr*.42,0,0,6.29);ctx.fill();
+    ctx.globalAlpha=1;
+  }
   for(let i=0;i<3;i++){
     const r=18+i*7+Math.sin(ST.time*3+i)*2;
-    ctx.strokeStyle=['#8ad8ff','#5a9ae0','#3a5ac0'][i];
-    ctx.globalAlpha=.7-i*.18;
-    ctx.lineWidth=3;
+    ctx.strokeStyle=near?['#c8f0ff','#8ad8ff','#5a9ae0'][i]:['#8ad8ff','#5a9ae0','#3a5ac0'][i];
+    ctx.globalAlpha=(near?.95:.7)-i*.18;
+    ctx.lineWidth=near?3.6:3;
     ctx.beginPath();ctx.ellipse(0,0,r,r*.42,0,0,6.29);ctx.stroke();
   }
   ctx.globalAlpha=1;
   ctx.font='bold 11px sans-serif';ctx.textAlign='center';
-  ctx.fillStyle='#8ad8ff';ctx.fillText('◈ 传送阵 ◈',0,-30);
+  ctx.fillStyle=near?'#e8f8ff':'#8ad8ff';
+  ctx.fillText('◈ 传送阵 ◈',0,-30);
+  /* 交互指引：仅在靠近时出现，避免常驻刷屏 */
+  if(near){
+    const inZone=dist<PORTAL_R;
+    ctx.font='bold 11px sans-serif';
+    ctx.fillStyle=inZone?'#5aff8a':'#ffe9b0';
+    ctx.fillText(inZone?'✦ 传送中…':'站入阵中 · 选择目的地',0,-44);
+  }
   ctx.restore();
 }
 function drawNPCs(ctx){
@@ -5989,6 +6080,32 @@ function drawNPCs(ctx){
     }
   }
 }
+/* ---------- 传送阵：踩上去自动开启地图选择 ----------
+   旧实现的问题：drawPortal 只是装饰画，玩家走上去毫无反应
+   （能换图其实靠的是走近「传送使」NPC）。这里补上真正的踩踏传送。
+   触发条件（全部满足才传）：
+     ① 在游戏态、未阵亡、不在试炼塔内（塔是独立挑战，不该被传送打断）
+     ② 玩家到阵心距离 < PORTAL_R
+     ③ 冷却已过（防"传送后仍站在阵内 → 立刻再次弹出"的死循环）
+   松开按钮（离开阵心）即可解除"待触发"状态，避免站在阵里反复弹面板。 */
+let _portalArmed=false;
+function updatePortal(dt){
+  if(portalCd>0)portalCd=Math.max(0,portalCd-(dt||1/60));
+  if(ST.mode!=='game'||!MAP||player.dead||ST.tower||player.mapId==='tower')return;
+  const d=Math.hypot(player.x-MAP.portal.x,player.y-MAP.portal.y);
+  const inside=d<PORTAL_R;
+  /* 进出检测：踩进去的那一帧触发（而不是站在里面每帧都触发） */
+  if(inside&&!_portalArmed&&portalCd<=0){
+    _portalArmed=true;
+    portalCd=PORTAL_CD;
+    SFX.click();
+    addLog('◈ 踏入传送阵 —— 选择目的地');
+    openMapPanel();
+    return;
+  }
+  if(!inside)_portalArmed=false;
+}
+
 /* NPC 交互按钮：靠近时出现，点击打开面板 */
 let _npcShown=null;
 function updateNPCBtn(){
@@ -6018,6 +6135,77 @@ function hitNpcAt(cx,cy){
   return null;
 }
 
+/* ================= 「添加到桌面」安装引导（请求 G）=================
+   为什么需要：本作是纯静态 PWA（manifest.json + sw.js 齐全），
+   但浏览器不会主动告诉用户"这个可以装"——尤其手机上，用户往往
+   一直在浏览器标签里玩，离线缓存与全屏体验都拿不到。
+   两套路径：
+     · 安卓 Chrome / Edge 等支持 beforeinstallprompt：拦截事件缓存
+       deferredPrompt，用户点「立即添加」时调 prompt() 弹出原生安装框。
+     · iOS Safari 不支持该事件（苹果限制）：只能引导用户手动操作
+       「分享 → 添加到主屏幕」。用 UA 检测区分，文案不同。
+   展示策略：进游戏约 3.5 秒后浮出；已安装（standalone）不显示；
+   用户点过 ✕ 则写入 localStorage 永久不再打扰。 */
+const PWA_HINT_OFF='mf176_pwaHintOff';
+let _deferredPrompt=null, _pwaBarShown=false;
+function pwaIsStandalone(){
+  try{
+    return (window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)||
+           window.navigator.standalone===true;
+  }catch(e){return false;}
+}
+function pwaIsIOS(){
+  const ua=navigator.userAgent||'';
+  /* iPadOS 13+ 的 UA 伪装成 Mac，用触点数补判 */
+  return /iPad|iPhone|iPod/.test(ua)||(/Macintosh/.test(ua)&&navigator.maxTouchPoints>1);
+}
+function pwaHintOff(){
+  try{return localStorage.getItem(PWA_HINT_OFF)==='1';}catch(e){return false;}
+}
+function closePwaBar(remember){
+  const b=$('pwaBar');if(b)b.classList.remove('show');
+  if(remember){try{localStorage.setItem(PWA_HINT_OFF,'1');}catch(e){}}
+}
+function showPwaBar(){
+  if(_pwaBarShown||pwaIsStandalone()||pwaHintOff())return;
+  const b=$('pwaBar');if(!b)return;
+  _pwaBarShown=true;
+  /* iOS 没有原生安装事件，改成图文指引（文案尽量短，避免小字区折行过多） */
+  if(!_deferredPrompt&&pwaIsIOS()){
+    b.querySelector('.pt small').innerHTML='点底部分享 ⇧ →「添加到主屏幕」';
+    b.querySelector('.pgo').textContent='我知道了';
+  }
+  b.classList.add('show');
+}
+function initPwa(){
+  /* 安卓系：捕获安装事件，供「立即添加」按钮消费 */
+  window.addEventListener('beforeinstallprompt',e=>{
+    e.preventDefault();
+    _deferredPrompt=e;
+  });
+  /* 安装完成 → 收掉提示条 */
+  window.addEventListener('appinstalled',()=>{
+    _deferredPrompt=null;
+    closePwaBar(true);
+    toast('已添加到桌面');
+  });
+  const go=$('pwaGo'),no=$('pwaNo');
+  if(go)go.addEventListener('pointerdown',e=>{
+    e.preventDefault();SFX.init();SFX.click();
+    if(_deferredPrompt){
+      try{_deferredPrompt.prompt();}catch(err){}
+      _deferredPrompt=null;
+      closePwaBar(false);      // 交给系统弹窗，本次不记住，用户拒绝后下次还能引导
+    }else{
+      /* iOS 或浏览器未提供安装事件：给出对应手动指引 */
+      if(pwaIsIOS())toast('点底部「分享」→「添加到主屏幕」');
+      else toast('浏览器菜单 →「添加到主屏幕 / 安装应用」');
+      closePwaBar(true);
+    }
+  });
+  if(no)no.addEventListener('pointerdown',e=>{e.preventDefault();SFX.click();closePwaBar(true);});
+}
+
 /* ---------------- S13 主循环 ---------------- */
 let lastT=0,_qbtnT=0;
 /* ---------------- 手感三件套：顿帧 / 震屏 / 震动 ----------------
@@ -6042,6 +6230,7 @@ function stepWorld(dt){
   updateProjectiles(dt);updateAoes(dt);updateZones(dt);updateDrops(dt);updateParticles(dt);
   if(ST.tower)updateTower(dt);
   updateNPCBtn();
+  updatePortal(dt);
   _qbtnT+=dt;
   if(_qbtnT>1){_qbtnT=0;updateQuestBtn();}
   updateCamera();
@@ -6220,6 +6409,9 @@ function startGame(cls,save,slot){
   ST.mode='game';
   SFX.startBgm();
   saveGame(curSlot);
+  /* 安装引导：等玩家进入游戏 3.5 秒、画面稳定后再浮出，
+     避免与开场的离线结算面板/新手礼包日志抢注意力 */
+  setTimeout(showPwaBar,3500);
   return true;
 }
 /* 读档失败的用户提示：明确告知"这份存档读不了"，并给出可操作选项 */
@@ -6359,6 +6551,8 @@ function resetRuntime(){
   /* 走位/撤离状态：不清会把上一局的"逃跑中"带进新角色 */
   player.retreating=false;player.retreatSide=undefined;
   player.sideT=0;player.sideDir=undefined;player.kiting=false;player.kiteSide=undefined;
+  /* 传送阵状态：不清会导致换存档后无法立即踩阵传送 */
+  portalCd=0;_portalArmed=false;
   ST.stat={dmg:0,hits:0,heal:0,hurt:0,deaths:0,goldEarn:0,goldSpend:0,
     expEarn:0,maxHit:0,streak:0,maxStreak:0,eliteKills:0,craft:0,craftOK:0,
     reroll:0,towerRuns:0,towerBestRun:0,pots:0,oreGet:0,time:0};
@@ -6376,6 +6570,7 @@ function init(){
   initInput();
   initUI();
   initTitle();
+  initPwa();
   requestAnimationFrame(frame);
   /* 测试钩子：无副作用地暴露内部状态（供自动化验证） */
   window.MF176={
@@ -6411,6 +6606,17 @@ function init(){
     openGuide,genGuideHtml,GUIDE_CATS,
     /* CD 显示优化（请求 E）：阈值 + conic-gradient 探测 */
     CD_NUM_MIN,CD_SECTOR_OK,
+    /* 传送阵交互（请求 G）：踩踏传送 + 参数，供自动化断言 */
+    updatePortal,PORTAL_R,PORTAL_CD,
+    get portalCd(){return portalCd;},
+    setPortalCd(v){portalCd=v;},
+    get portalArmed(){return _portalArmed;},
+    /* 「添加到桌面」安装引导（请求 G） */
+    initPwa,showPwaBar,closePwaBar,pwaIsIOS,pwaIsStandalone,pwaHintOff,
+    get deferredPrompt(){return _deferredPrompt;},
+    _setDeferredPrompt(v){_deferredPrompt=v;},
+    get pwaBarShown(){return _pwaBarShown;},
+    _resetPwa(){_pwaBarShown=false;try{localStorage.removeItem(PWA_HINT_OFF);}catch(e){}},
     /* 天气 BOSS / 内丹 */
     spawnWeatherBoss,clearWeatherBoss,weatherBossTick,weatherBossId,mapAllowsWeatherBoss,
     /* 人机玩家 / BOSS 特色技能 / 死亡掉落 */
