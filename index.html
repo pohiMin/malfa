@@ -162,10 +162,8 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges}
  -webkit-mask:none;mask:none;filter:none}
 /* 手动模式：技能名半暗（与 CD 状态无关，两者可叠加） */
 .skillBtn.noauto>span:first-child{opacity:.4}
-/* CD 数字：15px/900 白金 + 强描边，只在长 CD 出现 */
-.skillBtn .cdTxt{position:absolute;left:0;right:0;top:44%;transform:translateY(-50%);text-align:center;pointer-events:none;
- display:none;font-size:15px;font-weight:900;color:#ffe9b0;letter-spacing:-.5px;
- text-shadow:0 1px 0 #000,0 0 6px #000,0 2px 4px #000}
+/* CD 读秒数字已按玩家要求彻底取消：红环收缩就是唯一的冷却表达，
+   数字每秒跳变是视觉噪声（v4 定稿）。 */
 /* 就绪闪烁：CD 归零瞬间描一圈金边（0.34s），给出「可以用技能了」的瞬时反馈。
    纯 CSS 动画，由 JS 添加 .ready 类触发（每次 CD 跨过 0 只加一次）。 */
 .skillBtn.ready{animation:skReady .34s ease-out}
@@ -1077,6 +1075,18 @@ function makeSprite(rows,pal){
     const col=pal[ch]||pal[ch.toUpperCase()];if(!col)continue;
     g.fillStyle=col;g.fillRect(x*SCALE,y*SCALE,SCALE,SCALE);
   }
+  /* 预生成「受击泛白」白版：同尺寸离屏，把精灵的不透明像素全部铺白。
+     ★ 历史 bug：渲染层曾用 source-atop + fillRect(包围盒) 直接在主画布上做泛白，
+     但主画布上背景（MAP.base）是不透明的 —— source-atop 的"只染已有精灵像素"
+     语义完全失效，退化为普通填充 → 每次受击闪出一个纯白矩形块，把角色
+     整个盖住（道士宠物承伤频繁，玩家看到的就是"骷髅变成白色方块"）。
+     白版精灵在构建期一次性生成，渲染时直接 drawImage，形状精确、零每帧开销。 */
+  const wc=document.createElement('canvas');wc.width=c.width;wc.height=c.height;
+  const wg=wc.getContext('2d');
+  wg.drawImage(c,0,0);
+  wg.globalCompositeOperation='source-atop';
+  wg.fillStyle='#fff';wg.fillRect(0,0,wc.width,wc.height);
+  c._white=wc;
   return c;
 }
 function humFrames(pal){return[makeSprite(HUM_BODY.concat(HUM_L1),pal),makeSprite(HUM_BODY.concat(HUM_L2),pal)];}
@@ -2486,6 +2496,11 @@ function killPet(){
 }
 function updatePet(dt){
   if(!pet||pet.dead)return;
+  /* ★ flash 衰减：玩家（updatePlayer）与怪物（updateMobs）都有 flash-=dt，
+     唯独漏了宠物 —— 骷髅受击一次 flash 恒为 0.15，泛白永不消退，
+     叠加白版精灵后整只骷髅变成常驻的白色方块（用户报告的正是这个）。
+     与另两处保持一致：归零后不再写，避免浮点尾数。 */
+  if(pet.flash>0)pet.flash=Math.max(0,pet.flash-dt);
   pet.animT+=dt*7;pet.atkT-=dt;
   let t=pet.target;
   if(player.target&&!player.target.dead&&player.target.d.boss&&dist(player,player.target)<420){
@@ -2963,11 +2978,6 @@ function takeOre(n){
   for(let i=inv.length-1;i>=0&&n>0;i--){const it=inv[i];
     if(it.pid&&it.id==='ore'){const take=Math.min(n,it.n);it.n-=take;n-=take;
       if(it.n<=0)inv.splice(i,1);}}
-}
-function forgeWeapon(idx){
-  const it=inv[idx];
-  if(!it||it.pid){toast('只有装备可以强化');return;}
-  forgeDo(it,()=>openBag());
 }
 /* 槽位中文名（提示文案用） */
 const SLOT_CN={weapon:'武器',helmet:'头盔',armor:'衣服',necklace:'项链',bracelet:'手镯',ring:'戒指'};
@@ -4039,7 +4049,16 @@ function showItemDetail(def,idx){
   $('dtIcon').appendChild(itemIcon(def));
   $('dtClose').addEventListener('pointerdown',()=>hideItemDetail());
   const u=$('dtUse');if(u)u.addEventListener('pointerdown',()=>{useInvItem(idx);hideItemDetail();});
-  const f=$('dtForge');if(f)f.addEventListener('pointerdown',()=>{forgeWeapon(idx);hideItemDetail();});
+  const f=$('dtForge');if(f)f.addEventListener('pointerdown',()=>{
+    /* 强化后留在详情页刷新 +N 状态（旧版 hideItemDetail() 会跳回背包，
+       玩家视角="一点强化页面就关了"，既看不到最新强化结果也无法连续强化）。
+       矿石消耗可能改变背包下标，用对象引用重新定位；装备碎裂则只留背包。 */
+    forgeDo(it,()=>{
+      openBag();
+      const ni=inv.indexOf(it);
+      if(ni>=0){hideItemDetail();showItemDetail(def,ni);}
+    });
+  });
   const sl=$('dtSell');if(sl)sl.addEventListener('pointerdown',()=>{
     /* 出售后保持背包打开：sellInvItem 内部已重开背包刷新列表与金币。
        强化装备走「回收」文案，确认弹窗明确 0 返还，防手滑。 */
@@ -4675,7 +4694,6 @@ const GUIDE_CATS=[
  {ico:'⚔',n:'战斗与技能',s:'技能怎么放、CD 怎么看、蓝不够怎么办',rows:[
    ['·','六个技能栏每职业都能用满，等级到了自动解锁，<b>不需要点技能点</b>'],
    ['·','技能按钮上的<b>红色描边环</b>就是冷却：红环顺时针收缩，收完即冷却结束、技能就绪'],
-   ['·','<em>只有冷却 ≥10 秒的技能才显示倒计时数字</em>（如寒冰护甲 50s），短 CD 看红环就够，不晃眼'],
    ['·','就绪瞬间技能圈会<b>闪一圈金边</b>，余光扫到就能放'],
    ['·','技能名<b>亮=自动释放、暗=手动</b>：长按技能按钮可切换该技能的自动/手动'],
    ['·','魔法不够会自动等回蓝。可在 <b>设置 → 技能自动释放配置</b> 里为每个技能单独设「剩余魔法 ≥N 才放」'],
@@ -4915,14 +4933,8 @@ function stepVal(p,field,delta,order){
     ST.autoSkillCfg[p][field]=nv;
   }
 }
-/* CD 数字显示阈值：>= 10 秒才显示剩余秒数。
-   依据：本作 18 个技能 CD 跨度 1.0s ~ 50s（38 倍）。
-   短 CD（火球 1.05 / 灵魂火符 1.0 / 雷电 2.8）是「连续输出节奏」，
-   玩家靠红环收缩就能判断，数字每秒跳变纯属噪声；
-   长 CD（狂暴战意 45 / 寒冰护甲 50 / 神圣护盾 40 / 流星火雨 13）是
-   「战术资源」，玩家会主动卡时间决定「现在开还是再等等」，
-   秒数有实际决策价值，而且长 CD 期间数字变化慢，不会晃眼。 */
-const CD_NUM_MIN=10;
+/* CD 读秒数字已彻底取消（v4，玩家反馈"每秒跳动的数字是视觉噪声"）。
+   红环收缩是唯一的冷却表达，环收完即就绪（另有金边闪烁提示）。 */
 /* mask 支持探测：CD 红环用 radial-gradient mask 挖空中心。
    不支持时红环会糊成实心红盘，必须退回暗色扇形（.nomask）。 */
 const CD_RING_OK=(function(){
@@ -4977,13 +4989,11 @@ function updateSkillBtns(){
         b.classList.remove('ready'); /* 重新进入 CD 时清掉上一次的 ready 残留 */
       }
       _cdPrev[key]=cdLeft;
-      const showNum=cdLeft>=CD_NUM_MIN;
-      /* v3 渲染：图标恒定金色（不再变灰），自动/手动靠 .noauto 的名字明暗，
-         CD 靠红色描边环（弧长=剩余冷却）+ 长 CD 数字。 */
+      /* v4 渲染：图标恒定金色（不再变灰），自动/手动靠 .noauto 的名字明暗，
+         CD 靠红色描边环（弧长=剩余冷却）。读秒数字已按玩家反馈彻底取消。 */
       b.innerHTML='<span>'+sk.ico+'</span>'+
        (sk.mp?'<span class="mpCost">'+sk.mp+'</span>':'')+
-       (cdLeft>0?'<div class="cdRing'+(CD_RING_OK?'':' nomask')+'" style="--cdA:'+ang.toFixed(1)+'deg"></div>':'')+
-       (cdLeft>0?'<div class="cdTxt" style="display:'+(showNum?'block':'none')+'">'+Math.ceil(cdLeft)+'</div>':'');
+       (cdLeft>0?'<div class="cdRing'+(CD_RING_OK?'':' nomask')+'" style="--cdA:'+ang.toFixed(1)+'deg"></div>':'');
     }
   }
 }
@@ -5895,16 +5905,12 @@ function render(){
     ctx.translate(e.x,e.y);
     if(e.face<0)ctx.scale(-1,1);
     ctx.drawImage(img,-w/2,-h+6,w,h);
-    /* 受击泛白：用 source-atop 只在"刚画上去的精灵像素"范围内铺白，
-       比原先的透明脉动更接近街机的"打中变白"手感。
-       source-atop 只影响当前已有像素，不会盖到背景，也不破坏 save/restore 语义 */
+    /* 受击泛白：叠加"预生成白版精灵"（同形状全白），透明区域不染 —— 角色轮廓始终清晰。
+       旧实现 source-atop + fillRect(包围盒) 在不透明背景上失效，泛白糊成白色方块盖住角色。 */
     if(e.flash>0){
-      ctx.save();
-      ctx.globalCompositeOperation='source-atop';
       ctx.globalAlpha=clamp(e.flash/.15,0,1);
-      ctx.fillStyle='#fff';
-      ctx.fillRect(-w/2,-h+6,w,h);
-      ctx.restore();
+      ctx.drawImage(img._white||img,-w/2,-h+6,w,h);
+      ctx.globalAlpha=1;
     }
     // 手中武器：在躯干之上绘制，随朝向翻转；攻击时挥砍偏转
     if(isPl||isPet||e.d.armed)drawHandWeapon(e,ctx,e.face,frame);
@@ -6719,7 +6725,7 @@ function init(){
     /* 新手攻略面板（请求 E） */
     openGuide,genGuideHtml,GUIDE_CATS,
     /* CD 显示优化（请求 E）：阈值 + conic-gradient 探测 */
-    CD_NUM_MIN,CD_RING_OK,
+    CD_RING_OK,SPRITES,
     /* 传送阵交互（请求 G）：踩踏传送 + 参数，供自动化断言 */
     updatePortal,PORTAL_R,PORTAL_CD,openTowerPortalPanel,
     get portalCd(){return portalCd;},
