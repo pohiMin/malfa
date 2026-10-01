@@ -2335,26 +2335,25 @@ function updateDrops(dt){
     // 范围内磁吸自动拾取
     if(!player.dead){
       const dd=dist(d,player);
-      if(dd<130&&dd>1){
+      /* 先判断"这件东西到底捡不捡得走"。
+         原实现是先磁吸、拾取时才发现不满足条件（类型被关 / 背包满）→ 物品被
+         永久吸附在玩家脚下 1~4px 处跟着跑，看起来像"名字和图标粘在人身上"。
+         现在把判定提前：吸不走的就不吸，让它老实待在地上。 */
+      const canTake=canAutoPick(d);
+      if(canTake&&dd<130&&dd>1){
         const pull=(130-dd)/130*300+60;
         d.x+=(player.x-d.x)/dd*pull*dt;
         d.y+=(player.y-d.y)/dd*pull*dt;
       }
       if(dd<32){
-        // 自动拾取类型过滤
-        const pk=ensureAutoPickCfg();
-        const isGold=!!d.gold;
-        let allow=true;
-        if(isGold)allow=pk.gold!==false;
-        else if(d.item.pid){
-          /* 内丹单独一档开关；其余药水/矿石归入 pot */
-          const pdef=POTMAP[d.item.id];
-          allow=pdef&&pdef.dan?(pk.dan!==false):(pk.pot!==false);
-        }else{
-          const edef=EQMAP[d.item.id];
-          allow=pk.eq!==false&&(edef?pk.eqT[edef.tier]!==false:false);
+        if(!canTake){
+          /* 捡不走的物品：留在原地不动，仅首次靠近时提示一次，避免刷屏 */
+          if(!d._noPick&&d.item&&!autoPickAllowed(d.item))toast('该类型已设为不自动拾取');
+          else if(!d._noPick&&inv.length>=40)toast('背包已满');
+          d._noPick=1;
+          continue;
         }
-        if(!allow)continue; // 不拾取该类型，留在原地
+        d._noPick=0;
         MAP.drops.splice(i,1);
         if(d.gold){ST.gold+=d.gold;ST.stat.goldEarn=(ST.stat.goldEarn||0)+d.gold;addText(player.x,player.y-52,'+'+d.gold+' 金币','#ffd84a',12);SFX.gold();}
         else{if(addInv(d.item)){SFX.pickup();
@@ -2733,6 +2732,47 @@ function ensureAutoPickCfg(){
   for(const k of[1,2,3,4])if(p.eqT[k]===undefined)p.eqT[k]=true;
   if(p.dan===undefined)p.dan=true;
   return p;
+}
+/* 类型过滤：玩家是否允许自动拾取这类东西（不看背包容量）。
+   磁吸只受这一层约束——容量问题是"暂时捡不走"，不该让物品乱飞。 */
+function autoPickAllowed(it){
+  const pk=ensureAutoPickCfg();
+  if(!it)return false;
+  if(it.pid){
+    const pdef=POTMAP[it.id];
+    if(!pdef)return false;
+    return pdef.dan?(pk.dan!==false):(pk.pot!==false);
+  }
+  const edef=EQMAP[it.id];
+  if(!edef)return false;
+  if(pk.eq===false||pk.eqT[edef.tier]===false)return false;
+  return true;
+}
+/* 判断地上的掉落物「能不能被自动拾取」（类型允许 + 装得下）。
+   磁吸用它决定是否拉扯物品：吸不走的东西绝不能被吸，
+   否则会永久贴在玩家脚下跟着跑（就是"名字和图标粘在人身上"的成因）。 */
+function canAutoPick(d){
+  if(d.gold)return ensureAutoPickCfg().gold!==false;
+  if(!d.item)return false;
+  if(!autoPickAllowed(d.item))return false;
+  /* 容量：消耗品可叠加，若已有同类堆叠则不占新格 */
+  if(d.item.pid&&inv.find(i=>i.id===d.item.id&&i.pid))return true;
+  if(inv.length<40)return true;
+  /* 背包满了：只有"能被自动出售腾位"的装备才还有救 */
+  return !d.item.pid&&autoSellCanFree();
+}
+/* 背包满时，当前自动出售配置能否腾出至少一格（试算，不真卖） */
+function autoSellCanFree(){
+  const cfg=ensureAutoSellCfg();
+  for(const it of inv){
+    if(it.plus)continue;                                  // 强化过的不卖
+    if(it.pid)continue;                                   // 药水矿石不卖
+    if(equip.weapon===it||equip.helmet===it||equip.armor===it||
+       equip.necklace===it||equip.bracelet===it||equip.ring===it)continue;
+    const def=EQMAP[it.id];if(!def)continue;
+    if(cfg.t[def.tier]&&(cfg.oc||def.cls==='all'||def.cls===player.cls))return true;
+  }
+  return false;
 }
 /* 自动出售配置（背包满触发）：
    t = 参与出售的颜色档（tier1白/2蓝/3紫/4金，默认只勾白，兼容旧存档行为）
