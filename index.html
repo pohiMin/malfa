@@ -386,6 +386,18 @@ const $=id=>document.getElementById(id);
    ② 射程/移速补偿：战士近战必须贴身，故移速 +8% 且射程 48→56，
       缓解"追怪慢、被围殴"两个问题（练级效率与赤月峡谷阵亡）。
    ③ 战士受伤减免：近战吃满伤害，给予 12% 常驻减伤作为职业特性。 */
+/* ============ 试炼塔常量 ============
+   必须定义在文件前部：塔面板 / 设置页 / 新手攻略面板都会把
+   TOWER_DAN_STEP、TOWER_EQ_P 拼进提示文案，而这些 UI 代码在本文件
+   4440~4600 行，早于塔逻辑（5300+ 行）。const 没有变量提升且存在
+   暂时性死区（TDZ），把常量留在塔逻辑处会导致前面引用时直接抛
+   "Cannot access 'X' before initialization"，整站白屏 —— 这个坑
+   在本次开发中真实踩到过，故统一前置。 */
+const TOWER_MAX=15;
+const TOWER_TIME=75;             // 每层限时（秒）
+const TOWER_DAN_STEP=5;          // 每 5 层 1 颗 Boss内丹
+const TOWER_EQ_P=0.06;           // 非内丹层掉落 +9 极品装备的概率
+const TOWER_EQ_PLUS=9;           // 塔产装备的强化等级
 const CLASSES={
  warrior:{name:'战士',tag:'战',hp:58,hpG:30,mp:22,mpG:5,atk:14,atkG:3.0,matk:3,matkG:.4,def:6,defG:1.3,mdef:2,mdefG:.85,
    spd:162,range:56,atkCd:.75,dr:.12,color:'#ff8a70',desc:'血厚防高近身肉搏',skills:['flame','halfmoon','charge','assault','whirlwind','warcry']},
@@ -630,10 +642,10 @@ function eqPrice(e){const base=[0,40,150,400,1200][EQMAP[e.id].tier]||40;const q
 const POTIONS=[
  {id:'hp_s',n:'金创药(小)',heal:110,price:60},{id:'hp_m',n:'金创药(中)',heal:390,price:165},{id:'hp_l',n:'金创药(大)',heal:1360,price:440},
  {id:'mp_s',n:'魔法药(小)',mana:100,price:60},{id:'mp_m',n:'魔法药(中)',mana:340,price:165},{id:'mp_l',n:'魔法药(大)',mana:1150,price:440},
- {id:'ore',n:'黑铁矿石',d:'蕴含黑铁精气的矿石，是强化装备的必需材料（点开装备详情进行强化）',price:90,ore:1},
+ {id:'ore',n:'黑铁矿石',d:'强化石。蕴含黑铁精气的矿石，是强化装备的必需材料（点开装备详情进行强化）\n\n【获取途径】\n· 精英怪 约 10%\n· BOSS 必掉 1~3 个\n· 试炼塔不产出\n（普通怪与地图挖矿均不掉落）',price:90,ore:1},
  /* Boss 内丹：唯一用途是 +1 技能点。点开详情后按「使用」炼化。
     不可出售（避免误卖珍贵道具），强化材料同样不可出售 */
- {id:'dan',n:'Boss内丹',d:'BOSS 凝聚的精魄内丹。炼化后永久获得 1 点技能点，可直接投入天赋树。',price:0,dan:1,noSell:1}
+ {id:'dan',n:'Boss内丹',d:'BOSS 凝聚的精魄内丹。炼化后永久获得 1 点技能点，可直接投入天赋树。\n\n【唯一获取途径】\n· 中级以上地图的图主 BOSS，约 30%\n　（沃玛教主 / 祖玛教主 / 赤月恶魔）\n· 天气 BOSS，约 30%\n· 试炼塔每 5 层必得 1 颗\n\n初级地图 BOSS（骷髅王、尸王）与精英怪均不掉落。',price:0,dan:1,noSell:1}
 ];
 const POTMAP={};POTIONS.forEach(p=>POTMAP[p.id]=p);
 const RARITY_DROP={1:.62,2:.27,3:.09,4:.02}; // 按tier抽取权重基准
@@ -1491,7 +1503,11 @@ function botDropLoot(m){
       addLog('✦ 击败散人「'+m.botName+'」（'+BOT_CLS_CN[m.botCls]+' Lv.'+m.botLv+'），爆出极品首饰 『小极品·'+jd.n+'』');
     }
   }
-  if(Math.random()<.45)MAP.drops.push({x:m.x+rnd(-18,18),y:m.y+rnd(-14,14),item:{id:'ore',pid:1,n:rndi(1,2)},t:90,bob:0});
+  /* 黑铁矿石（强化石）产出渠道已重定位：仅精英 10% / BOSS 必掉。
+     人机原本 45% 掉矿石，现按「精英级」标准给 10%。
+     原「地图挖矿 45% 随机产矿石」已整体移除 —— 那是最大的过度供给源，
+     会让 +8 以上的强化风险形同虚设。 */
+  if(Math.random()<.10)MAP.drops.push({x:m.x+rnd(-18,18),y:m.y+rnd(-14,14),item:{id:'ore',pid:1,n:1},t:90,bob:0});
   if(Math.random()<.3)MAP.drops.push({x:m.x+rnd(-18,18),y:m.y+rnd(-14,14),item:{id:pick(['hp_m','mp_m']),pid:1,n:1},t:90,bob:0});
 }
 /* 真人玩家被人机击杀的死亡掉落：
@@ -2650,29 +2666,67 @@ function rollEquipTier(mapDef,isBoss,elite){
   if(!isBoss&&!elite&&Math.random()<.04)tier=Math.min(4,tier+2);
   return clamp(tier,1,4);
 }
+/* ============ 掉落产出规则（2026-10 重定位） ============
+   产品意图：把「强化石」和「Boss内丹」从"挂机就能堆"的日用品，
+   变成"必须主动找精英/BOSS"的战略物资。
+
+   ● 黑铁矿石（强化石）
+       普通怪  0%      —— 挂机刷怪不再白送强化材料
+       精英怪 10%      —— 唯一稳定来源，逼玩家主动清精英
+       BOSS   必掉 1~3 —— 打 BOSS 保底有收获
+       地图挖矿 0%     —— 原 45% 的随机挖矿产出取消（过度供给）
+     设计后果：+1~+7 的"无损强化区间"仍然友好（矿石够用），
+     但 +8 以上需要的量会真正卡住人，强化开始变成需要规划的事。
+
+   ● Boss 内丹（技能点）
+       仅「中级以上地图的最大 BOSS」掉落，概率 30%。
+       "中级以上" = 沃玛寺庙（lv22）及之后的图：沃玛教主 / 祖玛教主 / 赤月恶魔。
+       骷髅王、尸王属初级图 BOSS，不掉（避免开局就刷技能点）。
+       天气 BOSS 算"最大 BOSS"，同样 30%（它们比同级图 BOSS 更强，理应给）。
+       精英怪 0% —— 原 9% 取消，技能点不该是精英的副产品。
+     设计后果：技能点从"挂机附带"变成"需要专门去打 BOSS"，与
+     "技能点唯一来自内丹"的设定真正闭环。 */
+const ORE_P_NORMAL=0;        // 普通怪：不产强化石
+const ORE_P_ELITE=0.10;      // 精英怪：10%
+const DAN_P_BOSS=0.30;       // 中级以上地图 BOSS：30%
+const DAN_MIN_MAP_LV=22;     // 「中级地图」的等级起点（沃玛寺庙）
+/* 判断某只怪是否属于「中级以上地图的最大 BOSS」
+   注意 MONSTERS 是 {id:{...}} 结构，定义对象内部**没有** id 字段，
+   所以不能写 d.id —— 必须优先用怪物实例的 m.id，或由调用方显式传入 id。 */
+function danEligible(d,mobId){
+  if(!d||!d.boss)return false;
+  /* 天气 BOSS 视同最大 BOSS（它们比同级图主更强，给内丹合理） */
+  if(d.weatherBoss)return true;
+  const id=mobId||(d&&d._id)||null;
+  const md=MAP&&MAP.def;
+  if(!md||!md.lv||md.lv[0]<DAN_MIN_MAP_LV)return false;
+  if(!id)return false;               // 没有 id 无法确认是否图主，保守不放行
+  return md.boss===id;
+}
 function dropLoot(m){
   const d=m.d;
   /* 收益增益：昼夜（夜间更丰）+ 天气 + 套装「幸运机缘」 */
   const luckMul=1+nightDropBonus()+weatherDropBonus()+setBonus().luck;
   /* 金币：普通怪产出下调（控制金币消耗），精英/BOSS 保持以维持高价值目标感 */
   const goldScale=d.boss?1:d.elite?.82:.62;
-  const gv=Math.max(1,Math.floor(rndi(d.gold[0],d.gold[1])*luckMul*goldScale));
-  MAP.drops.push({x:m.x+rnd(-14,14),y:m.y+rnd(-10,10),gold:gv,t:60,bob:0});
+  const gv=Math.max(0,Math.floor(rndi(d.gold[0],d.gold[1])*luckMul*goldScale));
+  /* 下限为 0 而非 1：试炼塔把怪物金币设为 [0,0]，原实现里的 Math.max(1,·)
+     会把它抬成 1 金币，导致"塔内不产金币"失效（每杀一只白给 1 枚）。 */
+  if(gv>0)MAP.drops.push({x:m.x+rnd(-14,14),y:m.y+rnd(-10,10),gold:gv,t:60,bob:0});
   /* 药水：掉落几率下调（原 30%），减少无成本续航，让购药成为真实金币消耗 */
   if(Math.random()<.17){const pid=pick(['hp_s','hp_s','hp_m','mp_s','mp_m']);
     MAP.drops.push({x:m.x+rnd(-18,18),y:m.y+rnd(-12,12),item:{id:pid,pid:1,n:1},t:60,bob:0});}
-  /* 黑铁矿石（强化材料）：BOSS 必掉 1~3，精英 45%，普通怪 8% */
-  const oreP=(d.boss?1:d.elite?.45:.08)*luckMul;
+  /* 黑铁矿石（强化石）：普通怪 0%，精英 10%，BOSS 必掉 1~3 */
+  const oreP=(d.boss?1:d.elite?ORE_P_ELITE:ORE_P_NORMAL)*luckMul;
   if(Math.random()<oreP)
     MAP.drops.push({x:m.x+rnd(-16,16),y:m.y+rnd(-14,14),item:{id:'ore',pid:1,n:d.boss?rndi(1,3):1},t:90,bob:0});
-  /* Boss 内丹：唯一产出 —— 击杀任意 BOSS 必掉 1 颗（技能点道具），
-     精英小概率掉落，普通怪不掉 */
-  if(d.boss){
+  /* Boss 内丹：仅中级以上地图的最大 BOSS，概率固定 30%。
+     注意不要叠 luckMul —— 天气 BOSS 本身只在特定天气出现，
+     再乘「夜间+天气+套装」的掉落加成会把实测概率顶到 33%+，
+     偏离"30%"这个明确的数值承诺。内丹是技能点资源，宜稳定不宜浮动。 */
+  if(danEligible(d,m.id)&&Math.random()<DAN_P_BOSS){
     MAP.drops.push({x:m.x+rnd(-22,22),y:m.y+rnd(-16,16),item:{id:'dan',pid:1,n:1},t:120,bob:0});
     addLog('✦ '+d.n+' 掉落了 『Boss内丹』（炼化可得 1 技能点）');
-  }else if(d.elite&&Math.random()<.09*Math.min(2,luckMul)){
-    MAP.drops.push({x:m.x+rnd(-18,18),y:m.y+rnd(-14,14),item:{id:'dan',pid:1,n:1},t:120,bob:0});
-    addLog('✦ '+d.n+' 掉落了 『Boss内丹』');
   }
   /* 装备 */
   const dropP=(d.boss?1:d.elite?.5:.12)*luckMul;
@@ -4287,8 +4341,12 @@ function genTowerPanel(){
   let html='<div style="font-size:12px;color:#a89058;margin-bottom:8px;line-height:1.7">'+
    '⚔ 试炼塔共 '+TOWER_MAX+' 层，每层清空全部怪物即进入下一层<br>'+
    '⏱ 每层限时 '+TOWER_TIME+' 秒，超时或阵亡即结束挑战<br>'+
-   '💪 层数越高怪物越强（每层属性 +22%），收益同比提升<br>'+
-   '🎁 每层结算金币与经验，概率掉落黑铁矿石；全通额外奖励大量黑铁矿石与金币</div>';
+   '💪 层数越高怪物越强（每层属性 +22%），因此<b>不需要等级门槛</b>，几级都能来试<br>'+
+   '<b style="color:#ff8a70">⚠ 塔内不产经验、不产金币</b> —— 这里是装备与技能点的定向获取渠道，不是练级刷钱场<br>'+
+   '🎁 <b style="color:#c88aff">每 '+TOWER_DAN_STEP+' 层必得 1 颗 Boss内丹</b>（炼化得 1 技能点）<br>'+
+   '🎁 其余楼层 <b style="color:#ffd84a">约 '+(TOWER_EQ_P*100)+'%</b> 概率掉落 <b>+'+TOWER_EQ_PLUS+' 强化的小极品装备</b><br>'+
+   '🎁 全通额外再给 2 颗 Boss内丹（一轮 15 层共 5 颗）<br>'+
+   '✅ 中途阵亡或超时，<b>已到手的奖励全部保留</b>，只是停止继续爬层</div>';
   if(inTower){
     const t=ST.tower;
     html+='<div class="skItem" style="border-color:#ffd870"><b style="color:#ffd870">⚔ 挑战进行中</b>'+
@@ -4399,10 +4457,10 @@ function openSettings(){
    'background:rgba(255,216,74,.08);color:#ffd84a;font-size:13px;font-weight:900;letter-spacing:2px">'+t+'</div>';
   const html=sec('功 能')+
    '<div class="skItem"><b>技能列表</b><p>查看当前职业全部技能与解锁等级</p><button class="goldbtn" id="setSkills">查看技能</button></div>'+
-   '<div class="skItem" style="border-color:#7ab0ff"><b>技能天赋树</b><p>现有技能点：<b style="color:#7ab0ff">'+(ST.skillPt||0)+'</b> 点 · 已投入 '+talentSpent()+' 点<br>给每个技能加点，提升伤害/降低CD与耗蓝/强化宠物<br><span style="color:#c88aff;font-size:11px">技能点唯一来源：炼化 Boss内丹（击杀 BOSS 掉落）</span></p><button class="goldbtn" id="setTalent">打开天赋树</button></div>'+
+   '<div class="skItem" style="border-color:#7ab0ff"><b>技能天赋树</b><p>现有技能点：<b style="color:#7ab0ff">'+(ST.skillPt||0)+'</b> 点 · 已投入 '+talentSpent()+' 点<br>给每个技能加点，提升伤害/降低CD与耗蓝/强化宠物<br><span style="color:#c88aff;font-size:11px">技能点唯一来源：炼化 Boss内丹（中级以上地图图主 BOSS 约 30% 掉落，试炼塔每 5 层必得 1 颗）</span></p><button class="goldbtn" id="setTalent">打开天赋树</button></div>'+
    '<div class="skItem" style="border-color:#ffd870"><b>生涯记录</b><p>战斗 / 经济 / 锻造 / 探险四类统计与派生指标（DPS、金币每分钟）</p><button class="goldbtn" id="setCareer">查看生涯</button></div>'+
    (player.cls==='taoist'?'<div class="skItem" style="border-color:#c88aff"><b>宠物 · 进化</b><p>骷髅卫士 → 骷髅统领 → 神兽麒麟，查看形态进度与进化条件</p><button class="goldbtn" id="setPet">打开宠物面板</button></div>':'')+
-   '<div class="skItem" style="border-color:#ff8a70"><b>试炼塔</b><p>限时多层挑战，层数越高怪物越强、收益越丰，全通奖励大量黑铁矿石与金币</p><button class="goldbtn" id="setTower">进入试炼</button></div>'+
+   '<div class="skItem" style="border-color:#ff8a70"><b>试炼塔</b><p>共 '+TOWER_MAX+' 层限时挑战。<b style="color:#ff8a70">不产经验与金币</b> —— 每 '+TOWER_DAN_STEP+' 层必得 1 颗 Boss内丹，其他层约 '+(TOWER_EQ_P*100)+'% 概率掉落 <b>+'+TOWER_EQ_PLUS+' 强化的小极品装备</b>，全通额外再给 2 颗内丹</p><button class="goldbtn" id="setTower">进入试炼</button></div>'+
    '<div class="skItem" style="border-color:#8ad8ff"><b>存档管理</b><p>当前槽位 <b style="color:#ffd84a">#'+curSlot+'</b> · 可切换 / 删除三个独立存档</p><button class="goldbtn" id="setSlots">管理存档</button></div>'+
    sec('⚙ 自动化')+
    tog('auto','自动挂机',!!ST.auto)+
@@ -4416,7 +4474,7 @@ function openSettings(){
    '<div class="skItem"><b>背景音乐：'+(SFX.bgm?'开':'关')+'</b><p>玛法大陆的风声与琴音</p><button class="goldbtn" id="setBgm">切换</button></div>'+
    '<div class="skItem"><b>震动反馈：'+(ST.vibe?'开':'关')+'</b><p>受击 / 暴击 / 升级 / 阵亡时手机震动，画面轻微震动<br>部分安卓浏览器与 iOS Safari 不支持震动，会自动忽略</p><button class="goldbtn" id="setVibe">切换</button></div>'+
    sec('其 他')+
-   '<div class="skItem" style="border-color:#8a6a20"><b>新手攻略</b><p>玩法说明已升级为<b>分类折叠手册</b>：快速上手 / 战斗与技能 / 装备 / 强化重铸 / 昼夜天气 / 地图BOSS / 天赋 / 人机风险 / 存档，共 9 类<br>顶部还会显示你的当前进度与推荐去处，左侧「攻」按钮也可随时打开</p><button class="goldbtn" id="setGuide">打开攻略</button></div>'+
+   '<div class="skItem" style="border-color:#8a6a20"><b>新手攻略</b><p>玩法说明已升级为<b>分类折叠手册</b>：快速上手 / 战斗与技能 / 装备 / 强化重铸 / 昼夜天气 / 地图BOSS / 技能点天赋 / 试炼塔 / 人机风险 / 存档，共 10 类<br>顶部还会显示你的当前进度与推荐去处，左侧「攻」按钮也可随时打开</p><button class="goldbtn" id="setGuide">打开攻略</button></div>'+
    '<div class="skItem"><b>关于</b><p>《热血玛法 1.76》原创传奇风格单机 H5 demo<br>致敬经典 1.76 版本玩法 · 所有素材均为程序生成</p>'+
    '<button class="goldbtn" id="setReset" style="background:linear-gradient(180deg,#8a2a1a,#5a180e)">删除当前槽位存档</button></div>';
   openPanel('设置',html);
@@ -4506,7 +4564,8 @@ const GUIDE_CATS=[
    ['留哪件','通用判断：<b>品质高的留，强化过的留，本职业的留</b>。别职业的紫装基本都是卖钱货']
  ],tip:'背包只有 40 格。别囤着舍不得卖——本作装备爆率不低，囤积带来的唯一后果是打到的极品进不了包。'},
  {ico:'⚒',n:'强化与重铸',s:'怎么变强、什么时候会炸',rows:[
-   ['强化','用<b>黑铁矿石</b>强化装备，上限 <b>+12</b>。矿石从挖矿、试炼塔、怪物掉落获得'],
+   ['强化','用<b>黑铁矿石</b>强化装备，上限 <b>+12</b>。<em>矿石只从精英怪（约 10%）和 BOSS（必掉）获得</em>，普通怪与地图挖矿都不掉'],
+   ['获取','强化石是本作最需要「主动去拿」的材料 —— 挂机刷普通怪永远刷不出矿石，必须专门去清精英和打 BOSS'],
    ['无损期','<em>+1 ~ +7 失败不掉级不损坏</em>，可以放心点，这是设计好的白送区间'],
    ['危险区','<s>+8 起失败可能损坏装备（直接消失）</s>，面板会标出当前破损概率，点之前先想清楚'],
    ['重铸','重铸可洗装备品质（白→蓝→紫→金），消耗金币，也可能洗差，是给毕业装搏上限用的'],
@@ -4527,10 +4586,21 @@ const GUIDE_CATS=[
    ['·','精英怪比普通怪强但掉落更好，挂着自动战斗时会主动优先处理']
  ],tip:'打不动 BOSS 别硬顶。挂机 AI 的「残血撤离」只在你血量掉到 30% 以下才启动，那是保命不是战术——觉得吃力就换上一张图再练两级。'},
  {ico:'💎',n:'技能点与天赋',s:'技能点从哪来（这很反直觉）',rows:[
-   ['来源','<s>升级不给技能点</s>。<b>唯一获取方式</b>：击杀 BOSS 掉落 Boss内丹，在背包里点开内丹炼化，每颗 <b>+1 技能点</b>'],
+   ['来源','<s>升级不给技能点</s>。<b>唯一获取方式</b>：炼化 Boss内丹，每颗 <b>+1 技能点</b>'],
+   ['Boss掉落','只有<b>中级以上地图的图主 BOSS</b>才掉内丹，概率约 <b>30%</b>：<br>　沃玛教主 / 祖玛教主 / 赤月恶魔 / 天气 BOSS<br><span style="color:#8a7a50">初级图 BOSS（骷髅王、尸王）与精英怪都不掉</span>'],
+   ['试炼塔','每 <b>'+TOWER_DAN_STEP+' 层必得 1 颗</b>（15 层共 3 颗），全通额外再给 2 颗 —— 这是最可控的内丹来源'],
    ['天赋','天赋分三条线，每个天赋可投 0~3 点，点数有限必须取舍（入口：设置 → 天赋树）'],
    ['重置','天赋可重置，但每次消耗金币且逐次递增，前期别乱点']
  ],tip:'这条设计是故意的：技能点绑定 BOSS，意味着「变强」这件事必须主动去挑战，而不是挂机挂出来的。'},
+ {ico:'🗼',n:'试炼塔',s:'不产钱，但产技能点',rows:[
+   ['定位','共 <b>'+TOWER_MAX+' 层</b>限时挑战（每层 '+TOWER_TIME+' 秒），清空当层全部怪物即上一层。<br>塔的定位是<b>装备与技能点的定向获取渠道</b>，不是练级刷钱的地方'],
+   ['不产资源','<s>塔内不产经验、不产金币</s>。想练级刷钱请回野外挂机 —— 这条是刻意的，避免玩家长期赖在塔里绕过地图推进'],
+   ['内丹','<b style="color:#c88aff">每 '+TOWER_DAN_STEP+' 层必得 1 颗 Boss内丹</b>（= 1 技能点），15 层共 3 颗；<b>全通额外再给 2 颗</b>，一轮合计 5 颗'],
+   ['极品装备','其余楼层 <b>约 '+(TOWER_EQ_P*100)+'%</b> 概率掉落 <b>+'+TOWER_EQ_PLUS+' 强化的小极品装备</b>（赤月金品质）'],
+   ['为什么给 +'+TOWER_EQ_PLUS,'+8 起强化有损坏风险，普通玩家很难靠自己把装备点到 +9。塔里直接给成品，等于<b>用挑战换掉养成风险</b>'],
+   ['失败不亏','超时或阵亡只会结束挑战，<b>已到手的奖励全部保留</b>，不倒扣、不清空'],
+   ['难度','每层怪物属性 +22%，没有等级门槛 —— 几级都能进，能爬多高取决于装备与操作']
+ ],tip:'爬塔前先补满药水。塔里没有金币产出，意味着<b>药水是纯支出</b>——带不够药，爬到一半就会因为喝不上药而卡死。'},
  {ico:'👥',n:'人机与风险',s:'野外有人会抢你的装备',rows:[
    ['·','野外会出现<b>散人玩家（人机）</b>，有名字、有等级，会主动袭击你'],
    ['·','击败人机有几率<b>爆出极品首饰</b>，值得主动去打'],
@@ -5258,9 +5328,9 @@ function checkOffline(save){
 
 /* ============ 试炼副本（试炼塔） ============
    限时多层挑战：每层清空全部怪物进入下一层，层数越高怪物越强。
-   奖励：每层金矿 + 通关层宝箱；阵亡或超时结束，记录最高层。 */
-const TOWER_MAX=15;
-const TOWER_TIME=75;              // 每层限时（秒）
+   奖励：每层金矿 + 通关层宝箱；阵亡或超时结束，记录最高层。
+   常量 TOWER_MAX / TOWER_TIME / TOWER_DAN_STEP / TOWER_EQ_P / TOWER_EQ_PLUS
+   已前置到文件顶部（约 396 行），原因见那里的注释。 */
 function towerMobIds(floor){
   const bands=[
     ['skeleton','maggot','axe_skel'],                                  // 1-3
@@ -5274,7 +5344,7 @@ function towerMobIds(floor){
 function towerMobCount(floor){return clamp(6+floor,7,22);}
 function towerScale(floor){return 1+(floor-1)*0.22;}   // 每层属性 +22%
 function startTower(){
-  ST.tower={floor:1,killed:0,t:TOWER_TIME,alive:0,runBest:0,reward:{gold:0,exp:0,ore:0}};
+  ST.tower={floor:1,killed:0,t:TOWER_TIME,alive:0,runBest:0,reward:{dan:0,eq:0}};
   ST.towerRuns=(ST.towerRuns||0)+1;ST.stat.towerRuns=(ST.stat.towerRuns||0)+1;
   enterTowerFloor(1);
 }
@@ -5300,9 +5370,12 @@ function enterTowerFloor(floor){
     const base=MONSTERS[m.id];
     m.bossHp=Math.floor(base.hp*scale);
     m.hp=m.maxHp=m.bossHp;
-    m.d=Object.assign({},base,{atk:Math.floor(base.atk*scale),
-      exp:Math.floor(base.exp*scale*.9),
-      gold:[Math.floor(base.gold[0]*scale),Math.floor(base.gold[1]*scale)]});
+    /* 试炼塔不产经验、不产金币（产品决策）——
+       塔的定位是「装备与内丹的定向获取渠道」，不是练级刷钱场。
+       若塔同时给经验金币，玩家会长期赖在塔里挂机，绕过地图推进与
+       购药经济，也稀释了野外挂机的意义。故此处怪物产出直接置零，
+       由塔自身的楼层奖励体系（内丹 / 极品装备）提供回报。 */
+    m.d=Object.assign({},base,{atk:Math.floor(base.atk*scale),exp:0,gold:[0,0]});
     m.towerMob=true;
   }
   t.alive=MAP.mobs.filter(m=>!m.dead).length;
@@ -5319,21 +5392,59 @@ function updateTower(dt){
   if(t.alive<=0){towerFloorClear();return;}
   if(t.t<=0){failTower('时间耗尽，止步第 '+t.floor+' 层');return;}
 }
+/* 试炼塔楼层奖励（产品决策：不产经验 / 不产金币）
+   奖励结构：
+     · 每 5 层（5 / 10 / 15）→ 必得 1 颗 Boss内丹（= 1 技能点）——确定性的成长回报
+     · 其他层 → 极小概率（6%）掉落一件 +9 强化的小极品装备 —— 搏上限
+   为什么内丹放 5 的倍数：技能点是本作最稀缺资源，玩家需要一个「可规划
+   的稳定来源」。每 5 层给 1 颗，玩家能自己算出「再爬 2 层就有技能点了」，
+   这种可预期性比随机爆更让人愿意再来一次。
+   为什么 +9 而不是随机强化：+8 起强化有损坏风险，普通玩家很难靠自己去到 +9。
+   塔里直接给 +9 成品，是"用挑战换掉养成风险"，与塔的高难度定位相称。 */
+function towerFloorReward(floor){
+  const dan=(floor%TOWER_DAN_STEP===0)?1:0;
+  let eqItem=null;
+  if(!dan&&Math.random()<TOWER_EQ_P){
+    /* 只在当前玩家可用的池子里抽：品质锁 tier4（赤月金）+ 小极品(q=2)，
+       部位不限。若该职业没有 tier4 对应件，退化到 tier3 兜底。 */
+    const pickFrom=tier=>{
+      const pool=EQUIPS.filter(e=>e.tier===tier&&(e.cls==='all'||CLS_FULL[e.cls]===player.cls));
+      return pool.length?pick(pool):null;
+    };
+    const d=pickFrom(4)||pickFrom(3);
+    if(d)eqItem={id:d.id,q:2,pid:0,n:1,plus:TOWER_EQ_PLUS};
+  }
+  return {dan,eqItem};
+}
 function towerFloorClear(){
   const t=ST.tower;if(!t)return;
   const floor=t.floor;
-  /* 每层奖励：金币 + 经验 + 概率矿石 */
-  const gold=Math.floor((220+player.level*70)*towerScale(floor));
-  const exp=Math.floor((120+player.level*45)*towerScale(floor));
-  const ore=Math.random()<.55?1+Math.floor(floor/5):0;
-  ST.gold=clampGold((ST.gold||0)+gold);ST.stat.goldEarn+=gold;t.reward.gold+=gold;t.reward.exp+=exp;t.reward.ore+=ore;
-  gainExp(exp);
-  if(ore){ST.stat.oreGet+=ore;const cr=addOrConvert({id:'ore',pid:1,n:ore},{silent:true});
-    if(!cr.ok&&cr.conv>0){t.reward.gold+=cr.conv;addLog('背包已满，'+(ore)+' 个黑铁矿石折算为 '+cr.conv+' 金币');}}
+  const rw=towerFloorReward(floor);
+  const got=[];
+  /* 内丹：每 5 层必得，走 addOrConvert 保证满包折算不丢失 */
+  if(rw.dan){
+    const cr=addOrConvert({id:'dan',pid:1,n:1},{silent:true});
+    t.reward.dan=(t.reward.dan||0)+1;
+    if(cr.ok){got.push('Boss内丹 ×1');addLog('✦ 试炼塔第 '+floor+' 层奖励：Boss内丹 ×1（炼化可得 1 技能点）');}
+    else{ /* 满包且内丹不可折算时提示玩家清背包，避免"白爬" */ got.push('Boss内丹（背包已满）');addLog('⚠ 背包已满，Boss内丹未能入包，请清理背包'); }
+  }
+  /* 极品装备：非内丹层小概率 */
+  if(rw.eqItem){
+    const cr=addOrConvert(rw.eqItem,{silent:true});
+    if(cr.ok){
+      const nm=eqName(rw.eqItem);
+      t.reward.eq=(t.reward.eq||0)+1;
+      got.push('『'+nm+'』');
+      banner('★ 试炼塔奖励 ★',nm+'（+'+TOWER_EQ_PLUS+' 强化）');
+      addLog('✦✦ 试炼塔第 '+floor+' 层爆出 『'+nm+'』（强化 +'+TOWER_EQ_PLUS+'）');
+      SFX.crit();
+    }else if(cr.conv>0){addLog('背包已满，塔产装备折算为 '+cr.conv+' 金币');}
+  }
   if(floor+1>ST.towerBest)ST.towerBest=floor+1;
   if(floor>=TOWER_MAX){towerClear();return;}
-  banner('✔ 第 '+floor+' 层 通过','+'+gold+' 金币 · +'+exp+' 经验'+(ore?' · 黑铁矿石 ×'+ore:''));
-  addLog('✔ 试炼塔第 '+floor+' 层通过（+' +gold+'G / +'+exp+'EXP）');
+  const sub=got.length?got.join(' · '):'无产出（试炼塔不产经验与金币）';
+  banner('✔ 第 '+floor+' 层 通过',sub);
+  addLog('✔ 试炼塔第 '+floor+' 层通过'+(got.length?'（'+got.join(' / ')+'）':''));
   SFX.lvl();
   setTimeout(()=>{if(ST.tower)enterTowerFloor(floor+1);},900);
 }
@@ -5341,17 +5452,18 @@ function towerClear(){
   const t=ST.tower;if(!t)return;
   ST.towerClear=(ST.towerClear||0)+1;
   ST.towerBest=TOWER_MAX;
-  /* 试炼塔不再直接发放技能点（技能点唯一来源为 Boss 内丹）——
-     改为奖励黑铁矿石与金币，保留挑战价值 */
-  const oreReward=12+TOWER_MAX*2;
-  ST.stat.oreGet=(ST.stat.oreGet||0)+oreReward;
-  /* 满包折算金币，不再静默丢失全通大奖 */
-  const cRes=addOrConvert({id:'ore',pid:1,n:oreReward},{silent:true});
-  const goldReward=TOWER_MAX*3000+(cRes.conv||0);
-  ST.gold=clampGold((ST.gold||0)+goldReward);ST.stat.goldEarn=(ST.stat.goldEarn||0)+goldReward;
-  if(!cRes.ok&&cRes.conv>0)addLog('背包已满，全通奖励矿石折算为 '+cRes.conv+' 金币');
-  banner('🏆 试炼塔 全通 ！','奖励黑铁矿石 ×'+oreReward+' · 金币 '+goldReward.toLocaleString()+' · 称号「塔顶之人」');
-  addLog('🏆 试炼塔全通！获得黑铁矿石 ×'+oreReward+' 与 '+goldReward.toLocaleString()+' 金币');
+  /* 全通奖励：不再发放矿石与金币（塔整体不产经济资源）。
+     改为额外的确定性技能点回报 —— 全通共 15 层，按每 5 层 1 颗已得 3 颗，
+     全通再加 2 颗，合计 5 颗，与"一次完整通关 ≈ 打 17 只 BOSS"的投入相称。 */
+  const bonusDan=2;
+  let got=0;
+  for(let i=0;i<bonusDan;i++){
+    const cr=addOrConvert({id:'dan',pid:1,n:1},{silent:true});
+    if(cr.ok)got++;else addLog('背包已满，1 颗全通内丹未能入包');
+  }
+  t.reward.dan=(t.reward.dan||0)+got;
+  banner('🏆 试炼塔 全通 ！','额外奖励 Boss内丹 ×'+got+' · 称号「塔顶之人」');
+  addLog('🏆 试炼塔全通！额外获得 Boss内丹 ×'+got+'（共 '+(t.reward.dan||0)+' 颗）');
   ST.setOwn=ST.setOwn||{};ST.setOwn.tower=1;
   const r=t.reward;ST.tower=null;
   endTower('恭喜通关试炼塔！',r,true);
@@ -5375,11 +5487,11 @@ function endTower(reason,reward,win){
    '<div style="font-size:12px;color:#a89058;margin-top:5px">'+reason+'</div>'+
    '<div style="margin-top:10px;font-size:13px;line-height:2;text-align:left">'+
    '<div class="row"><span>到达层数</span><b>第 '+(ST.towerBest||1)+' 层</b></div>'+
-   '<div class="row"><span>累计金币</span><b style="color:#ffd84a">+'+reward.gold+'</b></div>'+
-   '<div class="row"><span>累计经验</span><b style="color:#ffd84a">+'+reward.exp+'</b></div>'+
-   '<div class="row"><span>累计矿石</span><b style="color:#ffd84a">+'+reward.ore+'</b></div>'+
+   '<div class="row"><span>Boss内丹</span><b style="color:'+((reward.dan||0)?'#c88aff':'#8a7a50')+'">×'+(reward.dan||0)+'</b></div>'+
+   '<div class="row"><span>+'+TOWER_EQ_PLUS+' 极品装备</span><b style="color:'+((reward.eq||0)?'#ffd84a':'#8a7a50')+'">×'+(reward.eq||0)+'</b></div>'+
+   '<div class="row"><span>经验 / 金币</span><b style="color:#8a7a50">不产出</b></div>'+
    '<div class="row"><span>历史最高</span><b style="color:#ffd870">第 '+(ST.towerBest||1)+' 层</b></div>'+
-   '</div><div style="font-size:11px;color:#6a5a38;margin-top:8px">已安全返回玛法村，装备与收益均已保存</div>'+
+   '</div><div style="font-size:11px;color:#6a5a38;margin-top:8px">已安全返回玛法村，塔内所得（内丹 / 装备）均已入包并保存</div>'+
    '<button class="goldbtn" style="margin-top:12px;padding:8px 28px" id="twOk">返回村庄</button></div>';
   SFX.boss();
   $('twOk').addEventListener('pointerdown',()=>hideItemDetail());
@@ -6290,6 +6402,9 @@ function init(){
     statCompareRows,showItemDetail,confirmItem,dropInvItem,sellInvItem,eqPrice,eqName,itemName,
     autoSellWhite,ensureAutoSellCfg,ensureAutoPickCfg,useInvItem,PLUS_SAFE,PLUS_MAX,forgeBreakRate,forgePanelHtml,
     iconURL,
+    /* 试炼塔产出体系（请求 F） */
+    towerFloorReward,danEligible,TOWER_DAN_STEP,TOWER_EQ_P,TOWER_EQ_PLUS,
+    ORE_P_NORMAL,ORE_P_ELITE,DAN_P_BOSS,DAN_MIN_MAP_LV,
     /* 背包整理（请求 E）：排序键 + 主函数，供自动化断言 */
     tidyBag,bagCatOf,bagItemLess,BAG_SLOT_ORDER,
     /* 新手攻略面板（请求 E） */
