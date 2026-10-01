@@ -1121,6 +1121,28 @@ const SFX={ctx:null,on:true,bgm:true,bgmTimer:null,
  stopBgm(){if(this.bgmTimer){clearInterval(this.bgmTimer);this.bgmTimer=null;}}
 };
 
+/* ---------------- S4.5 手感：震动 / 震屏 ----------------
+   vibe()  : 手机震动。iOS Safari 无 navigator.vibrate，能力检测后静默降级。
+   shake() : 渲染层震屏。与 vibe 共用 ST.vibe 开关，玩家关掉就不会再抖。 */
+const VIBE_OK=!!(typeof navigator!=='undefined'&&navigator&&typeof navigator.vibrate==='function');
+let _vibeLast=0;
+function vibe(ms,force){
+  if(!VIBE_OK||!ST.vibe)return;
+  const now=(typeof performance!=='undefined'&&performance.now)?performance.now():Date.now();
+  /* 节流：挂机高频命中时不骚扰玩家。
+     force=true 用于「阵亡」这类最高优先级事件——它必须能盖过同一帧内
+     先前那次受击震动，否则 60ms 会被自己的 10ms 挡掉。 */
+  if(!force&&now-_vibeLast<45)return;
+  _vibeLast=now;
+  try{navigator.vibrate(ms);}catch(e){}       // 隐私模式/权限被拒 → 静默忽略，绝不抛错
+}
+const SHAKE_DUR=0.22;                          // 震屏持续时长（秒）
+function shake(amp){
+  if(!ST.vibe)return;
+  shakeAmp=Math.max(shakeAmp,amp||5);          // 同时多次触发时取最强，不叠加
+  shakeT=SHAKE_DUR;
+}
+
 /* ---------------- S5 地图 ---------------- */
 const T=32; // 瓦片像素
 let MAP=null; // 当前地图运行时对象
@@ -1502,6 +1524,7 @@ function trySpawnRandomMob(){
 
 /* ---------------- S6 玩家/实体状态 ---------------- */
 const ST={mode:'title',auto:false,time:0,gold:0,kills:0,muted:false,noBgm:false,
+ vibe:true,   // 震动反馈开关（震屏也共用此开关）；老存档无此字段时默认开启
  qKills:{},qClaimed:[],qMemo:{},
  bossKills:0,q2Got:0,t4Got:0,maxPlus:0,petMaxed:false,achv:[],achvNew:0,
  autoSkill:[true,true,true,true,true,true], // 技能是否参与自动释放
@@ -1581,6 +1604,7 @@ function gainExp(n){
     /* 技能点不再随升级发放 —— 唯一获取途径是炼化 Boss 内丹 */
     recalcStats();player.hp=player.maxHp;player.mp=player.maxMp;
     banner('升 级 啦 ！','当前等级 Lv.'+player.level);SFX.lvl();
+    vibe(40);shake(5);   // 升级：一次明确的"奖赏"反馈（连升多级时会被节流保护）
     levelupFx(player.x,player.y);
     addLog('恭喜！您升到了 '+player.level+' 级');
     updateGuide();
@@ -1642,6 +1666,9 @@ function hurtMonster(m,dmg,color,isCrit,label){
   if(m.dead)return;
   dmg=Math.max(1,Math.floor(dmg));
   m.hp-=dmg;m.flash=.15;m.aggro=player;m.backT=0;
+  /* 打击感：只给暴击顿帧+震屏，普攻完全不参与（保证挂机时画面稳定） */
+  if(isCrit){hitStop=Math.max(hitStop,.075);shake(6);}
+  vibe(isCrit?25:10);
   /* 人机被攻击 → 必定敌对反击（无论初见判定结果如何） */
   if(m.isBot)m.hostile=true;
   /* 生涯统计：累计伤害 / 命中次数 / 最大单次伤害 */
@@ -1665,6 +1692,9 @@ function killMonster(m){
   questNotifyCheck();checkAchv();
   SFX.mdie();
   dieFx(m.x,m.y);
+  /* 击杀顿帧+震屏：轻一点，避免挂机刷怪时画面持续抖 */
+  hitStop=Math.max(hitStop,.05);
+  shake(m.d.boss?7:4);
   gainExp(m.d.exp);
   if(pet&&!pet.dead)petGainExp(Math.max(1,Math.floor(m.d.exp*.5))); // 宠物按 50% 分经验
   // 掉落：人机走专属掉落（极品首饰），其余怪物走通用掉落
@@ -1687,9 +1717,13 @@ function hurtPlayer(dmg,from){
   if(player.shieldT>0)dmg=Math.floor(dmg*.65);
   dmg=Math.max(1,Math.floor(dmg));
   player.hp-=dmg;player.flash=.15;player.lastHurt=ST.time;
+  /* 玩家挨打：顿帧 + 震屏 + 震动，这是"被打到了"最直接的体感来源 */
+  hitStop=Math.max(hitStop,.06);shake(5);vibe(10);
   ST.stat.hurt=(ST.stat.hurt||0)+dmg;
   addText(player.x,player.y-46,'-'+dmg,'#ff5a3c',14);
   if(player.hp<=0){
+    hitStop=Math.max(hitStop,.1);shake(9);vibe(60,true);   // 阵亡：最强一档反馈，强制绕过节流
+    _vibeLast=0;   // 清掉时间窗，保证复活的第一次受击震动正常触发
     ST.stat.deaths=(ST.stat.deaths||0)+1;
     ST.stat.streak=0;                       // 阵亡断连杀
     if(player.killer)botKillDrop(player.killer);   // 被人机击杀 → 几率掉落装备
@@ -3801,6 +3835,7 @@ function openSettings(){
    sec('音 画')+
    '<div class="skItem"><b>音效：'+(SFX.on?'开':'关')+'</b><p>战斗与拾取音效</p><button class="goldbtn" id="setSfx">切换</button></div>'+
    '<div class="skItem"><b>背景音乐：'+(SFX.bgm?'开':'关')+'</b><p>玛法大陆的风声与琴音</p><button class="goldbtn" id="setBgm">切换</button></div>'+
+   '<div class="skItem"><b>震动反馈：'+(ST.vibe?'开':'关')+'</b><p>受击 / 暴击 / 升级 / 阵亡时手机震动，画面轻微震动<br>部分安卓浏览器与 iOS Safari 不支持震动，会自动忽略</p><button class="goldbtn" id="setVibe">切换</button></div>'+
    sec('其 他')+
    '<div class="skItem"><b>玩法说明</b><p>① 左侧拖动移动，右下角释放技能，普攻自动进行<br>② 开启「自动」后自动索敌、走位、放技能、喝药<br>③ 装备按品质：白 → 沃玛蓝 → 祖玛紫 → 赤月金，同名可换装<br>④ 六个部位装备<b>均可强化</b>，上限 +12；+7 前失败无损，+8 起失败可能损坏消失<br>⑤ 黑铁矿石强化装备 / 重铸装备品质<br>⑥ 集齐同套装备（2/4/6件）激活套装属性<br>⑦ 昼夜与天气随时变化；<b>天气会引来专属 BOSS</b>，击杀必掉 Boss内丹<br>⑧ <b>技能点唯一获取方式</b>：击杀 BOSS 掉落 Boss内丹并炼化，每颗 +1 技能点（升级<b>不再</b>发放技能点）<br>⑨ 每只 BOSS 各有绝招：召唤/弹幕/冲锋/灼烧/吸血/狂暴，注意脚下预警圈<br>⑩ 野外有<b>散人玩家（人机）</b>出没，可能主动袭击你——击败他们有几率爆极品首饰；同理，被他们击杀也有几率掉落你的装备（等级越高的人机越危险）<br>⑪ 三个存档槽位互相独立，离线也有挂机收益</p></div>'+
    '<div class="skItem"><b>关于</b><p>《热血玛法 1.76》原创传奇风格单机 H5 demo<br>致敬经典 1.76 版本玩法 · 所有素材均为程序生成</p>'+
@@ -3813,8 +3848,9 @@ function openSettings(){
   $('setTower').addEventListener('pointerdown',()=>openTowerPanel(openSettings));
   $('setSlots').addEventListener('pointerdown',()=>openSlotPanel(openSettings));
   const sp=$('setPet');if(sp)sp.addEventListener('pointerdown',()=>openPetPanel(openSettings));
-  $('setSfx').addEventListener('pointerdown',()=>{SFX.on=!SFX.on;openSettings();});
-  $('setBgm').addEventListener('pointerdown',()=>{SFX.bgm=!SFX.bgm;if(SFX.bgm)SFX.startBgm();openSettings();});
+  $('setSfx').addEventListener('pointerdown',()=>{SFX.on=!SFX.on;saveGame();openSettings();});
+  $('setBgm').addEventListener('pointerdown',()=>{SFX.bgm=!SFX.bgm;if(SFX.bgm)SFX.startBgm();saveGame();openSettings();});
+  $('setVibe').addEventListener('pointerdown',()=>{ST.vibe=!ST.vibe;if(ST.vibe)vibe(20);saveGame();openSettings();});
   const bind=(id,fn)=>{const el=$('set_'+id);if(el)el.addEventListener('pointerdown',()=>{fn();openSettings();toast('设置已更新');});};
   /* 自动挂机开关：与战斗界面「自动」按钮同一状态源 ST.auto */
   bind('auto',()=>{ST.auto=!ST.auto;updateAutoBtn();if(ST.auto)acquireTarget();});
@@ -4156,6 +4192,10 @@ function sanitizeSave(o){
   o.dayN=Math.max(1,Math.floor(Number(o.dayN)||1));
   o.petLvl=Math.max(0,Math.min(PET_MAX,Math.floor(Number(o.petLvl)||0)));
   o.petExp=Math.max(0,Math.floor(Number(o.petExp)||0));
+  /* 音画开关：只接受布尔，其余一律回落到默认「开」 */
+  if(typeof o.vibe!=='boolean')o.vibe=true;
+  if(typeof o.sfxOn!=='boolean')o.sfxOn=true;
+  if(typeof o.bgmOn!=='boolean')o.bgmOn=true;
   return {data:o,broken};
 }
 /* 版本迁移钩子：旧结构 → 新结构。
@@ -4226,7 +4266,9 @@ function saveGame(slot){
      petLvl:pet?pet.lvl:0,petExp:pet?pet.exp:0,petStage:petCarry.stage||0,
      stat:ST.stat,skillPt:ST.skillPt,talents:ST.talents,talentReset:ST.talentReset,
      towerBest:ST.towerBest,towerClear:ST.towerClear,dayT:ST.dayT,dayN:ST.dayN,
-     weather:ST.weather,weatherT:ST.weatherT,setOwn:ST.setOwn};
+     weather:ST.weather,weatherT:ST.weatherT,setOwn:ST.setOwn,
+     /* 音画设置：此前这两个开关没落盘，重开后会被重置为默认值 */
+     vibe:ST.vibe,sfxOn:SFX.on,bgmOn:SFX.bgm};
   }catch(e){
     /* 序列化前的数据组装出错（循环引用等）：明确报错，不静默 */
     noteSaveFail('数据异常：'+(e&&e.message||e));
@@ -4689,7 +4731,16 @@ function render(){
   ctx.clearRect(0,0,window.innerWidth,window.innerHeight);
   ctx.save();
   ctx.scale(z,z);
-  ctx.translate(-cam.x,-cam.y);
+  /* 震屏：只在 shakeT>0 时给一个随机偏移，二次衰减让收尾更自然。
+     注意偏移加在相机平移上而非独立变换，这样 UI 层（restore 之后）完全不受影响 */
+  let shx=0,shy=0;
+  if(shakeT>0){
+    const k=Math.max(0,shakeT/SHAKE_DUR);
+    const a=shakeAmp*k*k;
+    shx=(Math.random()*2-1)*a;
+    shy=(Math.random()*2-1)*a;
+  }
+  ctx.translate(-cam.x+shx,-cam.y+shy);
   // 地面（视口裁剪绘制）
   const vw=window.innerWidth/z,vh=window.innerHeight/z;
   const sx=clamp(cam.x,0,MAP.Wpx),sy=clamp(cam.y,0,MAP.Hpx);
@@ -4793,9 +4844,18 @@ function render(){
     ctx.save();
     ctx.translate(e.x,e.y);
     if(e.face<0)ctx.scale(-1,1);
-    // 受击闪白
-    if(e.flash>0){ctx.globalAlpha=.5+Math.sin(ST.time*40)*.4;}
     ctx.drawImage(img,-w/2,-h+6,w,h);
+    /* 受击泛白：用 source-atop 只在"刚画上去的精灵像素"范围内铺白，
+       比原先的透明脉动更接近街机的"打中变白"手感。
+       source-atop 只影响当前已有像素，不会盖到背景，也不破坏 save/restore 语义 */
+    if(e.flash>0){
+      ctx.save();
+      ctx.globalCompositeOperation='source-atop';
+      ctx.globalAlpha=clamp(e.flash/.15,0,1);
+      ctx.fillStyle='#fff';
+      ctx.fillRect(-w/2,-h+6,w,h);
+      ctx.restore();
+    }
     // 手中武器：在躯干之上绘制，随朝向翻转；攻击时挥砍偏转
     if(isPl||isPet||e.d.armed)drawHandWeapon(e,ctx,e.face,frame);
     ctx.restore();
@@ -5057,6 +5117,13 @@ function hitNpcAt(cx,cy){
 
 /* ---------------- S13 主循环 ---------------- */
 let lastT=0,_qbtnT=0;
+/* ---------------- 手感三件套：顿帧 / 震屏 / 震动 ----------------
+   设计约束：挂机自动战斗时画面绝不能持续抖动。
+   因此「顿帧」与「震屏」只给关键打击（暴击/击杀/玩家受击/阵亡），普攻完全不参与；
+   震动则靠 45ms 节流兜住高频命中。 */
+let hitStop=0;    // 顿帧剩余时长（秒）。>0 时当帧 dt 归零，世界暂停但画面照常渲染
+let shakeT=0;     // 震屏剩余时长（秒）
+let shakeAmp=0;   // 震屏振幅（像素），取多次触发中的最大值
 /* 单步推进世界（与 frame 内的逻辑完全一致，但由调用方给定 dt）
    抽出的目的：主循环与自动化测试共用同一份逻辑，避免"测试走的是另一条路径" */
 function stepWorld(dt){
@@ -5078,7 +5145,11 @@ function stepWorld(dt){
 }
 function frame(t){
   requestAnimationFrame(frame);
-  const dt=Math.min(.05,(t-lastT)/1000)||0;lastT=t;
+  let dt=Math.min(.05,(t-lastT)/1000)||0;
+  lastT=t;                  // ★ 必须无条件执行：若顿帧时跳过，t-lastT 会累积整个顿帧时长，
+                            //   顿帧结束那一帧就会被截断成 0.05s 的"快进跳变"，怪物/弹幕瞬移
+  if(hitStop>0){hitStop-=dt;dt=0;}   // 顿帧：世界停住，渲染照常（画面定格制造打击感）
+  if(shakeT>0)shakeT-=dt;            // 震屏计时（只递减，不移除已产生的偏移）
   stepWorld(dt);
   render();
 }
@@ -5319,6 +5390,10 @@ function startGameInner(cls,save,slot,broken){
     ST.towerBest=save.towerBest||0;ST.towerClear=save.towerClear||0;
     ST.dayT=save.dayT||0;ST.dayN=save.dayN||1;
     ST.weather=save.weather||'sun';ST.weatherT=save.weatherT||rnd(30,60);
+    /* 音画设置：老存档没有这些字段 → 一律回落到"开"，不因升级而静音 */
+    ST.vibe=(save.vibe!==undefined)?!!save.vibe:true;
+    if(save.sfxOn!==undefined)SFX.on=!!save.sfxOn;
+    if(save.bgmOn!==undefined)SFX.bgm=!!save.bgmOn;
     petCarry={lvl:Math.min(save.petLvl||0,PET_MAX),exp:save.petExp||0,stage:save.petStage||0};
     inv.length=0;(save.inv||[]).forEach(i=>{if(!i.pid&&i.q===undefined)i.q=1;inv.push(i);});
     for(const k in equip){equip[k]=save.equip&&save.equip[k]||null;if(equip[k]&&equip[k].q===undefined)equip[k].q=1;}
@@ -5384,6 +5459,8 @@ function resetRuntime(){
   ST.skillPt=0;ST.talents={};ST.talentReset=0;   // 新角色技能点为 0（唯一来源：Boss 内丹）
   ST.towerBest=0;ST.towerClear=0;ST.dayT=0;ST.dayN=1;
   ST.weather='sun';ST.weatherT=0;
+  /* 手感状态清零：否则上一局的顿帧/震屏残留会带进新角色，开局画面抖一下 */
+  hitStop=0;shakeT=0;shakeAmp=0;_vibeLast=0;
   const d=$('itemDetail');if(d)d.classList.add('hidden');
   const rv=$('revive');if(rv)rv.classList.add('hidden');
   closePanel();
@@ -5430,6 +5507,11 @@ function init(){
     get curMap(){return MAP;},
     /* 真人路径模拟接口 */
     stepWorld,fillMobs,spawnMob,mapObsAt,
+    /* 手感三件套（顿帧 / 震屏 / 震动）：供自动化断言 */
+    vibe,shake,VIBE_OK,SHAKE_DUR,
+    get hitStop(){return hitStop;},get shakeT(){return shakeT;},get shakeAmp(){return shakeAmp;},
+    /* 仅测试用：把顿帧/震屏计时归零，避免用例间互相污染 */
+    clearFeel(){hitStop=0;shakeT=0;shakeAmp=0;_vibeLast=0;},
     get cam(){return cam;},
     setPlayerPos(x,y){player.x=x;player.y=y;},
     mobsNow(){return MAP?MAP.mobs:[];},
