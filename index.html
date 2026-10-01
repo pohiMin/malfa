@@ -3297,20 +3297,242 @@ function openPanel(title,html,back){
   $('panel').classList.remove('hidden');
 }
 const _iconURL={},_iconImg={};
+/* ============ 物品图标系统（方案 3 · 描边卡通）============
+   50 件装备按「武器子类型 / 防具档次 / 饰品种类」精确分形为 14 种形状，
+   「屠龙」是宽刃巨剑、「木剑」是细剑，不再同形只换色。
+   统一视觉语言：粗描边 + 平涂色块 + 品质色点缀，小屏辨识度优先。 */
+const ICON_SHAPE={
+  /* 战士武器 */
+  wood_sword:'sword',yinshe:'sword',longwen:'sword',ebony:'sword',
+  dagger:'dagger',bronze_axe:'axe',
+  halfmoon_blade:'blade',jingzhongyue:'blade',lianyu:'blade',bazhe:'blade',
+  tulong:'greatsword',caijue:'staff',
+  /* 法师武器 */
+  wood_staff:'staff',magic_staff:'staff',haihun:'staff',shihun:'staff',guyu:'staff',shixue:'staff',
+  /* 道士武器 */
+  wuji:'rod',xiaoyao:'fan',
+  /* 防具 */
+  cloth:'lightarmor',light_armor:'lightarmor',mid_armor:'armor',heavy_armor:'greatarmor',
+  magic_robe:'robe',soul_robe:'robe',tianzun:'robe',
+  tianmo:'greatarmor',fashen:'cape',
+  cloth_hat:'hat',skull_helm:'helm',black_iron:'helm',prayer_helm:'crown',
+  /* 饰品（同类同形，靠品质色与宝石色区分） */
+  bamboo_flute:'necklace',blue_jade:'necklace',soul_neck:'necklace',tianzhu:'necklace',green_neck:'necklace',
+  leather_brace:'bracelet',firm_brace:'bracelet',knight_brace:'bracelet',dragon_brace:'bracelet',
+  iron_ring:'ring',coral_ring:'ring',exorcism_ring:'ring',zibiluo:'ring',
+  power_ring:'ring',shengzhan_ring:'ring',fashen_ring:'ring',tianzun_ring:'ring'
+};
+function iconShapeOf(def){
+  if(ICON_SHAPE[def.id])return ICON_SHAPE[def.id];
+  return {weapon:'sword',armor:'armor',helmet:'helm',necklace:'necklace',bracelet:'bracelet',ring:'ring'}[def.slot]||'sword';
+}
+/* 卡通图标绘制核心：粗描边 + 平涂。OUT 为统一描边色 */
+function drawEqIcon(g,shape,tier,S){
+  const col=TIER_COLOR[tier]||'#d8d8d0',k=S/40;
+  const OUT='#1a1208';
+  g.save();g.translate(S/2,S/2);g.scale(k,k);
+  g.lineJoin='round';g.lineCap='round';
+  const fin=fill=>{if(fill){g.fillStyle=fill;g.fill();}g.strokeStyle=OUT;g.lineWidth=2.6;g.stroke();};
+  const isW=/^(sword|blade|greatsword|dagger|axe|staff|rod|fan)$/.test(shape);
+  const base=isW?'#e8e0d0':(tier>=4?'#ffe9b0':tier>=3?'#d8c0ff':tier>=2?'#b8d8ff':'#e0e0d8');
+  const accent=tier>=4?'#ffb020':tier>=3?'#a060e0':tier>=2?'#4090e0':'#a0a098';
+  if(shape==='sword'||shape==='blade'||shape==='greatsword'){
+    const W=shape==='greatsword'?7.4:shape==='blade'?5.4:4.2;
+    const L=shape==='greatsword'?17:16;
+    g.beginPath();g.moveTo(0,-L-4);g.lineTo(W,-L+4);g.lineTo(W,L-3);g.lineTo(-W,L-3);g.lineTo(-W,-L+4);g.closePath();
+    fin(base);
+    g.beginPath();g.moveTo(0,-L-2);g.lineTo(W*.4,-L+4);g.lineTo(W*.4,L-4);g.lineTo(-W*.4,L-4);g.lineTo(-W*.4,-L+4);g.closePath();
+    g.fillStyle='#ffffffaa';g.fill();
+    g.beginPath();
+    if(shape==='greatsword'){g.moveTo(-12,L-4);g.lineTo(12,L-4);g.lineTo(9.6,1);g.lineTo(-9.6,1);}
+    else{g.moveTo(-9,L-4);g.lineTo(9,L-4);g.lineTo(7,1);g.lineTo(-7,1);}
+    g.closePath();fin(accent);
+    g.fillStyle='#6a4a28';g.fillRect(-2.6,1,5.2,8);
+    g.strokeStyle=OUT;g.lineWidth=2.6;g.strokeRect(-2.6,1,5.2,8);
+    g.beginPath();g.arc(0,10.6,3.2,0,6.29);fin(tier>=4?'#ffd870':'#c8a050');
+  }
+  else if(shape==='dagger'){
+    g.beginPath();g.moveTo(0,-14);g.lineTo(4,-6);g.lineTo(4,4);g.lineTo(-4,4);g.lineTo(-4,-6);g.closePath();
+    fin(base);
+    g.beginPath();g.moveTo(-8.4,4);g.lineTo(8.4,4);g.lineTo(6.6,8.4);g.lineTo(-6.6,8.4);g.closePath();fin(accent);
+    g.fillStyle='#6a4a28';g.fillRect(-2.4,8.4,4.8,9);g.strokeStyle=OUT;g.lineWidth=2.6;g.strokeRect(-2.4,8.4,4.8,9);
+  }
+  else if(shape==='axe'){
+    g.fillStyle='#6a4a28';g.fillRect(-2.6,-14,5.2,28);
+    g.strokeStyle=OUT;g.lineWidth=2.6;g.strokeRect(-2.6,-14,5.2,28);
+    g.beginPath();g.moveTo(-2,-13);g.bezierCurveTo(-17,-11,-19,1,-7,3);g.lineTo(-2,-1);g.closePath();fin(base);
+    g.beginPath();g.moveTo(2,-13);g.bezierCurveTo(17,-11,19,1,7,3);g.lineTo(2,-1);g.closePath();fin(base);
+    g.beginPath();g.moveTo(-4,-15);g.lineTo(4,-15);g.lineTo(4,-10);g.lineTo(-4,-10);g.closePath();fin(accent);
+  }
+  else if(shape==='staff'){
+    g.fillStyle='#6a4a28';g.fillRect(-2.6,-6,5.2,24);
+    g.strokeStyle=OUT;g.lineWidth=2.6;g.strokeRect(-2.6,-6,5.2,24);
+    const rg=g.createRadialGradient(-2,-13,1,0,-10,9);
+    rg.addColorStop(0,'#ffffff');rg.addColorStop(.45,col);rg.addColorStop(1,accent);
+    g.beginPath();g.arc(0,-11,7.6,0,6.29);
+    g.fillStyle=rg;g.fill();g.strokeStyle=OUT;g.lineWidth=2.6;g.stroke();
+    g.beginPath();g.arc(0,-5,3.4,0.5,3.7);g.strokeStyle=accent;g.lineWidth=2.6;g.stroke();
+  }
+  else if(shape==='rod'){
+    g.fillStyle='#8a6a3a';g.fillRect(-3,-14,6,29);
+    g.strokeStyle=OUT;g.lineWidth=2.6;g.strokeRect(-3,-14,6,29);
+    g.beginPath();g.arc(0,-16,4.4,0,6.29);fin(accent);
+    g.beginPath();g.arc(0,17,3.8,0,6.29);fin(accent);
+  }
+  else if(shape==='fan'){
+    g.save();g.translate(0,11);
+    for(let i=0;i<7;i++){
+      const a=-Math.PI*0.84+i*(Math.PI*0.68/6);
+      g.save();g.rotate(a);
+      g.beginPath();g.moveTo(0,0);g.lineTo(-3.2,-22);g.lineTo(3.2,-22);g.closePath();
+      fin(i%2?base:'#f8f0e0');
+      g.restore();
+    }
+    g.beginPath();g.arc(0,0,4.4,0,6.29);fin(tier>=4?'#ffd870':'#c8a050');
+    g.restore();
+    g.strokeStyle=OUT;g.lineWidth=2.6;
+    g.beginPath();g.moveTo(0,11);g.lineTo(0,19);g.stroke();
+  }
+  else if(shape==='armor'||shape==='greatarmor'||shape==='lightarmor'){
+    const wide=shape==='greatarmor'?1.16:shape==='lightarmor'?.88:1;
+    g.beginPath();
+    g.moveTo(-9*wide,-12);g.lineTo(9*wide,-12);g.lineTo(12*wide,-5);
+    g.lineTo(10*wide,13);g.lineTo(-10*wide,13);g.lineTo(-12*wide,-5);g.closePath();
+    fin(base);
+    g.beginPath();g.ellipse(-11*wide,-8,5,3.8,0,0,6.29);fin(accent);
+    g.beginPath();g.ellipse(11*wide,-8,5,3.8,0,0,6.29);fin(accent);
+    g.beginPath();g.moveTo(0,-11);g.lineTo(0,12);g.strokeStyle=accent;g.lineWidth=2.2;g.stroke();
+    g.beginPath();g.moveTo(-7,-5);g.lineTo(7,-5);g.stroke();
+  }
+  else if(shape==='robe'||shape==='cape'){
+    g.beginPath();
+    if(shape==='cape'){g.moveTo(-10,-12);g.lineTo(10,-12);g.lineTo(14,14);g.lineTo(-14,14);}
+    else{g.moveTo(-8,-12);g.lineTo(8,-12);g.lineTo(13,14);g.lineTo(-13,14);}
+    g.closePath();
+    fin(tier>=4?'#ffe9b0':'#b8a0e8');
+    g.beginPath();g.moveTo(-5,-12);g.lineTo(0,-6);g.lineTo(5,-12);g.closePath();fin(accent);
+    g.strokeStyle=accent;g.lineWidth=2.2;
+    g.beginPath();g.moveTo(-10,6);g.lineTo(10,6);g.stroke();
+    g.beginPath();g.moveTo(-11,11);g.lineTo(11,11);g.stroke();
+  }
+  else if(shape==='crown'){
+    g.beginPath();g.moveTo(-12,7);g.lineTo(-12,-6);g.lineTo(-6.4,-1);g.lineTo(-3.6,-10);
+    g.lineTo(0,-3);g.lineTo(3.6,-10);g.lineTo(6.4,-1);g.lineTo(12,-6);g.lineTo(12,7);g.closePath();
+    fin(tier>=4?'#ffd870':'#ffe9b0');
+    g.beginPath();g.arc(0,-6.4,2.8,0,6.29);fin(col);
+    g.beginPath();g.moveTo(-12,7);g.lineTo(12,7);g.lineTo(11,12);g.lineTo(-11,12);g.closePath();fin(accent);
+  }
+  else if(shape==='hat'||shape==='helm'){
+    g.beginPath();g.arc(0,3,12,Math.PI,0);g.closePath();fin(base);
+    g.beginPath();g.moveTo(-13,3);g.lineTo(13,3);g.lineTo(12,9);g.lineTo(-12,9);g.closePath();fin(accent);
+    if(shape==='helm'){
+      g.fillStyle=OUT;
+      g.fillRect(-9,2,6,4.4);g.fillRect(3,2,6,4.4);
+      g.beginPath();g.moveTo(0,-11);g.lineTo(3.4,-4);g.lineTo(-3.4,-4);g.closePath();fin('#ffd870');
+    }else{
+      g.strokeStyle=OUT;g.lineWidth=2.2;
+      g.beginPath();g.moveTo(-10,4);g.lineTo(10,4);g.stroke();
+    }
+  }
+  else if(shape==='necklace'){
+    g.beginPath();g.arc(0,-2,10,0.3,Math.PI-0.3,false);
+    g.strokeStyle=accent;g.lineWidth=4.4;g.stroke();
+    g.strokeStyle=OUT;g.lineWidth=1.8;g.stroke();
+    g.beginPath();g.moveTo(0,7);g.lineTo(5.4,12);g.lineTo(0,18);g.lineTo(-5.4,12);g.closePath();
+    fin(col);
+    g.fillStyle='#ffffff88';
+    g.beginPath();g.moveTo(0,8.4);g.lineTo(2.4,11.4);g.lineTo(0,13.4);g.lineTo(-2.4,11.4);g.closePath();g.fill();
+    g.fillStyle='#ffe9b0';
+    [-8.6,-5.6,5.6,8.6].forEach(x=>{g.beginPath();g.arc(x,-0.8,2,0,6.29);g.fill();
+      g.strokeStyle=OUT;g.lineWidth=1.4;g.stroke();});
+  }
+  else if(shape==='bracelet'){
+    g.beginPath();g.ellipse(0,0,11,8.6,0,0,6.29);
+    g.strokeStyle=accent;g.lineWidth=5.2;g.stroke();
+    g.strokeStyle=OUT;g.lineWidth=2;g.stroke();
+    g.beginPath();g.ellipse(0,0,8,5.8,0,0,6.29);g.stroke();
+    g.beginPath();g.arc(0,-8.6,3.6,0,6.29);fin(col);
+    g.fillStyle='#ffffff99';g.beginPath();g.arc(-1.2,-9.8,1.4,0,6.29);g.fill();
+  }
+  else if(shape==='ring'){
+    g.beginPath();g.arc(0,2,9.6,0,6.29);
+    g.strokeStyle=accent;g.lineWidth=4.6;g.stroke();
+    g.strokeStyle=OUT;g.lineWidth=2;g.stroke();
+    g.beginPath();g.arc(0,2,7.4,0,6.29);g.stroke();
+    g.beginPath();g.moveTo(0,-14);g.lineTo(5.4,-8.4);g.lineTo(0,-3.4);g.lineTo(-5.4,-8.4);g.closePath();
+    fin(col);
+    g.fillStyle='#ffffff99';
+    g.beginPath();g.moveTo(0,-12.4);g.lineTo(2.6,-9.4);g.lineTo(0,-7.2);g.lineTo(-2.6,-9.4);g.closePath();g.fill();
+  }
+  g.restore();
+}
+/* 卡通药水瓶：红=生命 / 蓝=魔法，瓶身大小随规格（s/m/l）递增 */
+function drawPotIcon(g,def,S){
+  const k=S/40,OUT='#1a1208';
+  const hp=!!def.heal;
+  const big=def.id.endsWith('_l')?1.22:def.id.endsWith('_s')?.82:1;
+  const liquid=hp?'#e04838':'#3a78e0';
+  const liquidHi=hp?'#ff8a70':'#88b0ff';
+  g.save();g.translate(S/2,S/2);g.scale(k*big,k*big);
+  g.lineJoin='round';g.lineCap='round';
+  /* 瓶塞 */
+  g.fillStyle='#8a6a3a';
+  g.beginPath();g.moveTo(-4.4,-17);g.lineTo(4.4,-17);g.lineTo(3.4,-11);g.lineTo(-3.4,-11);g.closePath();
+  g.fill();g.strokeStyle=OUT;g.lineWidth=2.2;g.stroke();
+  /* 瓶身：圆底烧瓶 */
+  g.beginPath();g.moveTo(-3.4,-11);g.lineTo(-3.4,-2);
+  g.bezierCurveTo(-11,2,-11,15,0,15);g.bezierCurveTo(11,15,11,2,3.4,-2);
+  g.lineTo(3.4,-11);g.closePath();
+  g.fillStyle='#f4f0e8';g.fill();
+  g.strokeStyle=OUT;g.lineWidth=2.4;g.stroke();
+  /* 液体（裁剪在瓶身内） */
+  g.save();g.clip();
+  g.fillStyle=liquid;
+  g.fillRect(-12,1,24,15);
+  /* 液面 */
+  g.fillStyle=liquidHi;g.fillRect(-12,1,24,2.6);
+  /* 气泡 */
+  g.fillStyle='#ffffff66';
+  g.beginPath();g.arc(-3.4,8,1.7,0,6.29);g.fill();
+  g.beginPath();g.arc(3.8,11,1.2,0,6.29);g.fill();
+  g.restore();
+  /* 瓶身高光 */
+  g.fillStyle='#ffffffaa';
+  g.beginPath();g.ellipse(-4.6,-4,1.6,4.4,-.28,0,6.29);g.fill();
+  g.restore();
+}
+/* 黑铁矿石：棱角岩石 + 金色矿斑 */
+function drawOreIcon(g,S){
+  const k=S/40,OUT='#1a1208';
+  g.save();g.translate(S/2,S/2);g.scale(k,k);
+  g.lineJoin='round';g.lineCap='round';
+  g.beginPath();
+  g.moveTo(-12,4);g.lineTo(-7,-9);g.lineTo(2,-13);g.lineTo(12,-4);g.lineTo(13,7);g.lineTo(4,14);g.lineTo(-8,13);
+  g.closePath();
+  g.fillStyle='#4a4a52';g.fill();g.strokeStyle=OUT;g.lineWidth=2.4;g.stroke();
+  /* 岩石断面 */
+  g.beginPath();g.moveTo(-7,-9);g.lineTo(2,-13);g.lineTo(4,0);g.lineTo(-4,2);g.closePath();
+  g.fillStyle='#6a6a74';g.fill();
+  g.beginPath();g.moveTo(2,-13);g.lineTo(12,-4);g.lineTo(8,2);g.lineTo(4,0);g.closePath();
+  g.fillStyle='#585862';g.fill();
+  /* 金色矿斑 */
+  g.fillStyle='#ffd870';
+  g.beginPath();g.arc(-1,-4,2,0,6.29);g.fill();
+  g.beginPath();g.arc(6,3,1.5,0,6.29);g.fill();
+  g.beginPath();g.arc(-5,6,1.3,0,6.29);g.fill();
+  g.fillStyle='#ffffff88';g.beginPath();g.arc(-1.6,-4.8,.8,0,6.29);g.fill();
+  g.restore();
+}
 function iconURL(def){
   if(_iconURL[def.id])return _iconURL[def.id];
   const c=document.createElement('canvas');c.width=40;c.height=40;
   const g=c.getContext('2d');
   if(def.slot){
+    /* 装备：深色底板 + 品质边框，与卡通图形搭配 */
     const col=TIER_COLOR[def.tier];
     g.fillStyle='#241a0c';g.fillRect(0,0,40,40);
     g.strokeStyle=col;g.lineWidth=2;g.strokeRect(3,3,34,34);
-    g.fillStyle=col;
-    if(def.slot==='weapon'){g.beginPath();g.moveTo(20,6);g.lineTo(26,20);g.lineTo(20,34);g.lineTo(14,20);g.closePath();g.fill();}
-    else if(def.slot==='armor'){g.beginPath();g.moveTo(8,10);g.lineTo(32,10);g.lineTo(28,32);g.lineTo(12,32);g.closePath();g.fill();}
-    else if(def.slot==='helmet'){g.beginPath();g.arc(20,18,11,3.14,0);g.fill();g.fillRect(9,18,22,5);}
-    else{g.beginPath();g.arc(20,20,9,0,6.29);g.fill();
-      g.fillStyle='#241a0c';g.beginPath();g.arc(20,20,5,0,6.29);g.fill();}
+    drawEqIcon(g,iconShapeOf(def),def.tier||1,40);
   }else if(def.dan){
     // Boss 内丹：暗紫丹丸 + 金色纹路 + 高光，与药水（蓝/红十字瓶）明显区分
     const grd=g.createRadialGradient(16,16,2,20,20,15);
@@ -3326,11 +3548,12 @@ function iconURL(def){
     g.fillStyle='#5e1f8a';g.beginPath();g.arc(20,26.5,2.1,0,6.29);g.fill();
     // 顶部高光
     g.fillStyle='rgba(255,255,255,.75)';g.beginPath();g.arc(14.5,14,2.6,0,6.29);g.fill();
+  }else if(def.ore){
+    g.fillStyle='#241a0c';g.fillRect(0,0,40,40);
+    drawOreIcon(g,40);
   }else{
-    // 药水
-    g.fillStyle=def.heal?'#c03028':'#2848a8';
-    g.fillRect(15,12,10,22);g.fillRect(17,7,6,6);
-    g.fillStyle='#ffe9b0';g.fillRect(16,16,8,4);
+    g.fillStyle='#241a0c';g.fillRect(0,0,40,40);
+    drawPotIcon(g,def,40);
   }
   _iconURL[def.id]=c.toDataURL();
   return _iconURL[def.id];
