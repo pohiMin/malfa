@@ -145,17 +145,20 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges}
  color:#ffe9b0;font-size:21px;font-weight:900;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer;
  text-shadow:0 2px 3px #000}
 .skillBtn:active{filter:brightness(1.4)}
-/* CD 扇形遮罩（新）：conic-gradient 从顶部顺时针扫过，类比 MOBA 技能圈。
-   旧实现是「整块黑罩 + 15px 大数字」，问题在于：
-   ① 黑罩把技能图标完全吃掉，CD 中根本看不出这是哪个技能；
-   ② 火球术 1.05s 这种短 CD 数字每秒闪跳 1 次，纯视觉噪声。
-   新方案：暗区随 CD 收缩（图标始终可见），数字只服务战术决策。 */
+/* CD 扇形遮罩：conic-gradient 从顶部顺时针扫过，类比 MOBA 技能圈。
+   暗区透明度 .75（原 .62）：深棕色按钮底上 .62 的黑几乎看不出来，
+   实测截图对比度不足，玩家无法一眼分辨"冷却中/可用"。 */
 .skillBtn .cdSector{position:absolute;inset:0;display:none;pointer-events:none;
  border-radius:50%;
- background:conic-gradient(from 0deg,rgba(0,0,0,.62) var(--cdA,0deg),transparent 0deg)}
-.skillBtn .cdTxt{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;pointer-events:none;
- display:none;font-size:10px;font-weight:700;color:#ffd88a;letter-spacing:-.5px;
- text-shadow:0 1px 2px #000,0 0 5px #000}
+ background:conic-gradient(from 0deg,rgba(0,0,0,.75) var(--cdA,0deg),transparent 0deg)}
+/* CD 中的图标变灰暗：比扇形更直接的"不可用"信号。
+   只压图标本身（span:first-child），数字与扇形不受影响仍清晰可读。 */
+.skillBtn.cding>span:first-child{filter:grayscale(.8) brightness(.55)}
+/* CD 数字：原 10px 在手机上小到看不清，且与右下角耗蓝数字互相混淆。
+   提到 15px/900 粗 + 白金色 + 强描边，位置略上移避开耗蓝角标。 */
+.skillBtn .cdTxt{position:absolute;left:0;right:0;top:44%;transform:translateY(-50%);text-align:center;pointer-events:none;
+ display:none;font-size:15px;font-weight:900;color:#ffe9b0;letter-spacing:-.5px;
+ text-shadow:0 1px 0 #000,0 0 6px #000,0 2px 4px #000}
 /* 就绪闪烁：CD 归零瞬间描一圈金边（0.34s），给出「可以用技能了」的瞬时反馈。
    纯 CSS 动画，由 JS 添加 .ready 类触发（每次 CD 跨过 0 只加一次）。 */
 .skillBtn.ready{animation:skReady .34s ease-out}
@@ -165,7 +168,10 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges}
 }
 /* 不支持 conic-gradient 的老浏览器：退回黑罩 + 数字（功能降级，不丢信息） */
 .skillBtn .cdSector.nosup{background:#00000088;border-radius:0}
-.skillBtn .mpCost{position:absolute;bottom:2px;right:5px;font-size:9px;color:#7ab0ff;font-weight:normal}
+/* 耗蓝角标：移到右上角（左上已被「自/手」占用，原右下位置与技能名大字
+   及 CD 数字三者在 62px 圆里互相打架 —— 实测截图确认压字）。 */
+.skillBtn .mpCost{position:absolute;top:2px;right:4px;font-size:9px;color:#8ab8ff;font-weight:normal;
+ text-shadow:0 1px 2px #000}
 .skillBtn.lock{filter:grayscale(1) brightness(.5)}
 .skillBtn.lock .lk{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:#ffe9b0;background:#00000060}
 .skillBtn.passive{border-style:dashed;filter:none}
@@ -3134,9 +3140,18 @@ function autoSellWhite(){
 }
 function sellInvItem(idx){
   const it=inv[idx];if(!it)return false;
-  /* 不可出售：已强化过的装备、Boss 内丹（noSell）、黑铁矿石（强化材料）
-     详情面板已屏蔽按钮，此处再兜一层，防止直接调用绕过 */
-  if((it.plus||0)>0){toast('已强化的装备不可出售');return false;}
+  /* 已强化的装备 → 「回收」通道：可以交回系统，但 0 金币返还。
+     为什么 0 返还：装备回收价随品质走，若强化也升值，玩家可以用
+     廉价白装反复强化到 +1 再卖掉套利（矿石成本 < 回收差价时形成
+     无限刷钱循环）。0 返还把这条路堵死 —— 回收只是给"强化废了的
+     装备"一个名正言清的清理出口，不产生经济收益。 */
+  if((it.plus||0)>0){
+    inv.splice(idx,1);
+    addLog('♻ 回收了 『'+itemName(it)+'』（强化装备回收不返还金币）');
+    toast('已回收（强化装备 0 返还）');
+    SFX.click();openBag();
+    return true;
+  }
   if(it.pid){
     const p=POTMAP[it.id];
     if(p&&(p.noSell||p.dan)){toast('该道具珍贵，不可出售');return false;}
@@ -3992,13 +4007,18 @@ function showItemDetail(def,idx){
      若在 if 块内 const 声明，回调执行时会 ReferenceError: sp is not defined */
   let tradeBtn='',sellMsg='';
   if(it&&idx>=0){
-    /* 不可出售：已强化过的装备（任何部位）、以及标记 noSell 的道具（Boss 内丹） */
+    /* 出售 / 回收：
+       · 普通装备与药水 → 出售换金币
+       · 已强化的装备 → 只能「回收」，0 金币返还（防强化套利，见 sellInvItem）
+       · Boss 内丹 / 黑铁矿石 → 完全不可出售 */
     const isDan=it.pid&&POTMAP[it.id]&&POTMAP[it.id].dan;
     const isOre=it.pid&&POTMAP[it.id]&&POTMAP[it.id].ore;
-    const canSell=!(plus>0)&&!isDan&&!isOre;
-    const sp=it.pid?Math.floor((POTMAP[it.id]?POTMAP[it.id].price:90)*.3):eqPrice(it);
-    if(canSell)sellMsg='出售可获得 '+sp+' 金币';
-    const sellTxt=canSell?('出售 '+sp+'G'):(isDan?'珍贵·不可售':isOre?'强化材料·不可售':'已强化·不可售');
+    const recycle=(it.plus||0)>0;
+    const canSell=!isDan&&!isOre;
+    const sp=recycle?0:(it.pid?Math.floor((POTMAP[it.id]?POTMAP[it.id].price:90)*.3):eqPrice(it));
+    if(recycle)sellMsg='强化装备回收不返还金币（防止"低买高卖"式套利），仅作为清理背包的正式途径';
+    else if(canSell)sellMsg='出售可获得 '+sp+' 金币';
+    const sellTxt=recycle?'♻ 回收 0G':(canSell?('出售 '+sp+'G'):(isDan?'珍贵·不可售':'强化材料·不可售'));
     tradeBtn='<button class="goldbtn" style="margin:10px 4px 0 0;'+(canSell?'':'opacity:.4')+'" id="dtSell"'+(canSell?'':' disabled')+'>'+
       sellTxt+'</button>'+
       '<button class="goldbtn" style="margin:10px 4px 0 0;background:#4a1e1e;border-color:#8a3a3a;color:#ffb0a0" id="dtDrop">丢弃</button>';
@@ -4022,8 +4042,10 @@ function showItemDetail(def,idx){
   const u=$('dtUse');if(u)u.addEventListener('pointerdown',()=>{useInvItem(idx);hideItemDetail();});
   const f=$('dtForge');if(f)f.addEventListener('pointerdown',()=>{forgeWeapon(idx);hideItemDetail();});
   const sl=$('dtSell');if(sl)sl.addEventListener('pointerdown',()=>{
-    /* 出售后保持背包打开：sellInvItem 内部已重开背包刷新列表与金币 */
-    confirmItem('出售',def,it,sellMsg,()=>{sellInvItem(idx);});});
+    /* 出售后保持背包打开：sellInvItem 内部已重开背包刷新列表与金币。
+       强化装备走「回收」文案，确认弹窗明确 0 返还，防手滑。 */
+    const isRecycle=(it.plus||0)>0;
+    confirmItem(isRecycle?'回收':'出售',def,it,sellMsg,()=>{sellInvItem(idx);});});
   const dp=$('dtDrop');if(dp)dp.addEventListener('pointerdown',()=>{
     confirmItem('丢弃',def,it,'丢弃后物品将永久消失，无法找回',()=>{dropInvItem(idx);});});
 }
@@ -4949,6 +4971,8 @@ function updateSkillBtns(){
         b.classList.add('ready');
       }
       if(cdLeft<=0)b.classList.remove('ready');
+      /* CD 中 → 图标变灰 + 扇形 + 数字（≥10s），一眼区分可用/冷却 */
+      b.classList.toggle('cding',!isPassive&&cdLeft>0);
       _cdPrev[key]=cdLeft;
       const showNum=cdLeft>=CD_NUM_MIN;
       b.innerHTML='<span>'+sk.ico+'</span>'+
