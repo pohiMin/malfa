@@ -1,0 +1,24 @@
+{
+  "name": "热血玛法1.76",
+  "short_name": "热血玛法",
+  "description": "原创致敬经典传奇1.76玩法的单机H5游戏——战法道三职业、打宝挂机、装备强化、试炼塔、宠物进化。无需联网，单机畅玩。",
+  "lang": "zh-CN",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0805",
+  "theme_color": "#1a1208",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    { "src": "icons/icon-48.png",  "sizes": "48x48",   "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-72.png",  "sizes": "72x72",   "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-96.png",  "sizes": "96x96",   "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-144.png", "sizes": "144x144", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-152.png", "sizes": "152x152", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
