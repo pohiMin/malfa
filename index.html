@@ -145,17 +145,24 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges}
  color:#ffe9b0;font-size:21px;font-weight:900;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer;
  text-shadow:0 2px 3px #000}
 .skillBtn:active{filter:brightness(1.4)}
-/* CD 扇形遮罩：conic-gradient 从顶部顺时针扫过，类比 MOBA 技能圈。
-   暗区透明度 .75（原 .62）：深棕色按钮底上 .62 的黑几乎看不出来，
-   实测截图对比度不足，玩家无法一眼分辨"冷却中/可用"。 */
-.skillBtn .cdSector{position:absolute;inset:0;display:none;pointer-events:none;
- border-radius:50%;
- background:conic-gradient(from 0deg,rgba(0,0,0,.75) var(--cdA,0deg),transparent 0deg)}
-/* CD 中的图标变灰暗：比扇形更直接的"不可用"信号。
-   只压图标本身（span:first-child），数字与扇形不受影响仍清晰可读。 */
-.skillBtn.cding>span:first-child{filter:grayscale(.8) brightness(.55)}
-/* CD 数字：原 10px 在手机上小到看不清，且与右下角耗蓝数字互相混淆。
-   提到 15px/900 粗 + 白金色 + 强描边，位置略上移避开耗蓝角标。 */
+/* ---------- 技能按钮：CD 红环 + 名字明暗（v3 重设计）----------
+   玩家反馈前两版（黑罩 → 暗扇形+图标变灰）"太丑、没有美感"。
+   v3 设计语言：按钮本体保持干净（图标恒定金色可读），
+   两类状态信息全部收在「边缘」与「明暗」上：
+     · CD → 沿按钮圆周的一圈红色描边环，弧长=剩余冷却，顺时针收缩归零
+     · 自动/手动 → 技能名明暗：自动常亮金，手动半暗（去掉绿色小方块标签）
+     · 数字 → 仅 ≥10s 的长 CD 显示（战术信息），白色强描边 */
+.skillBtn .cdRing{position:absolute;inset:-1px;pointer-events:none;border-radius:50%;
+ background:conic-gradient(from 0deg,#ff5a3c 0deg,#ff5a3c var(--cdA,0deg),rgba(255,90,60,0) var(--cdA,0deg));
+ -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 5px),#000 calc(100% - 4px));
+ mask:radial-gradient(farthest-side,transparent calc(100% - 5px),#000 calc(100% - 4px));
+ filter:drop-shadow(0 0 3px #ff5a3c99)}
+/* 不支持 mask 的老浏览器：红环会糊成实心红盘 → 退回暗色扇形（保底有角度信息） */
+.skillBtn .cdRing.nomask{background:conic-gradient(from 0deg,rgba(0,0,0,.72) 0deg,rgba(0,0,0,.72) var(--cdA,0deg),transparent var(--cdA,0deg));
+ -webkit-mask:none;mask:none;filter:none}
+/* 手动模式：技能名半暗（与 CD 状态无关，两者可叠加） */
+.skillBtn.noauto>span:first-child{opacity:.4}
+/* CD 数字：15px/900 白金 + 强描边，只在长 CD 出现 */
 .skillBtn .cdTxt{position:absolute;left:0;right:0;top:44%;transform:translateY(-50%);text-align:center;pointer-events:none;
  display:none;font-size:15px;font-weight:900;color:#ffe9b0;letter-spacing:-.5px;
  text-shadow:0 1px 0 #000,0 0 6px #000,0 2px 4px #000}
@@ -166,20 +173,12 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges}
   0%{box-shadow:0 0 0 0 #ffe9a0,0 0 0 0 #ffca4a88;border-color:#fff4c8}
   100%{box-shadow:0 0 0 5px #ffe9a000,0 0 16px 6px #ffca4a00;border-color:#b08a3c}
 }
-/* 不支持 conic-gradient 的老浏览器：退回黑罩 + 数字（功能降级，不丢信息） */
-.skillBtn .cdSector.nosup{background:#00000088;border-radius:0}
-/* 耗蓝角标：移到右上角（左上已被「自/手」占用，原右下位置与技能名大字
-   及 CD 数字三者在 62px 圆里互相打架 —— 实测截图确认压字）。 */
+/* 耗蓝角标：右上角（左上留白保持干净，右下原位置会压技能名大字） */
 .skillBtn .mpCost{position:absolute;top:2px;right:4px;font-size:9px;color:#8ab8ff;font-weight:normal;
  text-shadow:0 1px 2px #000}
 .skillBtn.lock{filter:grayscale(1) brightness(.5)}
 .skillBtn.lock .lk{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:#ffe9b0;background:#00000060}
 .skillBtn.passive{border-style:dashed;filter:none}
-.skillBtn .autoTag{position:absolute;top:-1px;left:-1px;width:17px;height:17px;border-radius:0 0 10px 0;
- font-size:10px;font-weight:900;display:flex;align-items:center;justify-content:center;
- background:#2f8a3f;color:#e8ffe8;border:0;text-shadow:0 1px 1px #000}
-.skillBtn.noauto .autoTag{background:#8a5a1a;color:#ffe9c8}
-.skillBtn.noauto{filter:grayscale(.45) brightness(.78)}
 .skillBtn.buffed{border-color:#5aff8a;box-shadow:0 0 14px #5aff8a88}
 .skillBtn.buffed::after{content:'';position:absolute;inset:2px;border-radius:50%;border:1.5px dashed #5aff8a88}
 #autoBtn{width:62px;height:62px;border-radius:50%;border:3px solid #8a7a4a;background:radial-gradient(circle at 35% 30%,#3a3418,#181408);
@@ -4675,10 +4674,10 @@ const GUIDE_CATS=[
  ],tip:'新手最容易犯的错：不敢开「自动」。本作挂机 AI 会算魔法保留、会残血撤离、会躲 BOSS 预警圈，比手动乱点强得多。'},
  {ico:'⚔',n:'战斗与技能',s:'技能怎么放、CD 怎么看、蓝不够怎么办',rows:[
    ['·','六个技能栏每职业都能用满，等级到了自动解锁，<b>不需要点技能点</b>'],
-   ['·','技能按钮上的<b>暗色扇形</b>就是冷却：扇形顺时针收缩，收完即冷却结束、技能就绪'],
-   ['·','<em>只有冷却 ≥10 秒的技能才显示倒计时数字</em>（如寒冰护甲 50s），短 CD 靠扇形判断就够，不晃眼'],
+   ['·','技能按钮上的<b>红色描边环</b>就是冷却：红环顺时针收缩，收完即冷却结束、技能就绪'],
+   ['·','<em>只有冷却 ≥10 秒的技能才显示倒计时数字</em>（如寒冰护甲 50s），短 CD 看红环就够，不晃眼'],
    ['·','就绪瞬间技能圈会<b>闪一圈金边</b>，余光扫到就能放'],
-   ['·','按钮左上角写着 <b>自/手</b>：长按技能按钮可切换该技能的自动/手动释放'],
+   ['·','技能名<b>亮=自动释放、暗=手动</b>：长按技能按钮可切换该技能的自动/手动'],
    ['·','魔法不够会自动等回蓝。可在 <b>设置 → 技能自动释放配置</b> 里为每个技能单独设「剩余魔法 ≥N 才放」'],
    ['·','被动技能（如攻杀剑术）常驻生效，不用放，不占操作']
  ],tip:'法师和道士前期很难，因为蓝药贵。解决办法不是省技能，而是把「魔法保留」调到 0，用蓝换清怪速度——清得快才买得起药。'},
@@ -4919,16 +4918,18 @@ function stepVal(p,field,delta,order){
 /* CD 数字显示阈值：>= 10 秒才显示剩余秒数。
    依据：本作 18 个技能 CD 跨度 1.0s ~ 50s（38 倍）。
    短 CD（火球 1.05 / 灵魂火符 1.0 / 雷电 2.8）是「连续输出节奏」，
-   玩家靠扇形暗区收缩就能判断，数字每秒跳变纯属噪声；
+   玩家靠红环收缩就能判断，数字每秒跳变纯属噪声；
    长 CD（狂暴战意 45 / 寒冰护甲 50 / 神圣护盾 40 / 流星火雨 13）是
    「战术资源」，玩家会主动卡时间决定「现在开还是再等等」，
    秒数有实际决策价值，而且长 CD 期间数字变化慢，不会晃眼。 */
 const CD_NUM_MIN=10;
-/* conic-gradient 支持探测（只算一次）。不支持则降级为整块黑罩。 */
-const CD_SECTOR_OK=(function(){
+/* mask 支持探测：CD 红环用 radial-gradient mask 挖空中心。
+   不支持时红环会糊成实心红盘，必须退回暗色扇形（.nomask）。 */
+const CD_RING_OK=(function(){
   try{
     if(typeof CSS==='undefined'||!CSS.supports)return false;
-    return CSS.supports('background','conic-gradient(from 0deg,#000 0deg,transparent 0deg)');
+    return CSS.supports('-webkit-mask-image','linear-gradient(#000,#000)')||
+           CSS.supports('mask-image','linear-gradient(#000,#000)');
   }catch(e){return false;}
 })();
 /* 每个技能按钮上一帧的 CD 左值：用于检测「跨过 0」这一瞬间，触发就绪闪烁。
@@ -4954,8 +4955,8 @@ function updateSkillBtns(){
       b.classList.toggle('buffed',!!isBuffOn);
       const isPassive=sk.type==='passive';
       if(isPassive)_cdPrev[key]=-1;
-      /* CD 归一化进度（0=刚进入冷却，1=冷却走完）→ 转成扇形暗区角度。
-         conic-gradient 的暗色区域 = 剩余冷却，从 12 点方向顺时针铺开并随 CD 收缩。
+      /* CD 归一化进度（0=刚进入冷却，1=冷却走完）→ 转成红环弧长角度。
+         conic-gradient 的红色区域 = 剩余冷却，从 12 点方向顺时针收缩。
          注意：cd 总长取 SKILLS[key].cd，但被动技 cd=0 需保护除数。 */
       let ang=0,frac=0;
       if(!isPassive&&cdLeft>0&&sk.cd>0){
@@ -4963,27 +4964,30 @@ function updateSkillBtns(){
         ang=frac*360;
       }
       /* 就绪闪烁：只在 CD 的「有 → 无」跨越边沿触发一次。
-         判定条件必须排除首次渲染（_cdPrev 为 undefined）与被动技。 */
+         判定条件必须排除首次渲染（_cdPrev 为 undefined）与被动技。
+         ★ 历史 bug：下面原有一行无条件 if(cdLeft<=0)remove('ready') 紧跟在
+         add 之后执行，触发帧刚加的类立刻被删 → 金边动画永远播不出来。
+         现改为「跨 0 帧 add，进 CD 帧（cdLeft>0）清除」两分支互斥。 */
       const pv=_cdPrev[key];
       if(!isPassive&&pv>0&&cdLeft<=0){
         b.classList.remove('ready');
         void b.offsetWidth;          /* 强制重排 → 重放 CSS 动画（连续就绪可重复触发） */
         b.classList.add('ready');
+      }else if(cdLeft>0){
+        b.classList.remove('ready'); /* 重新进入 CD 时清掉上一次的 ready 残留 */
       }
-      if(cdLeft<=0)b.classList.remove('ready');
-      /* CD 中 → 图标变灰 + 扇形 + 数字（≥10s），一眼区分可用/冷却 */
-      b.classList.toggle('cding',!isPassive&&cdLeft>0);
       _cdPrev[key]=cdLeft;
       const showNum=cdLeft>=CD_NUM_MIN;
+      /* v3 渲染：图标恒定金色（不再变灰），自动/手动靠 .noauto 的名字明暗，
+         CD 靠红色描边环（弧长=剩余冷却）+ 长 CD 数字。 */
       b.innerHTML='<span>'+sk.ico+'</span>'+
        (sk.mp?'<span class="mpCost">'+sk.mp+'</span>':'')+
-       (sk.type!=='passive'?'<span class="autoTag">'+(ST.autoSkill[i]?'自':'手')+'</span>':'')+
-       (cdLeft>0?'<div class="cdSector'+(CD_SECTOR_OK?'':' nosup')+'" style="--cdA:'+ang.toFixed(1)+'deg"></div>':'')+
+       (cdLeft>0?'<div class="cdRing'+(CD_RING_OK?'':' nomask')+'" style="--cdA:'+ang.toFixed(1)+'deg"></div>':'')+
        (cdLeft>0?'<div class="cdTxt" style="display:'+(showNum?'block':'none')+'">'+Math.ceil(cdLeft)+'</div>':'');
     }
   }
 }
-/* 100ms 一跳：CD 扇形每帧都由本函数重建 DOM，刷新率直接决定扇形滑动的平滑度。
+/* 100ms 一跳：CD 红环每帧都由本函数重建 DOM，刷新率直接决定环收缩的平滑度。
    原 250ms 在 1.05s 的火球术上只有 4 个采样点，肉眼是「跳」的；100ms 有 10 个点，
    配合 0.22s 的 CSS 过渡直觉上足够顺。开销实测可忽略（最多 6 个按钮的 innerHTML）。 */
 setInterval(()=>{if(ST.mode==='game')updateSkillBtns();},100);
@@ -6715,7 +6719,7 @@ function init(){
     /* 新手攻略面板（请求 E） */
     openGuide,genGuideHtml,GUIDE_CATS,
     /* CD 显示优化（请求 E）：阈值 + conic-gradient 探测 */
-    CD_NUM_MIN,CD_SECTOR_OK,
+    CD_NUM_MIN,CD_RING_OK,
     /* 传送阵交互（请求 G）：踩踏传送 + 参数，供自动化断言 */
     updatePortal,PORTAL_R,PORTAL_CD,openTowerPortalPanel,
     get portalCd(){return portalCd;},
