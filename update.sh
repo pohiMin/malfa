@@ -135,10 +135,23 @@ else
   PUSH_URL="$REMOTE_URL"
   [ "$AUTH" = "env" ] && PUSH_URL="https://pohiMin:${GH_TOKEN}@github.com/${REPO}.git"
 
-  if timeout 300 git push "$PUSH_URL" "$BRANCH:$BRANCH" 2>&1 | tail -5; then
+  # 网络抖动（尤其跨境链路）很常见，自动重试几次
+  PUSH_OK=0
+  for attempt in 1 2 3 4; do
+    if timeout 300 git push "$PUSH_URL" "$BRANCH:$BRANCH" 2>&1 | tail -5; then
+      PUSH_OK=1
+      break
+    fi
+    if [ "$attempt" -lt 4 ]; then
+      warn "第 $attempt 次推送失败（多为网络抖动），5 秒后重试…"
+      sleep 5
+    fi
+  done
+
+  if [ "$PUSH_OK" = "1" ]; then
     ok "推送成功"
   else
-    err "推送失败"
+    err "推送失败（已重试 4 次）"
     err "常见原因：凭据无效/已作废、网络不通、权限不足"
     exit 1
   fi
