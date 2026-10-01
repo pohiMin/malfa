@@ -273,7 +273,10 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges}
 .bagBtn.sell{border-color:#c8a03c;background:#2a2410;color:#ffd84a}
 .bagBtn[disabled]{opacity:.4}
 /* ---- 批量操作条（勾选模式下浮在网格下方） ---- */
-.bagBatchBar{display:flex;gap:5px;margin-top:8px;padding-top:8px;border-top:1px dashed #3a2e18}
+/* 批量操作条：位于工具条下方、背包网格上方（保证在首屏可见，无需滚动）。
+   flex-wrap 允许在窄屏换行；bbN 是"已选 N 件"计数徽标。 */
+.bagBatchBar{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-top:8px;padding:8px 0 0;border-top:1px dashed #3a2e18}
+.bagBatchBar .bbN{font-size:11px;font-weight:900;color:#ffca4a;margin-right:auto}
 /* ---- 背包格新增状态 ---- */
 .cell.dimmed{opacity:.26}                               /* 被筛选排除：置灰但保留位置 */
 .cell.checked{border-color:#5aff8a;box-shadow:0 0 0 1.5px #5aff8a88,0 0 10px #5aff8a55}
@@ -491,6 +494,7 @@ const TOWER_TIME=75;             // 每层限时（秒）
 const TOWER_DAN_STEP=5;          // 每 5 层 1 颗 Boss内丹
 const TOWER_EQ_P=0.04;           // 非内丹层掉落 +9 极品装备的概率（4%，需 <5%）
 const TOWER_EQ_PLUS=9;           // 塔产装备的强化等级
+const TOWER_COST=10000;          // 入场费（金币）：每次进入试炼塔都要支付 —— 塔是高风险高回报的定向渠道，免费入场会让玩家无限重试低层碰运气
 
 /* ============ 装备穿戴等级限制 ============
    设计：不给 60 多件装备逐条写等级字段，而是**由 tier 推导**。
@@ -765,15 +769,24 @@ function qOf(e){return (e&&e.q!==undefined&&e.q!==null)?e.q:1;}
 function qmul(e){return EQQ[qOf(e)]?EQQ[qOf(e)].mul:1;}
 function eqName(e){const q=qOf(e);return (e.plus?'+'+e.plus+' ':'')+(q===0?'劣质·':q===2?'小极品·':'')+EQMAP[e.id].n;}
 function eqPrice(e){const base=[0,40,150,400,1200][EQMAP[e.id].tier]||40;const q=qOf(e);return Math.floor(base*(q===0?.5:q===2?2:1));}
+/* 出售价（统一口径：单件出售 / 批量出售 / 一键出售三处共用）。
+   强化装备按「基础价 ×（1 + 强化等级 × 25%）」返金币 —— 卖强化装有钱拿，
+   但远低于强化投入（光 +1 一级就要 260 金币 + 矿石，+12 累计约 20 万金币，
+   而 +12 装备卖出只有基础价的 4 倍），"白装强化再卖掉"这条路依然是亏本生意，
+   只是玩家强化废了的装备不必再 0 金币白扔。 */
+function sellValueOf(it){
+  if(it.pid){const p=POTMAP[it.id];return Math.floor((p?p.price:90)*.3)*(it.n||1);}
+  return Math.floor(eqPrice(it)*(1+(it.plus||0)*.25));
+}
 /* 药水经济：单位价格回复量递增（大药更划算），引导玩家把钱花在成长上
    小药 2.0/点 → 中药 2.6/点 → 大药 3.4/点（每金币回复量） */
 const POTIONS=[
  {id:'hp_s',n:'金创药(小)',heal:110,price:60},{id:'hp_m',n:'金创药(中)',heal:390,price:165},{id:'hp_l',n:'金创药(大)',heal:1360,price:440},
  {id:'mp_s',n:'魔法药(小)',mana:100,price:60},{id:'mp_m',n:'魔法药(中)',mana:340,price:165},{id:'mp_l',n:'魔法药(大)',mana:1150,price:440},
- {id:'ore',n:'黑铁矿石',d:'强化石。蕴含黑铁精气的矿石，是强化装备的必需材料（点开装备详情进行强化）\n\n【获取途径】\n· 精英怪 约 10%\n· BOSS 必掉 1~3 个\n· 试炼塔不产出\n（普通怪与地图挖矿均不掉落）',price:90,ore:1},
+ {id:'ore',n:'黑铁矿石',d:'强化石。蕴含黑铁精气的矿石，是强化装备的必需材料（点开装备详情进行强化）\n\n【获取途径】\n· 击败精英怪与各类 BOSS 有机会获得\n· 试炼塔不产出\n（普通怪与地图挖矿均不掉落）',price:90,ore:1},
  /* Boss 内丹：唯一用途是 +1 技能点。点开详情后按「使用」炼化。
     不可出售（避免误卖珍贵道具），强化材料同样不可出售 */
- {id:'dan',n:'Boss内丹',d:'BOSS 凝聚的精魄内丹。炼化后永久获得 1 点技能点，可直接投入天赋树。\n\n【唯一获取途径】\n· 中级以上地图的图主 BOSS，约 30%\n　（沃玛教主 / 祖玛教主 / 赤月恶魔）\n· 天气 BOSS，约 30%\n· 试炼塔每 5 层必得 1 颗\n\n初级地图 BOSS（骷髅王、尸王）与精英怪均不掉落。',price:0,dan:1,noSell:1}
+ {id:'dan',n:'Boss内丹',d:'BOSS 凝聚的精魄内丹。炼化后永久获得 1 点技能点，可直接投入天赋树。\n\n【获取途径】\n· 中级以上地图的图主 BOSS\n　（沃玛教主 / 祖玛教主 / 赤月恶魔）\n· 天气 BOSS\n· 试炼塔深层挑战\n\n初级地图 BOSS（骷髅王、尸王）与精英怪不掉落。',price:0,dan:1,noSell:1}
 ];
 const POTMAP={};POTIONS.forEach(p=>POTMAP[p.id]=p);
 const RARITY_DROP={1:.62,2:.27,3:.09,4:.02}; // 按tier抽取权重基准
@@ -953,8 +966,12 @@ const MAPMAP={};MAPS.forEach(m=>MAPMAP[m.id]=m);
    ① Lv1~15  exponent 1.55 —— 平滑起步，前期 3~6 只怪升一级，节奏轻快
    ② Lv16~40 exponent 1.80 —— 稳定爬升，引导玩家推进地图与装备
    ③ Lv41~60 exponent 1.70 —— 指数回落，避免「50 级后一级要肝一整天」
-   实测累计：到 30 级约 9.5 万、到 45 级约 24 万、满 60 级约 73 万经验
-   （旧曲线 60 级为 107 万且末段陡增，故重排） */
+   实测累计：到 30 级约 9.5 万、到 45 级约 24 万经验
+   （旧曲线 60 级为 107 万且末段陡增，故重排）
+   ★ 等级上限 LV_MAX=45（本轮设定）：曲线本身只算到 45 就够了，
+     45 级之后的公式保留仅为防御性（万一越界调用不抛异常），
+     但 gainExp 在满级后直接短路，经验不再累积。 */
+const LV_MAX=45;   // 等级上限：满级后经验条隐藏、经验不再累积
 const expNeed=l=>
   l<=15 ? Math.floor(36*Math.pow(l,1.55))+22*l
         : l<=40 ? Math.floor(24*Math.pow(l,1.80))+24*l
@@ -1897,20 +1914,27 @@ function recalcStats(){
   player.hp=clamp(sane(player.hp),0,player.maxHp);player.mp=clamp(sane(player.mp),0,player.maxMp);
 }
 function gainExp(n){
+  /* 等级上限：满级后经验不再累积（短路与清零，经验条恒满格显示 MAX）。
+     离线结算 / 任务 / 天气BOSS 等所有经验来源都走这里，一处钳制全局生效。 */
+  if(player.level>=LV_MAX){player.exp=0;return;}
   n=Math.max(0,Math.floor(n*(1+nightExpBonus())));
   player.exp+=n;
   ST.stat.expEarn=(ST.stat.expEarn||0)+n;
   while(player.exp>=expNeed(player.level)){
     player.exp-=expNeed(player.level);player.level++;
+    if(player.level>=LV_MAX){player.exp=0;}   // 升到上限：清空经验余量
     /* 技能点不再随升级发放 —— 唯一获取途径是炼化 Boss 内丹 */
     recalcStats();player.hp=player.maxHp;player.mp=player.maxMp;
-    banner('升 级 啦 ！','当前等级 Lv.'+player.level);SFX.lvl();
+    banner(player.level>=LV_MAX?'✦已达等级上限✦':'升 级 啦 ！',
+           player.level>=LV_MAX?('Lv.'+LV_MAX+' · 修为圆满，经验不再累积'):('当前等级 Lv.'+player.level));
+    SFX.lvl();
     vibe(40);shake(5);   // 升级：一次明确的"奖赏"反馈（连升多级时会被节流保护）
     levelupFx(player.x,player.y);
-    addLog('恭喜！您升到了 '+player.level+' 级');
+    addLog(player.level>=LV_MAX?('已达等级上限 Lv.'+LV_MAX):('恭喜！您升到了 '+player.level+' 级'));
     updateGuide();
     questNotifyCheck();checkAchv();
     saveGame();   // 升级是重要节点，立即落盘（不等 3 秒轮询）
+    if(player.level>=LV_MAX)break;   // 上限保护：while 不可能再进，但显式短路更稳
   }
 }
 function addText(x,y,txt,color,size){texts.push({x,y,txt,color,size:size||13,t:.9,vy:-42});}
@@ -3253,28 +3277,16 @@ function autoSellWhite(){
 }
 function sellInvItem(idx){
   const it=inv[idx];if(!it)return false;
-  /* 已强化的装备 → 「回收」通道：可以交回系统，但 0 金币返还。
-     为什么 0 返还：装备回收价随品质走，若强化也升值，玩家可以用
-     廉价白装反复强化到 +1 再卖掉套利（矿石成本 < 回收差价时形成
-     无限刷钱循环）。0 返还把这条路堵死 —— 回收只是给"强化废了的
-     装备"一个名正言清的清理出口，不产生经济收益。 */
-  if((it.plus||0)>0){
-    inv.splice(idx,1);
-    addLog('♻ 回收了 『'+itemName(it)+'』（强化装备回收不返还金币）');
-    toast('已回收（强化装备 0 返还）');
-    SFX.click();openBag();
-    return true;
-  }
   if(it.pid){
     const p=POTMAP[it.id];
     if(p&&(p.noSell||p.dan)){toast('该道具珍贵，不可出售');return false;}
     if(p&&p.ore){toast('强化材料不可出售');return false;}
   }
-  let price;
-  if(it.pid){const p=POTMAP[it.id];price=Math.floor((p?p.price:90)*.3);}
-  else{price=eqPrice(it);}
+  /* 强化装备同样可以出售（按 sellValueOf 返还金币）——
+     返还价远低于强化投入，无法靠"白装强化再卖"套利，详见 sellValueOf 注释 */
+  const price=sellValueOf(it);
   ST.gold+=price;ST.stat.goldEarn=(ST.stat.goldEarn||0)+price;inv.splice(idx,1);
-  addLog('出售 『'+itemName(it)+'』 获得 '+price+' 金币');
+  addLog('出售 『'+itemName(it)+'』 获得 '+price+' 金币'+((it.plus||0)>0?'（强化+'+it.plus+'）':''));
   SFX.gold();openBag();
   return true;
 }
@@ -3285,8 +3297,10 @@ function showSellDialog(){
   function calc(){
     let total=0,cnt=0;
     for(const it of inv){
-      if(it.pid){if(sellSel.pot&&!POTMAP[it.id].ore){total+=Math.floor(POTMAP[it.id].price*.3);cnt++;}continue;}
+      if(it.pid){if(sellSel.pot&&!POTMAP[it.id].ore){total+=sellValueOf(it);cnt++;}continue;}
       const e=EQMAP[it.id];if(!e)continue;
+      /* 强化装备不参与一键出售（见 sellGo 内注释），估算口径与实际执行一致 */
+      if((it.plus||0)>0)continue;
       if(e.tier===1&&sellSel.w){total+=eqPrice(it);cnt++;}
       else if(e.tier===2&&sellSel.b){total+=eqPrice(it);cnt++;}
       else if(e.tier===3&&sellSel.p){total+=eqPrice(it);cnt++;}
@@ -3300,9 +3314,10 @@ function showSellDialog(){
     d.innerHTML='<b style="font-size:16px;color:#ffd870">一键出售</b>'+
      '<div style="margin-top:8px">'+
      mk('w','白色装备','普通',0)+mk('b','蓝色装备','沃玛级',0)+mk('p','紫色装备','祖玛级',0)+
-     mk('g','金色装备','赤月级（慎选）',0)+mk('pot','药水','按30%回收（不含矿石）',0)+
+     mk('g','金色装备','赤月级（慎选）',0)+mk('pot','药水','折价回收（不含矿石）',0)+
      '</div>'+
      '<div class="row"><span>预计出售 <b id="sellCnt">'+cnt+'</b> 件</span><b style="color:#ffd84a">得 '+total+' 金币</b></div>'+
+     '<div style="font-size:11px;color:#8a7a50;margin:4px 0 0">★ 强化过的装备不参与一键出售，请单独出售（可获金币）或批量勾选处理</div>'+
      '<div><button class="goldbtn" style="margin:10px 4px 0 0;background:linear-gradient(180deg,#8a2a1a,#5a180e)" id="sellGo">确认出售</button>'+
      '<button class="goldbtn" style="margin:10px 0 0" id="sellCancel">取消</button></div>';
     d.querySelectorAll('[data-sellkey]').forEach(row=>{
@@ -3316,9 +3331,13 @@ function showSellDialog(){
         if(it.pid)sell=sellSel.pot&&!POTMAP[it.id].ore; // 矿石是强化材料，不参与一键出售
         else{const e=EQMAP[it.id];
           if(!e){continue;}
+          /* ★ 强化装备不参与一键出售：品质档勾选是"按档清包"，一键下去
+             很容易把特意留着的 +N 装备一起带走。强化装请用单件出售或
+             批量勾选（那两处都会写明金额再确认）。 */
+          if((it.plus||0)>0){keep.push(it);continue;}
           if(e.tier===1)sell=sellSel.w;else if(e.tier===2)sell=sellSel.b;
           else if(e.tier===3)sell=sellSel.p;else if(e.tier===4)sell=sellSel.g;}
-        if(sell){total+=it.pid?Math.floor(POTMAP[it.id].price*.3):eqPrice(it);cnt++;}
+        if(sell){total+=sellValueOf(it);cnt++;}
         else keep.push(it);
       }
       if(!cnt){toast('未勾选任何可出售物品');return;}
@@ -4100,15 +4119,21 @@ function openBag(){
       '<span class="bagBtn danger'+(bagBatch?' on':'')+'" data-act="batch">🗑 '+(bagBatch?'退出批量':'批量')+'</span>'+
     '</div>';
 
-  const html='<div class="cbTop"><span>'+c.tag+' '+player.name+' · Lv.'+player.level+' · 击杀 '+ST.kills+'</span>'+
-    '<b>💰 '+ST.gold+'</b></div>'+
-    slots+statRow+tool+'<div class="grid" id="bagGrid"></div>'+
-    (bagBatch?'<div class="bagBatchBar">'+
+  /* ★ 批量操作条必须放在背包网格**之前**（工具条正下方）——
+     放在网格后面时，40 格背包把页面撑长，操作条沉在屏幕外，
+     玩家勾选完一堆东西却找不到"出售/丢弃"在哪（线上反馈）。
+     常驻显示已选件数，勾选后按钮即时可点。 */
+  const batchBar=bagBatch?'<div class="bagBatchBar">'+
+      '<span class="bbN">已选 '+bagSel.size+' 件</span>'+
       '<span class="bagBtn" data-bat="all">全选可见</span>'+
       '<span class="bagBtn" data-bat="none">清空</span>'+
       '<span class="bagBtn sell" data-bat="sell">出售选中</span>'+
       '<span class="bagBtn danger" data-bat="drop">丢弃选中</span>'+
-      '</div>':'')+
+      '</div>':'';
+
+  const html='<div class="cbTop"><span>'+c.tag+' '+player.name+' · Lv.'+player.level+' · 击杀 '+ST.kills+'</span>'+
+    '<b>💰 '+ST.gold+'</b></div>'+
+    slots+statRow+tool+batchBar+'<div class="grid" id="bagGrid"></div>'+
     '<div class="bagTip">点装备格 → 强化 / 卸下　·　点背包格 → '+(bagBatch?'勾选':'详情（装备 / 使用 / 出售 / 丢弃）')+'</div>';
 
   openPanel('角色 · 背包',html);
@@ -4230,20 +4255,19 @@ function openBag(){
     grid.appendChild(cell);
   }
 }
-/* 批量出售选中：与一键出售共用同一套「不可售」保护（内丹/矿石跳过、
-   强化装备 0 返还），并统计实际成交与总价 —— 绝不让玩家在批量里被套利坑。 */
+/* 批量出售选中：与单件出售共用 sellValueOf（强化装备也返金币），并统计实际成交与总价 */
 function batchSell(){
   if(!bagSel.size){toast('还没有勾选任何物品');return;}
-  let total=0,cnt=0,skip=0,recycle=0;
+  let total=0,cnt=0,skip=0,plusCnt=0;
   const keep=[];
   for(const it of inv){
     if(!bagSel.has(it)){keep.push(it);continue;}
     const pd=it.pid?POTMAP[it.id]:null;
     if(pd&&(pd.ore||pd.dan)){skip++;keep.push(it);continue;}   // 珍贵/材料：不参与
     if(eqWornSlot(it)){skip++;keep.push(it);continue;}         // 穿在身上的：不卖
-    if((it.plus||0)>0){recycle++;cnt++;continue;}              // 强化过：0 返还但计入清理数
-    total+=it.pid?Math.floor((pd?pd.price:90)*.3):eqPrice(it);
+    total+=sellValueOf(it);
     cnt++;
+    if((it.plus||0)>0)plusCnt++;
   }
   if(!cnt){toast(skip?('选中的 '+skip+' 件都不可出售'):'没有可出售的物品');return;}
   const doIt=()=>{
@@ -4251,7 +4275,7 @@ function batchSell(){
     ST.gold=Math.min(GOLD_MAX||99999999,ST.gold+total);
     bagSel.clear();bagBatch=false;
     hideItemDetail();saveGame();
-    banner('批量出售完成','出售 '+cnt+' 件 · 获得 '+total+' 金币'+(recycle?('（含 '+recycle+' 件强化装回收 0G）'):''));
+    banner('批量出售完成','出售 '+cnt+' 件 · 获得 '+total+' 金币'+(plusCnt?('（含 '+plusCnt+' 件强化装备）'):''));
     SFX.gold();updateQuestBtn();openBag();
   };
   const d=$('itemDetail');showItemDetailBox();
@@ -4259,7 +4283,7 @@ function batchSell(){
    '<div style="font-size:15px;color:#ffca4a;font-weight:900">确认批量出售？</div>'+
    '<div style="margin:8px 0;font-size:14px">共 '+cnt+' 件</div>'+
    '<div style="font-size:12px;color:#a89058;line-height:1.7">预计获得 <b style="color:#ffd84a">'+total+'</b> 金币'+
-   (recycle?'<br><span style="color:#ffb0a0">其中 '+recycle+' 件强化装备按规则回收，返还 0 金币</span>':'')+
+   (plusCnt?'<br><span style="color:#ffd84a">其中 '+plusCnt+' 件强化装备一并出售（按强化等级计价）</span>':'')+
    (skip?'<br><span style="color:#8a7a50">'+skip+' 件因不可售（内丹/矿石/已穿戴）已自动跳过</span>':'')+'</div>'+
    '<div style="margin-top:12px"><button class="goldbtn" style="margin:0 4px" id="bsNo">取消</button>'+
    '<button class="goldbtn" style="margin:0 4px;background:#4a1e1e;border-color:#8a3a3a;color:#ffb0a0" id="bsYes">确认出售</button></div></div>';
@@ -4417,22 +4441,21 @@ function showItemDetail(def,idx){
      若在 if 块内 const 声明，回调执行时会 ReferenceError: sp is not defined */
   let tradeBtn='',sellMsg='';
   if(it&&idx>=0){
-    /* 出售 / 回收：
+    /* 出售（统一走 sellValueOf）：
        · 普通装备与药水 → 出售换金币
-       · 已强化的装备 → 只能「回收」，0 金币返还（防强化套利，见 sellInvItem）
+       · 强化装备 → 同样可出售，返还价随强化等级提升（但远低于强化投入，无套利）
        · Boss 内丹 / 黑铁矿石 → 完全不可出售 */
     const isDan=it.pid&&POTMAP[it.id]&&POTMAP[it.id].dan;
     const isOre=it.pid&&POTMAP[it.id]&&POTMAP[it.id].ore;
-    const recycle=(it.plus||0)>0;
     /* ★ 已在身上的装备不允许从背包详情里出售/丢弃（双槽位上线后，
        玩家可能通过"装左手→右键仍在背包"的错觉误操作卖掉身上装备）。 */
     const wornK=eqWornSlot(it);
     const canSell=!isDan&&!isOre&&!wornK;
-    const sp=recycle?0:(it.pid?Math.floor((POTMAP[it.id]?POTMAP[it.id].price:90)*.3):eqPrice(it));
+    const sp=sellValueOf(it);
     if(wornK)sellMsg='该装备正穿戴在「'+EQ_SLOT_NAME[wornK]+'」上，请先在装备栏卸下';
-    else if(recycle)sellMsg='强化装备回收不返还金币（防止"低买高卖"式套利），仅作为清理背包的正式途径';
+    else if(canSell&&((it.plus||0)>0))sellMsg='强化装备出售可获得 '+sp+' 金币（强化投入远高于此价，请确认后再卖）';
     else if(canSell)sellMsg='出售可获得 '+sp+' 金币';
-    const sellTxt=wornK?('已装备·'+EQ_SLOT_NAME[wornK]):(recycle?'♻ 回收 0G':(canSell?('出售 '+sp+'G'):(isDan?'珍贵·不可售':'强化材料·不可售')));
+    const sellTxt=wornK?('已装备·'+EQ_SLOT_NAME[wornK]):(canSell?('出售 '+sp+'G'):(isDan?'珍贵·不可售':'强化材料·不可售'));
     tradeBtn='<button class="goldbtn" style="margin:10px 4px 0 0;'+(canSell?'':'opacity:.4')+'" id="dtSell"'+(canSell?'':' disabled')+'>'+
       sellTxt+'</button>'+
       '<button class="goldbtn" style="margin:10px 4px 0 0;background:#4a1e1e;border-color:#8a3a3a;color:#ffb0a0;'+(wornK?'opacity:.4':'')+'" id="dtDrop"'+(wornK?' disabled':'')+'>丢弃</button>';
@@ -4466,9 +4489,9 @@ function showItemDetail(def,idx){
   });
   const sl=$('dtSell');if(sl)sl.addEventListener('pointerdown',()=>{
     /* 出售后保持背包打开：sellInvItem 内部已重开背包刷新列表与金币。
-       强化装备走「回收」文案，确认弹窗明确 0 返还，防手滑。 */
-    const isRecycle=(it.plus||0)>0;
-    confirmItem(isRecycle?'回收':'出售',def,it,sellMsg,()=>{sellInvItem(idx);});});
+       强化装备也走「出售」流程，确认弹窗写明到手金额，防手滑。 */
+    confirmItem('出售',def,it,sellMsg,()=>{sellInvItem(idx);});
+  });
   const dp=$('dtDrop');if(dp)dp.addEventListener('pointerdown',()=>{
     confirmItem('丢弃',def,it,'丢弃后物品将永久消失，无法找回',()=>{dropInvItem(idx);});});
 }
@@ -4863,11 +4886,12 @@ function genTowerPanel(){
   let html='<div style="font-size:12px;color:#a89058;margin-bottom:8px;line-height:1.7">'+
    '⚔ 试炼塔共 '+TOWER_MAX+' 层，每层清空全部怪物即进入下一层<br>'+
    '⏱ 每层限时 '+TOWER_TIME+' 秒，超时或阵亡即结束挑战<br>'+
-   '💪 层数越高怪物越强（每层属性 +22%），因此<b>不需要等级门槛</b>，几级都能来试<br>'+
+   '💪 层数越高怪物越强（每层大幅增强），<b>不需要等级门槛</b>，几级都能来试<br>'+
+   '💰 <b style="color:#ffd84a">入场费 '+TOWER_COST+' 金币</b>（每次进入均需支付，中途止步不退）<br>'+
    '<b style="color:#ff8a70">⚠ 塔内不产经验、不产金币</b> —— 这里是装备与技能点的定向获取渠道，不是练级刷钱场<br>'+
-   '🎁 <b style="color:#c88aff">每 '+TOWER_DAN_STEP+' 层必得 1 颗 Boss内丹</b>（炼化得 1 技能点）<br>'+
-   '🎁 其余楼层 <b style="color:#ffd84a">约 '+(TOWER_EQ_P*100)+'%</b> 概率掉落 <b>+'+TOWER_EQ_PLUS+' 强化的小极品装备</b>（赤月金品质，穿戴需 <b style="color:#8ad8ff">Lv'+EQ_REQ_LV[4]+'</b>）<br>'+
-   '🎁 全通额外再给 2 颗 Boss内丹（一轮 15 层共 5 颗）<br>'+
+   '🎁 <b style="color:#c88aff">深层楼层稳定产出 Boss内丹</b>（炼化得 1 技能点）<br>'+
+   '🎁 其余楼层有机会掉落 <b>+'+TOWER_EQ_PLUS+' 强化的小极品装备</b>（赤月金品质，穿戴需 <b style="color:#8ad8ff">Lv'+EQ_REQ_LV[4]+'</b>）<br>'+
+   '🎁 全通另有额外内丹奖励<br>'+
    '✅ 中途阵亡或超时，<b>已到手的奖励全部保留</b>，只是停止继续爬层<br>'+
    '◈ 塔内每层有传送阵，踩上去可选择<b>继续挑战</b>或<b>放弃回村</b></div>';
   if(inTower){
@@ -4879,20 +4903,22 @@ function genTowerPanel(){
      '<button class="goldbtn" style="margin-top:8px;width:100%" id="twAbort">放弃挑战（保留已得收益）</button></div>';
   }else{
     const cur=player.level;
-    const est=Math.min(TOWER_MAX,Math.max(1,Math.floor((cur-2)/3.2)+1));
+    const est=Math.min(TOWER_MAX,Math.max(1,Math.floor((cur-2)/2.6)+1));   // 难度上调后每层可通等级门槛相应提高（3.2 → 2.6 级/层）
+    const canAfford=(ST.gold||0)>=TOWER_COST;
     html+='<div class="skItem"><b>挑战预估</b>'+
      '<div class="row"><span>当前等级</span><b>Lv.'+cur+'</b></div>'+
      '<div class="row"><span>预计可通层数</span><b style="color:#ffd84a">第 '+est+' 层左右</b></div>'+
      '<div class="row"><span>历史最高</span><b style="color:#ffd870">第 '+(ST.towerBest||0)+' 层</b></div>'+
-     '<div class="row"><span>全通次数</span><b>'+(ST.towerClear||0)+' 次</b></div></div>'+
-     '<button class="goldbtn" style="margin-top:4px;width:100%;font-size:16px;padding:12px" id="twStart">⚔ 开始试炼（第 1 层）</button>'+
+     '<div class="row"><span>全通次数</span><b>'+(ST.towerClear||0)+' 次</b></div>'+
+     '<div class="row"><span>本次入场费</span><b style="color:'+(canAfford?'#ffd84a':'#ff8a70')+'">'+TOWER_COST+' 金币'+(canAfford?'':'（金币不足）')+'</b></div></div>'+
+     '<button class="goldbtn" style="margin-top:4px;width:100%;font-size:16px;padding:12px" id="twStart">⚔ 开始试炼（第 1 层 · '+TOWER_COST+' 金币）</button>'+
      '<div style="font-size:11px;color:#8a7a50;margin-top:8px;text-align:center">挑战期间自动挂机开启，建议先补满药水</div>';
   }
   return html;
 }
 function openTowerPanel(back){
   openPanel('试炼塔',genTowerPanel(),back);
-  const s=$('twStart');if(s)s.addEventListener('pointerdown',()=>{closePanel();startTower();});
+  const s=$('twStart');if(s)s.addEventListener('pointerdown',()=>{if(startTower())closePanel();});
   const a=$('twAbort');if(a)a.addEventListener('pointerdown',()=>{failTower('主动放弃，止步第 '+ST.tower.floor+' 层');closePanel();});
 }
 
@@ -5001,10 +5027,10 @@ function openSettings(){
    '<button class="goldbtn" id="setSlots" style="border-color:#8ad8ff;color:#c8e8ff">切换 / 管理存档</button></div>';
   const html=sec('功 能')+slotBar+
    '<div class="skItem"><b>技能列表</b><p>查看当前职业全部技能与解锁等级</p><button class="goldbtn" id="setSkills">查看技能</button></div>'+
-   '<div class="skItem" style="border-color:#7ab0ff"><b>技能天赋树</b><p>现有技能点：<b style="color:#7ab0ff">'+(ST.skillPt||0)+'</b> 点 · 已投入 '+talentSpent()+' 点<br>给每个技能加点，提升伤害/降低CD与耗蓝/强化宠物<br><span style="color:#c88aff;font-size:11px">技能点唯一来源：炼化 Boss内丹（中级以上地图图主 BOSS 约 30% 掉落，试炼塔每 5 层必得 1 颗）</span></p><button class="goldbtn" id="setTalent">打开天赋树</button></div>'+
+   '<div class="skItem" style="border-color:#7ab0ff"><b>技能天赋树</b><p>现有技能点：<b style="color:#7ab0ff">'+(ST.skillPt||0)+'</b> 点 · 已投入 '+talentSpent()+' 点<br>给每个技能加点，提升伤害/降低CD与耗蓝/强化宠物<br><span style="color:#c88aff;font-size:11px">技能点唯一来源：炼化 Boss内丹（中级以上地图图主 BOSS 掉落，试炼塔深层挑战产出）</span></p><button class="goldbtn" id="setTalent">打开天赋树</button></div>'+
    '<div class="skItem" style="border-color:#ffd870"><b>生涯记录</b><p>战斗 / 经济 / 锻造 / 探险四类统计与派生指标（DPS、金币每分钟）</p><button class="goldbtn" id="setCareer">查看生涯</button></div>'+
    (player.cls==='taoist'?'<div class="skItem" style="border-color:#c88aff"><b>宠物 · 进化</b><p>骷髅卫士 → 骷髅统领 → 神兽麒麟，查看形态进度与进化条件</p><button class="goldbtn" id="setPet">打开宠物面板</button></div>':'')+
-   '<div class="skItem" style="border-color:#ff8a70"><b>试炼塔</b><p>共 '+TOWER_MAX+' 层限时挑战。<b style="color:#ff8a70">不产经验与金币</b> —— 每 '+TOWER_DAN_STEP+' 层必得 1 颗 Boss内丹，其他层约 '+(TOWER_EQ_P*100)+'% 概率掉落 <b>+'+TOWER_EQ_PLUS+' 强化的小极品装备</b>，全通额外再给 2 颗内丹</p><button class="goldbtn" id="setTower">进入试炼</button></div>'+
+   '<div class="skItem" style="border-color:#ff8a70"><b>试炼塔</b><p>共 '+TOWER_MAX+' 层限时挑战，入场需支付 <b style="color:#ffd84a">'+TOWER_COST+' 金币</b>。<b style="color:#ff8a70">不产经验与金币</b> —— 深层可获 Boss内丹，其他层有机会掉落 <b>+'+TOWER_EQ_PLUS+' 强化的小极品装备</b>，全通另有额外内丹奖励</p><button class="goldbtn" id="setTower">进入试炼</button></div>'+
    sec('⚙ 自动化')+
    tog('auto','自动挂机',!!ST.auto)+
    '<div class="skItem" style="border-color:#8a6a20"><b>技能自动释放配置</b><p>可对每个技能单独开关自动释放、调整触发条件（生命阈值、敌人数、魔法保留）</p><button class="goldbtn" id="setSkillCfg">打开技能配置</button></div>'+
@@ -5110,7 +5136,7 @@ const GUIDE_CATS=[
    ['留哪件','通用判断：<b>品质高的留，强化过的留，本职业的留</b>。别职业的紫装基本都是卖钱货']
  ],tip:'背包只有 40 格。别囤着舍不得卖——本作装备爆率不低，囤积带来的唯一后果是打到的极品进不了包。'},
  {ico:'⚒',n:'强化与重铸',s:'怎么变强、什么时候会炸',rows:[
-   ['强化','用<b>黑铁矿石</b>强化装备，上限 <b>+12</b>。<em>矿石只从精英怪（约 10%）和 BOSS（必掉）获得</em>，普通怪与地图挖矿都不掉'],
+   ['强化','用<b>黑铁矿石</b>强化装备，上限 <b>+12</b>。<em>矿石从精英怪和 BOSS 处获得</em>，普通怪与地图挖矿都不掉'],
    ['获取','强化石是本作最需要「主动去拿」的材料 —— 挂机刷普通怪永远刷不出矿石，必须专门去清精英和打 BOSS'],
    ['无损期','<em>+1 ~ +7 失败不掉级不损坏</em>，可以放心点，这是设计好的白送区间'],
    ['危险区','<s>+8 起失败可能损坏装备（直接消失）</s>，面板会标出当前破损概率，点之前先想清楚'],
@@ -5120,7 +5146,7 @@ const GUIDE_CATS=[
  {ico:'🌗',n:'昼夜与天气',s:'时间会改变收益，天气会招来 BOSS',rows:[
    ['昼夜','白昼 → 黄昏 → 黑夜 → 黎明 循环。<em>黑夜经验加成更高</em>，白昼自动回血更快'],
    ['天气','晴朗 / 下雨 / 浓雾 / 雷暴 随机变化，影响掉落与经济收益'],
-   ['天气BOSS','<b>特定天气会引来专属 BOSS</b>，击杀必掉 Boss内丹，还有专属掉落'],
+   ['天气BOSS','<b>特定天气会引来专属 BOSS</b>，击杀有机会掉落 Boss内丹，还有专属掉落'],
    ['视野','浓雾会降低视野，雷暴有环境伤害，出门前看左上角天气图标']
  ],tip:'看到「XXX降临」的横幅提示，立刻打开自动挂机——天气 BOSS 限时出现，错过要等下一轮天气。'},
  {ico:'🗺',n:'地图与 BOSS',s:'去哪练级、BOSS 怎么打',rows:[
@@ -5134,22 +5160,22 @@ const GUIDE_CATS=[
  ],tip:'打不动 BOSS 别硬顶。挂机 AI 的「残血撤离」只在你血量掉到 30% 以下才启动，那是保命不是战术——觉得吃力就换上一张图再练两级。'},
  {ico:'💎',n:'技能点与天赋',s:'技能点从哪来（这很反直觉）',rows:[
    ['来源','<s>升级不给技能点</s>。<b>唯一获取方式</b>：炼化 Boss内丹，每颗 <b>+1 技能点</b>'],
-   ['Boss掉落','只有<b>中级以上地图的图主 BOSS</b>才掉内丹，概率约 <b>30%</b>：<br>　沃玛教主 / 祖玛教主 / 赤月恶魔 / 天气 BOSS<br><span style="color:#8a7a50">初级图 BOSS（骷髅王、尸王）与精英怪都不掉</span>'],
-   ['试炼塔','每 <b>'+TOWER_DAN_STEP+' 层必得 1 颗</b>（15 层共 3 颗），全通额外再给 2 颗 —— 这是最可控的内丹来源'],
+   ['Boss掉落','只有<b>中级以上地图的图主 BOSS</b>才掉内丹：<br>　沃玛教主 / 祖玛教主 / 赤月恶魔 / 天气 BOSS<br><span style="color:#8a7a50">初级图 BOSS（骷髅王、尸王）与精英怪都不掉</span>'],
+   ['试炼塔','深层楼层稳定产出，全通另有额外奖励 —— 这是最可控的内丹来源'],
    ['天赋','天赋分三条线，每个天赋可投 0~3 点，点数有限必须取舍（入口：设置 → 天赋树）'],
    ['重置','天赋可重置，但每次消耗金币且逐次递增，前期别乱点']
  ],tip:'这条设计是故意的：技能点绑定 BOSS，意味着「变强」这件事必须主动去挑战，而不是挂机挂出来的。'},
  {ico:'🗼',n:'试炼塔',s:'不产钱，但产技能点',rows:[
-   ['定位','共 <b>'+TOWER_MAX+' 层</b>限时挑战（每层 '+TOWER_TIME+' 秒），清空当层全部怪物即上一层。<br>塔的定位是<b>装备与技能点的定向获取渠道</b>，不是练级刷钱的地方'],
+   ['定位','共 <b>'+TOWER_MAX+' 层</b>限时挑战（每层 '+TOWER_TIME+' 秒），清空当层全部怪物即上一层。<br>入场需支付 <b style="color:#ffd84a">'+TOWER_COST+' 金币入场费</b>（每次进入都要付，中途止步不退）。<br>塔的定位是<b>装备与技能点的定向获取渠道</b>，不是练级刷钱的地方'],
    ['不产资源','<s>塔内不产经验、不产金币</s>。想练级刷钱请回野外挂机 —— 这条是刻意的，避免玩家长期赖在塔里绕过地图推进'],
-   ['内丹','<b style="color:#c88aff">每 '+TOWER_DAN_STEP+' 层必得 1 颗 Boss内丹</b>（= 1 技能点），15 层共 3 颗；<b>全通额外再给 2 颗</b>，一轮合计 5 颗'],
-   ['极品装备','其余楼层 <b>约 '+(TOWER_EQ_P*100)+'%</b> 概率掉落 <b>+'+TOWER_EQ_PLUS+' 强化的小极品装备</b>（赤月金品质）。概率刻意压得很低，属于「搏上限」的意外之喜'],
+   ['内丹','<b style="color:#c88aff">深层楼层稳定产出 Boss内丹</b>（= 1 技能点），<b>全通另有额外奖励</b>'],
+   ['极品装备','其余楼层有机会掉落 <b>+'+TOWER_EQ_PLUS+' 强化的小极品装备</b>（赤月金品质），属于「搏上限」的意外之喜'],
    ['为什么给 +'+TOWER_EQ_PLUS,'+8 起强化有损坏风险，普通玩家很难靠自己把装备点到 +9。塔里直接给成品，等于<b>用挑战换掉养成风险</b>'],
    ['穿了未必能穿','塔产是<b>赤月金品质</b>（tier4），穿戴需 <b>Lv38</b>。低等级爬塔拿到也先<u>囤着</u>，等级到了再穿 —— 提前攒下毕业装备，而不是提前穿上'],
    ['传送阵','塔内每层也有<b>传送阵</b>。踩上去弹出面板：<b>继续挑战</b>（关掉继续打）或 <b>放弃并回村</b>（结束挑战，已得奖励保留）。想中途换图或补药时用它'],
    ['失败不亏','超时或阵亡只会结束挑战，<b>已到手的奖励全部保留</b>，不倒扣、不清空'],
-   ['难度','每层怪物属性 +22%，没有等级门槛 —— 几级都能进，能爬多高取决于装备与操作']
- ],tip:'爬塔前先补满药水。塔里没有金币产出，意味着<b>药水是纯支出</b>——带不够药，爬到一半就会因为喝不上药而卡死。'},
+   ['难度','层数越高怪物越强（每层大幅增强），没有等级门槛 —— 几级都能进，能爬多高取决于装备与操作']
+ ],tip:'爬塔前先补满药水、备足入场费。塔里没有金币产出，意味着<b>药水是纯支出</b>——带不够药，爬到一半就会因为喝不上药而卡死。'},
  {ico:'👥',n:'人机与风险',s:'野外有人会抢你的装备',rows:[
    ['·','野外会出现<b>散人玩家（人机）</b>，有名字、有等级，会主动袭击你'],
    ['·','击败人机有几率<b>爆出极品首饰</b>，值得主动去打'],
@@ -5903,11 +5929,22 @@ function towerMobIds(floor){
   return bands[clamp(Math.floor((floor-1)/3),0,bands.length-1)];
 }
 function towerMobCount(floor){return clamp(6+floor,7,22);}
-function towerScale(floor){return 1+(floor-1)*0.22;}   // 每层属性 +22%
+function towerScale(floor){return 1+(floor-1)*0.35;}   // 每层属性 +35%（难度升级：旧值 0.22，15 层倍率 4.08 → 5.9，顶层从"打得动"变成"极限挑战"）
 function startTower(){
+  /* 入场费：每次进入都要支付 1 万金币（单点钳制 —— 面板按钮、设置页入口、
+     debug 参数全都走这里，不会漏）。金币不足直接拒绝，不产生"进塔欠费"。 */
+  if((ST.gold||0)<TOWER_COST){
+    toast('进入试炼塔需要 '+TOWER_COST+' 金币入场费，金币不足');
+    SFX.click();
+    return false;
+  }
+  ST.gold-=TOWER_COST;
+  ST.stat.towerCost=(ST.stat.towerCost||0)+TOWER_COST;   // 生涯统计：累计入场费（金币去向可查）
+  addLog('⚔ 支付试炼塔入场费 '+TOWER_COST+' 金币');
   ST.tower={floor:1,killed:0,t:TOWER_TIME,alive:0,runBest:0,reward:{dan:0,eq:0}};
   ST.towerRuns=(ST.towerRuns||0)+1;ST.stat.towerRuns=(ST.stat.towerRuns||0)+1;
   enterTowerFloor(1);
+  return true;
 }
 /* 生成试炼竞技场地图（复用 genMap，替换怪物组） */
 function enterTowerFloor(floor){
@@ -6512,8 +6549,10 @@ function updateTopHud(){
   $('hpBar').querySelector('b').textContent=Math.min(player.maxHp,Math.ceil(player.hp)||0)+' / '+player.maxHp;
   $('mpBar').querySelector('i').style.transform='scaleX('+clamp(player.mp/player.maxMp||0,0,1)+')';
   $('mpBar').querySelector('b').textContent=Math.min(player.maxMp,Math.ceil(player.mp)||0)+' / '+player.maxMp;
-  $('xpBar').querySelector('i').style.transform='scaleX('+clamp(player.exp/expNeed(player.level),0,1)+')';
-  $('plLv').textContent=player.level;
+  /* 满级后经验条恒满（exp 已清零，除法会得 0 → 空条会误导玩家"还差很多"） */
+  $('xpBar').querySelector('i').style.transform='scaleX('+(player.level>=LV_MAX?1:clamp(player.exp/expNeed(player.level),0,1))+')';
+  /* 满级徽标：MAX 比 "45" 更直白地告诉玩家"这号练满了" */
+  $('plLv').textContent=player.level>=LV_MAX?'MAX':player.level;
   const bb=$('bossBar');
   if(bossRef&&!bossRef.dead&&dist(player,bossRef)<600){
     bb.style.display='block';
@@ -7144,7 +7183,7 @@ function init(){
        没有钩子就只能靠肉眼看截图，回归价值为零。 */
     EQ_SLOTS,EQ_SLOT_NAME,baseSlotOf,eqSlotsOf,eqWornSlot,
     eqScore,canEquipUpgrade,bagSmartLess,smartRank,bagPass,bagCountOf,BAG_FILTERS,
-    batchSell,batchDrop,
+    batchSell,batchDrop,sellValueOf,LV_MAX,TOWER_COST,towerScale,showSellDialog,
     get bagFilter(){return bagFilter;},set bagFilter(v){bagFilter=v;},
     get bagBatch(){return bagBatch;},set bagBatch(v){bagBatch=v;},
     get bagSel(){return bagSel;},
