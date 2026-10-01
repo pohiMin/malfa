@@ -125,6 +125,14 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges}
 #banner{position:absolute;top:34%;left:0;right:0;text-align:center;font-size:26px;font-weight:900;letter-spacing:4px;
  color:#ffd870;text-shadow:0 0 14px #ff8a1c88,0 2px 0 #502c00,0 3px 8px #000;opacity:0;transition:opacity .4s;pointer-events:none}
 #subBanner{position:absolute;top:calc(34% + 36px);left:0;right:0;text-align:center;font-size:13px;color:#ffe9b0;text-shadow:0 1px 3px #000;opacity:0;transition:opacity .4s}
+/* 高价值拾取弹幕：独立浮层，不打断 banner，带轻微上浮动画 */
+#pickupFlash{position:absolute;top:22%;left:0;right:0;text-align:center;pointer-events:none;
+ opacity:0;transform:translateY(14px);transition:opacity .28s,transform .28s}
+#pickupFlash.show{opacity:1;transform:translateY(0)}
+#pickupFlash .pfName{display:inline-block;font-size:17px;font-weight:900;letter-spacing:1px;
+ text-shadow:0 2px 0 #2a1600,0 3px 6px #000}
+#pickupFlash .pfTag{display:block;margin-top:2px;font-size:10px;font-weight:700;color:#ffe9b0;
+ text-shadow:0 1px 3px #000;letter-spacing:2px}
 
 /* 摇杆 */
 #joy{position:absolute;width:110px;height:110px;border-radius:50%;background:#ffffff10;border:2px solid #ffffff2e;display:none;pointer-events:none}
@@ -271,6 +279,7 @@ body.titleDlg #itemDetail{z-index:60}
     <div id="guide"></div>
     <div id="logBox"></div>
     <div id="banner"></div><div id="subBanner"></div>
+    <div id="pickupFlash"></div>
     <div id="joy"><div id="joyKnob"></div></div>
     <div id="leftBtns">
       <div class="iconBtn" id="btnQuest">任<span class="dot" id="questDot"></span><span class="sb">任务</span></div>
@@ -1091,28 +1100,88 @@ const SFX={ctx:null,on:true,bgm:true,bgmTimer:null,
   o.type=type||'sine';o.frequency.setValueAtTime(f1,t0);o.frequency.exponentialRampToValueAtTime(Math.max(30,f2),t0+dur);
   g.gain.setValueAtTime(vol||.2,t0);g.gain.exponentialRampToValueAtTime(.001,t0+dur);
   o.connect(g);g.connect(this.master);o.start(t0);o.stop(t0+dur+.02);},
- noise(dur,vol,fLow){if(!this.ctx||!this.on)return;const t0=this.t();
-  const n=this.ctx.sampleRate*dur,buf=this.ctx.createBuffer(1,n,this.ctx.sampleRate),d=buf.getChannelData(0);
+ noise(dur,vol,fLow,type){if(!this.ctx||!this.on)return;const t0=this.t();
+  const n=Math.max(1,Math.floor(this.ctx.sampleRate*dur));
+  const buf=this.ctx.createBuffer(1,n,this.ctx.sampleRate),d=buf.getChannelData(0);
+  /* 噪声整形：默认线性衰减（适合"打击"这种瞬时音），
+     'impact' 用指数衰减 + 前段留白，听感更像真实撞击而非"沙沙"声 */
+  const mode=type||'lin';
+  for(let i=0;i<n;i++){
+    const k=i/n;
+    d[i]=(Math.random()*2-1)*(mode==='impact'?Math.pow(1-k,2.2):(1-k));
+  }
+  const s=this.ctx.createBufferSource();s.buffer=buf;
+  const g=this.ctx.createGain();
+  /* 包络：起手极快、尾巴收干净，避免拖泥带水糊成一片 */
+  const v=vol||.15;
+  g.gain.setValueAtTime(0.0001,t0);
+  g.gain.exponentialRampToValueAtTime(v,t0+0.004);
+  g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+  const f=this.ctx.createBiquadFilter();
+  f.type=fLow?'lowpass':'highpass';f.frequency.value=fLow||1200;
+  s.connect(f);f.connect(g);g.connect(this.master);s.start(t0);s.stop(t0+dur+.01);},
+ /* 金属泛音：给打击音叠一层不谐和的高频，制造"兵器交击"的金属感。
+     用两个非整数倍频程关系的正弦，避免听上去像乐音 */
+ metal(f1,dur,vol,when){if(!this.ctx||!this.on)return;const t0=when||this.t();
+  [[1,.6],[2.76,.32],[5.4,.18]].forEach(([mul,amp])=>{
+    const o=this.ctx.createOscillator(),g=this.ctx.createGain();
+    o.type='sine';o.frequency.setValueAtTime(f1*mul*(0.96+Math.random()*0.08),t0);
+    o.frequency.exponentialRampToValueAtTime(Math.max(40,f1*mul*.55),t0+dur);
+    g.gain.setValueAtTime((vol||.12)*amp,t0);
+    g.gain.exponentialRampToValueAtTime(.0001,t0+dur);
+    o.connect(g);g.connect(this.master);o.start(t0);o.stop(t0+dur+.02);
+  });},
+ /* 低频冲击：拳头/重物落地的"胸口感"，纯靠低频正弦 + 快速下滑 */
+ thump(f1,dur,vol,when){if(!this.ctx||!this.on)return;const t0=when||this.t();
+  const o=this.ctx.createOscillator(),g=this.ctx.createGain();
+  o.type='sine';o.frequency.setValueAtTime(f1,t0);
+  o.frequency.exponentialRampToValueAtTime(Math.max(25,f1*.32),t0+dur);
+  g.gain.setValueAtTime(vol||.28,t0);
+  g.gain.exponentialRampToValueAtTime(.0001,t0+dur);
+  o.connect(g);g.connect(this.master);o.start(t0);o.stop(t0+dur+.02);},
+ /* 噪声扫频：让噪声的滤波器频率随时间滑动，做出"咻——"的挥砍/飞行感 */
+ sweep(dur,vol,f0,f1,when,up){if(!this.ctx||!this.on)return;const t0=when||this.t();
+  const n=Math.max(1,Math.floor(this.ctx.sampleRate*dur));
+  const buf=this.ctx.createBuffer(1,n,this.ctx.sampleRate),d=buf.getChannelData(0);
   for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*(1-i/n);
   const s=this.ctx.createBufferSource();s.buffer=buf;
-  const g=this.ctx.createGain();g.gain.value=vol||.15;
-  const f=this.ctx.createBiquadFilter();f.type=fLow?'lowpass':'highpass';f.frequency.value=fLow||1200;
-  s.connect(f);f.connect(g);g.connect(this.master);s.start(t0);},
- hit(){this.noise(.07,.14,900);this.tone(180,90,.08,'square',.08);},
- swing(){this.noise(.09,.1,2200);},
- fire(){this.noise(.18,.12,600);this.tone(600,120,.2,'sawtooth',.08);},
- bolt(){this.tone(1400,80,.22,'sawtooth',.16);this.noise(.14,.16,3000);},
- ice(){this.tone(1800,500,.25,'triangle',.12);this.tone(2200,700,.2,'sine',.08);},
- pickup(){this.tone(880,1320,.1,'sine',.14);this.tone(1320,1760,.1,'sine',.1,this.t()+.08);},
- gold(){this.tone(1568,2093,.08,'triangle',.12);},
- lvl(){[523,659,784,1047,1319].forEach((f,i)=>this.tone(f,f,.16,'triangle',.18,this.t()+i*.09));},
- heal(){this.tone(520,880,.3,'sine',.12);},
- poison(){this.tone(300,150,.3,'square',.06);},
- boss(){this.tone(80,60,.8,'sawtooth',.3);this.noise(.6,.2,300);},
- die(){this.tone(400,60,.5,'sawtooth',.15);},
- mdie(){this.tone(220,40,.3,'square',.1);this.noise(.12,.1,500);},
+  const flt=this.ctx.createBiquadFilter();flt.type='bandpass';flt.Q.value=1.4;
+  flt.frequency.setValueAtTime(f0,t0);
+  flt.frequency.exponentialRampToValueAtTime(Math.max(60,f1),t0+dur);
+  const g=this.ctx.createGain();
+  g.gain.setValueAtTime(0.0001,t0);
+  g.gain.exponentialRampToValueAtTime(vol||.14,t0+dur*.18);
+  g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+  s.connect(flt);flt.connect(g);g.connect(this.master);s.start(t0);s.stop(t0+dur+.01);},
+ /* ---- 以下为战斗音效：全部重做，目标是有"物理质感"而非电子哔声 ---- */
+ hit(){
+  this.noise(.05,.17,1400,'impact');          // 撞击瞬态
+  this.metal(1180,.06,.09);                   // 金属泛音（兵器交击）
+  this.thump(155,.07,.2);                     // 低频冲击
+ },
+ crit(){
+  this.noise(.07,.24,1800,'impact');
+  this.metal(1750,.1,.16);                    // 更高更亮的金属声
+  this.thump(105,.14,.34);                    // 更重的低频
+  this.tone(2400,900,.09,'sawtooth',.07);     // 叠一道高频"破空"
+ },
+ swing(){this.sweep(.13,.13,900,340,undefined,false);},
+ fire(){this.sweep(.26,.15,1600,240);this.noise(.2,.1,420,'impact');this.tone(520,90,.24,'sawtooth',.08);},
+ bolt(){this.noise(.16,.2,3000,'impact');this.metal(2600,.16,.14);this.tone(1500,70,.22,'sawtooth',.14);},
+ ice(){this.tone(1800,500,.25,'triangle',.12);this.tone(2200,700,.2,'sine',.08);this.noise(.12,.07,5200);},
+ pickup(){this.metal(1650,.09,.09);this.tone(1047,1568,.07,'triangle',.1);},
+ gold(){[1319,1760,2093].forEach((f,i)=>this.metal(f,.07,.07,this.t()+i*.045));},
+ lvl(){[523,659,784,1047,1319].forEach((f,i)=>this.tone(f,f,.16,'triangle',.18,this.t()+i*.09));
+       this.metal(1568,.4,.08);this.tone(130,262,.5,'sine',.14);},
+ heal(){this.tone(520,880,.3,'sine',.12);this.noise(.2,.05,2400);},
+ poison(){this.tone(300,150,.3,'square',.06);this.noise(.22,.07,700,'impact');},
+ boss(){this.tone(80,60,.8,'sawtooth',.3);this.noise(.6,.2,300,'impact');this.thump(70,.7,.3);},
+ die(){this.tone(400,60,.5,'sawtooth',.15);this.thump(120,.5,.22);this.noise(.4,.14,600,'impact');},
+ mdie(){this.noise(.16,.14,760,'impact');this.tone(220,40,.3,'square',.1);this.thump(180,.16,.16);},
  click(){this.tone(1000,800,.05,'square',.06);},
  potion(){this.tone(600,900,.12,'sine',.1);this.tone(900,1200,.1,'sine',.08,this.t()+.1);},
+ /* 玩家受击专用：加了低频"挨打"的钝感，与怪物受击区分开 */
+ hurt(){this.noise(.09,.2,700,'impact');this.thump(95,.12,.3);this.tone(300,110,.12,'square',.09);},
  startBgm(){if(!this.ctx||this.bgmTimer)return;const scale=[220,261.6,293.7,329.6,392,440,523.2];
   this.bgmTimer=setInterval(()=>{if(!this.bgm||!this.on)return;
    const f=pick(scale)*(Math.random()<.25?2:1);
@@ -1676,7 +1745,7 @@ function hurtMonster(m,dmg,color,isCrit,label){
   if(dmg>(ST.stat.maxHit||0))ST.stat.maxHit=dmg;
   /* 连杀：同一次目标切换内的连续击杀（用于生涯最高连杀） */
   addText(m.x+rnd(-8,8),m.y-monSpr(m).f[0].height*(m.d.sc||1)-6,(label?label+' ':'')+dmg,color||(isCrit?'#ff5a3c':'#ffffff'),isCrit?17:13);
-  SFX.hit();
+  if(isCrit)SFX.crit();else SFX.hit();   // 暴击用独立音色，听感上能"听出暴击"
   if(m.hp<=0)killMonster(m);
 }
 function killMonster(m){
@@ -1719,6 +1788,7 @@ function hurtPlayer(dmg,from){
   player.hp-=dmg;player.flash=.15;player.lastHurt=ST.time;
   /* 玩家挨打：顿帧 + 震屏 + 震动，这是"被打到了"最直接的体感来源 */
   hitStop=Math.max(hitStop,.06);shake(5);vibe(10);
+  SFX.hurt();   // 受击专属音色（低频钝感），与怪物受击音区分
   ST.stat.hurt=(ST.stat.hurt||0)+dmg;
   addText(player.x,player.y-46,'-'+dmg,'#ff5a3c',14);
   if(player.hp<=0){
@@ -1879,6 +1949,8 @@ function updatePlayer(dt){
   for(const k in player.cd)if(player.cd[k]>0)player.cd[k]-=dt;
   // 移动
   let mx=0,my=0;
+  /* 走位/撤离的冷却计时在推进 dt 的地方递减（autoMove 本身拿不到 dt） */
+  if(player.sideT>0)player.sideT=Math.max(0,player.sideT-dt);
   if(joy.active){mx=joy.dx;my=joy.dy;}
   else if(ST.auto){const d=autoMove();mx=d.x;my=d.y;}
   const spd=CLASSES[player.cls].spd*weatherSpd();
@@ -1986,6 +2058,67 @@ function autoMove(){
     }
   }
   const t=player.target;
+  /* ---- 通用保命与走位（非 BOSS 场景）----
+     设计取舍：挂机"变聪明"不等于收益变高。躲得太勤会少打怪，
+     所以只在两种明确吃亏的情况下才动：① 残血硬刚 ② 被围殴站桩。
+     其余时间保持"贴上去打"，优先保证输出。 */
+  const hpR=player.maxHp>0?player.hp/player.maxHp:1;
+  const near=monsters().filter(m=>!m.dead&&m.hostile!==false&&dist(m,player)<175);
+  /* 威胁评估：只统计"当前仇恨在我身上"或主动敌对的怪，避免被远处路过的怪吓跑 */
+  const threat=near.filter(m=>m.aggro===player||m.hostile).length;
+  const hurtRecently=ST.time-player.lastHurt<2.5;
+
+  /* ① 残血撤离：低于 30% 且最近在挨打 → 朝"怪最少"的方向拉开，给喝药/回血争取时间。
+        与 BOSS kiting 用同一套走位工具，但阈值独立，避免互相干扰 */
+  const LOW_HP=.30, ESCAPE_OUT=.45;
+  if(player.retreating){
+    if(hpR>=ESCAPE_OUT||!hurtRecently)player.retreating=false;   // 双阈值防抖
+  }else if(hpR<LOW_HP&&hurtRecently&&near.length>0){
+    player.retreating=true;player.retreatSide=undefined;
+  }
+  if(player.retreating&&near.length>0){
+    /* 逃离方向 = 所有近距离怪的"斥力"合成，优先往怪少的那边跑 */
+    let ax=0,ay=0;
+    for(const m of near){
+      const dd=Math.max(12,dist(player,m));
+      ax+=(player.x-m.x)/dd*(1-dd/175);
+      ay+=(player.y-m.y)/dd*(1-dd/175);
+    }
+    let l=Math.hypot(ax,ay);
+    if(l<.001){ax=player.x>MAP.Wpx/2?-1:1;ay=0;l=1;}
+    ax/=l;ay/=l;
+    /* 前方是墙/障碍：切向绕行，避免顶着墙被围死 */
+    const look=Math.max(72,CLASSES[player.cls].spd*.62);
+    const blocked=(x,y)=>x<14||y<14||x>MAP.Wpx-14||y>MAP.Hpx-14||mapObsAt(x,y,12);
+    if(blocked(player.x+ax*look,player.y+ay*look)){
+      const s=player.retreatSide!==undefined?player.retreatSide:(Math.random()<.5?1:-1);
+      const c1={x:-ay*s,y:ax*s},c2={x:ay*s,y:-ax*s};
+      const ok1=!blocked(player.x+c1.x*look,player.y+c1.y*look);
+      const ok2=!blocked(player.x+c2.x*look,player.y+c2.y*look);
+      if(ok1||!ok2){ax=c1.x;ay=c1.y;player.retreatSide=s;}
+      else{ax=c2.x;ay=c2.y;player.retreatSide=-s;}
+    }
+    return{x:ax,y:ay};
+  }
+
+  /* ② 反围殴：被 3 只以上贴身围住时侧移脱出，减少同时挨打的面数。
+        检查 1.2 秒冷却（在 updatePlayer 里按 dt 递减），避免左右横跳导致完全不打怪 */
+  const closeIn=near.filter(m=>dist(m,player)<70).length;
+  if(closeIn>=3&&player.sideT<=0){
+    player.sideT=1.2;
+    player.sideDir=Math.random()<.5?1:-1;
+  }
+  if(player.sideT>0&&t){
+    /* 沿着"玩家→目标"连线的垂线侧移，既不脱离目标又能错开包围圈 */
+    const dx=t.x-player.x,dy=t.y-player.y,dl=Math.hypot(dx,dy)||1;
+    const s=player.sideDir||1;
+    const sx=-dy/dl*s, sy=dx/dl*s;
+    const look=Math.max(56,CLASSES[player.cls].spd*.5);
+    const blocked=(x,y)=>x<14||y<14||x>MAP.Wpx-14||y>MAP.Hpx-14||mapObsAt(x,y,12);
+    if(!blocked(player.x+sx*look,player.y+sy*look))return{x:sx,y:sy};
+    player.sideDir=-s;   // 该侧是墙 → 换另一边
+  }
+
   if(!t)return{x:0,y:0};
   const c=CLASSES[player.cls];
   const d=dist(player,t);
@@ -2360,6 +2493,13 @@ function updateDrops(dt){
           const def=d.item.pid?POTMAP[d.item.id]:EQMAP[d.item.id];
           const qn=d.item.q===2?'小极品·':d.item.q===0?'劣质·':'';
           if(!d.item.pid&&d.item.q===2)ST.q2Got++;
+          /* 高价值拾取：屏上闪一条品质色弹幕，比只有一行小字更有"到手了"的实感 */
+          const tier=def&&def.tier||0;
+          if(!d.item.pid&&(tier>=4||d.item.q===2||(d.item.plus||0)>0)){
+            const col=d.item.q===2?'#ffca4a':(TIER_COLOR[tier]||'#ffd870');
+            pickupFlash(qn+def.n,col,d.item.q===2?'★ 小极品':(tier>=4?'★ 神兵':'◆ 强化 +'+(d.item.plus||0)));
+            pickupFx(d.x,d.y,col);
+          }
           if(!d.item.pid&&def.tier>=4){ST.t4Got++;banner('★ '+def.n+' ★',d.item.q===2?'小极品传说中的神兵利器！':'传说中的神兵利器！');}
           else if(def.tier>=3)banner('恭喜获得 '+qn+def.n,d.item.q===2?'小极品！':'祖玛级紫装入手！');
           addLog('获得 『'+qn+def.n+'』');
@@ -2395,6 +2535,29 @@ function buffFx(x,y,color){
       vx:Math.cos(a)*22,vy:rnd(-96,-52),t:rnd(.6,1),color,r:rnd(2,4),g:0});}
   for(let k=0;k<2;k++)particles.push({ring:1,x,y,r:10+k*8,max:52+k*10,t:.55+k*.15,color});
 }
+/* 高价值拾取的粒子表现：从拾取点炸开一小簇同色火花 + 一道扩散光环 */
+function pickupFx(x,y,color){
+  for(let i=0;i<14;i++){
+    const a=rnd(-Math.PI*0.9,-Math.PI*0.1);           // 朝上方扇形喷发
+    const sp=rnd(90,210);
+    particles.push({x,y:y-8,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,t:rnd(.4,.7),color,r:rnd(2,3.4),g:260});
+  }
+  particles.push({ring:1,x,y:y-6,r:8,max:48,t:.5,color});
+}
+/* 拾取弹幕：屏幕中上方独立的一条浮层提示（与 banner 分离，互不打断） */
+let _pfT=null;
+function pickupFlash(label,color,tag){
+  const el=$('pickupFlash');if(!el)return;
+  el.textContent='';
+  const a=document.createElement('span');a.className='pfName';a.textContent=label;
+  a.style.color=color;a.style.textShadow='0 0 10px '+color;
+  el.appendChild(a);
+  if(tag){const b=document.createElement('span');b.className='pfTag';b.textContent=tag;el.appendChild(b);}
+  el.classList.add('show');
+  if(_pfT)clearTimeout(_pfT);
+  _pfT=setTimeout(()=>el.classList.remove('show'),1500);
+}
+
 function boltFx(x,y){ // 天雷：折线闪电 + 落点火花
   const pts=[[x+rnd(-20,20),y-96]];
   for(let i=1;i<=4;i++)pts.push([x+rnd(-16,16)*(1-i/5),y-96+((y-12)-(y-96))*i/5]);
@@ -4809,7 +4972,45 @@ function render(){
       ctx.strokeStyle='#8a6a10';ctx.stroke();
     }else{
       const def=d.item.pid?POTMAP[d.item.id]:EQMAP[d.item.id];
-      if(d.beam&&d.beam>=3){
+      /* 防御：未知物品定义的脏掉落直接清掉，绝不能让它每帧炸渲染循环 */
+      if(!def){MAP.drops.splice(MAP.drops.indexOf(d),1);continue;}
+      /* 高价值判定：紫色以上装备 / 小极品 / 强化过的，走"高光"表现。
+         目的是让"这一眼就看出是好东西"，不用凑近看字。 */
+      const tier=def&&def.tier||0;
+      const isJewel=d.item.q===2;
+      const isHigh=!d.item.pid&&(tier>=4||isJewel||(d.item.plus||0)>0);
+      const hiCol=isJewel?'#ffca4a':(TIER_COLOR[tier]||'#ffd870');
+      if(isHigh){
+        /* 脉冲光柱：宽度与亮度随时间呼吸，比静态光柱更"活" */
+        const pulse=.62+.38*Math.sin(ST.time*3.4);
+        const hgt=104+pulse*16;
+        const g=ctx.createLinearGradient(0,d.y-hgt,0,d.y);
+        g.addColorStop(0,'rgba(255,255,255,0)');
+        g.addColorStop(.45,hiCol+'22');
+        g.addColorStop(1,hiCol+(isJewel?'cc':'99'));
+        ctx.fillStyle=g;
+        ctx.beginPath();
+        const w=6+pulse*3.4;
+        ctx.moveTo(d.x-w*.35,d.y-hgt);ctx.lineTo(d.x+w*.35,d.y-hgt);
+        ctx.lineTo(d.x+w,d.y);ctx.lineTo(d.x-w,d.y);ctx.closePath();ctx.fill();
+        /* 地面光圈：告诉玩家"东西掉这儿了" */
+        ctx.save();
+        ctx.globalAlpha=.3+.2*pulse;
+        ctx.strokeStyle=hiCol;ctx.lineWidth=1.6;
+        ctx.beginPath();ctx.ellipse(d.x,d.y+2,15+pulse*4,6+pulse*2,0,0,6.29);ctx.stroke();
+        ctx.restore();
+        /* 环绕光点：两颗沿椭圆轨道旋转，制造"宝物"的存在感 */
+        ctx.save();
+        ctx.fillStyle=hiCol;
+        for(let k=0;k<2;k++){
+          const a=ST.time*2.2+k*Math.PI;
+          const ox=Math.cos(a)*13,oy=Math.sin(a)*5;
+          const sz=2.1+Math.sin(ST.time*5+k)*0.5;
+          ctx.globalAlpha=.55+.4*Math.sin(a*1.4);
+          ctx.beginPath();ctx.arc(d.x+ox,d.y-16+oy,sz,0,6.29);ctx.fill();
+        }
+        ctx.restore();
+      }else if(d.beam&&d.beam>=3){
         const g=ctx.createLinearGradient(0,d.y-90,0,d.y);
         g.addColorStop(0,'rgba(255,255,255,0)');
         g.addColorStop(1,d.beam===4?'#ffca4a99':'#c88aff99');
@@ -4819,14 +5020,21 @@ function render(){
       const ic=itemIconImg(def);
       if(ic.complete&&ic.width)ctx.drawImage(ic,-14,-20,28,24);
       ctx.restore();
-      // 名字标签：仅在玩家附近显示，小极品金色高亮
-      if(dist(d,player)<170){
+      // 名字标签：高价值物品无视距离始终显示，其余仅在玩家附近显示
+      if(isHigh||dist(d,player)<170){
         const qn=d.item.q===2?'小极品·':d.item.q===0?'劣质·':'';
-        ctx.font='bold 9px sans-serif';ctx.textAlign='center';
+        ctx.font='bold '+(isHigh?10:9)+'px sans-serif';ctx.textAlign='center';
         const lbl=qn+def.n;
         ctx.fillStyle='#000a';ctx.fillText(lbl,d.x+1,d.y-31);
-        ctx.fillStyle=d.item.q===2?'#ffca4a':(def.tier?TIER_COLOR[def.tier]:'#fff');
+        ctx.fillStyle=isJewel?'#ffca4a':(tier?TIER_COLOR[tier]:'#fff');
+        if(isHigh){ctx.shadowColor=hiCol;ctx.shadowBlur=6;}
         ctx.fillText(lbl,d.x,d.y-32);
+        ctx.shadowBlur=0;
+        if(isHigh){
+          ctx.font='bold 8px sans-serif';
+          ctx.fillStyle='#ffd870cc';
+          ctx.fillText(isJewel?'★ 小极品':(tier>=4?'★ 神兵':'◆ 强化 +'+(d.item.plus||0)),d.x,d.y-42);
+        }
       }
     }
   }
@@ -5493,6 +5701,9 @@ function resetRuntime(){
   player.dead=false;player.reviveT=0;player.target=null;player.buff=null;
   player.shieldT=0;player.flash=0;player.potT=0;player.regenT=0;player.lastHurt=0;
   player.atkT=0;player.castT=0;player.acted=false;
+  /* 走位/撤离状态：不清会把上一局的"逃跑中"带进新角色 */
+  player.retreating=false;player.retreatSide=undefined;
+  player.sideT=0;player.sideDir=undefined;player.kiting=false;player.kiteSide=undefined;
   ST.stat={dmg:0,hits:0,heal:0,hurt:0,deaths:0,goldEarn:0,goldSpend:0,
     expEarn:0,maxHit:0,streak:0,maxStreak:0,eliteKills:0,craft:0,craftOK:0,
     reroll:0,towerRuns:0,towerBestRun:0,pots:0,oreGet:0,time:0};
@@ -5550,6 +5761,10 @@ function init(){
     /* 手感三件套（顿帧 / 震屏 / 震动）：供自动化断言 */
     vibe,shake,VIBE_OK,SHAKE_DUR,
     get hitStop(){return hitStop;},get shakeT(){return shakeT;},get shakeAmp(){return shakeAmp;},
+    /* 音效系统：供自动化断言（可观测每次发声调用了哪些原语） */
+    SFX,
+    /* 掉落高光表现：供自动化断言 */
+    pickupFlash,pickupFx,
     /* 仅测试用：把顿帧/震屏计时归零，避免用例间互相污染 */
     clearFeel(){hitStop=0;shakeT=0;shakeAmp=0;_vibeLast=0;},
     get cam(){return cam;},
