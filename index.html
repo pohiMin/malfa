@@ -532,11 +532,18 @@ const PORTAL_R=40;
 const PORTAL_CD=4;
 let portalCd=0;
 const CLASSES={
- warrior:{name:'战士',tag:'战',hp:58,hpG:30,mp:22,mpG:5,atk:14,atkG:3.0,matk:3,matkG:.4,def:6,defG:1.3,mdef:2,mdefG:.85,
+ warrior:{name:'战士',tag:'战',hp:58,hpG:30,mp:22,mpG:5,atk:14,atkG:3.0,matk:3,matkG:.4,datk:0,datkG:0,def:6,defG:1.3,mdef:2,mdefG:.85,
    spd:162,range:56,atkCd:.75,dr:.12,color:'#ff8a70',desc:'血厚防高近身肉搏',skills:['flame','halfmoon','charge','assault','whirlwind','warcry']},
- mage:{name:'法师',tag:'法',hp:44,hpG:14,mp:44,mpG:15,atk:5,atkG:1,matk:17,matkG:3.1,def:3,defG:.75,mdef:6,mdefG:1.5,
+ /* 法师 matk / 道士 datk 的基数在本轮 +15%（17→19.6 / 10→11.5，成长 3.1→3.57 / 2.0→2.3）：
+    怪物表本轮补上了 mdef（= def×0.7，此前 mdef 为 undefined 等同 0），
+    法师/道士的实际伤害会因此下降约 20%。这里用基数上调对冲，
+    让「怪物有魔法防御」这个新设定成立的同时，法道输出维持原有水平。 */
+ mage:{name:'法师',tag:'法',hp:44,hpG:14,mp:44,mpG:15,atk:5,atkG:1,matk:19.6,matkG:3.57,datk:0,datkG:0,def:3,defG:.75,mdef:6,mdefG:1.5,
    spd:150,range:150,atkCd:.95,dr:.05,color:'#7ab0ff',desc:'远程群攻输出爆炸',skills:['fireball','thunder','ice','shield','meteor','icearmor']},
- taoist:{name:'道士',tag:'道',hp:46,hpG:19.5,mp:30,mpG:9.5,atk:8,atkG:1.6,matk:10,matkG:2.0,def:4,defG:1.0,mdef:4,mdefG:1.1,
+ /* 道士改用独立的 datk（道术），与法师 matk 完全分离：
+    道士装备给 datk，法师装备给 matk，通用装备同时给两者时
+    也只取本职业那一条（recalcStats 累加各自字段，互不干涉）。 */
+ taoist:{name:'道士',tag:'道',hp:46,hpG:19.5,mp:30,mpG:9.5,atk:8,atkG:1.6,matk:0,matkG:0,datk:11.5,datkG:2.3,def:4,defG:1.0,mdef:4,mdefG:1.1,
    spd:155,range:140,atkCd:.85,dr:.06,color:'#7ad0a0',desc:'召唤施毒能奶能打',skills:['charm','poison','summon','heal','holyshield','madness']}
 };
 /* 装备 cls 短键 → 职业完整键（player.cls 用完整键） */
@@ -591,69 +598,69 @@ const SKILLS={
 };
 /* 装备 slot: weapon武器 armor衣服 helmet头盔 necklace项链 bracelet手镯 ring戒指 */
 const EQUIPS=[
- {id:'wood_sword',n:'木剑',slot:'weapon',cls:'w',tier:1,st:{atk:2},d:'初入玛法的证明'},
- {id:'dagger',n:'匕首',slot:'weapon',cls:'w',tier:1,st:{atk:4},d:'轻巧而锋利'},
- {id:'ebony',n:'乌木剑',slot:'weapon',cls:'w',tier:1,st:{atk:7},d:'沉甸甸的黑木剑'},
- {id:'bronze_axe',n:'青铜斧',slot:'weapon',cls:'w',tier:1,st:{atk:10},d:'矿工惯用的利斧'},
- {id:'halfmoon_blade',n:'半月',slot:'weapon',cls:'w',tier:2,st:{atk:13},d:'弯如新月的利刃'},
- {id:'jingzhongyue',n:'井中月',slot:'weapon',cls:'w',tier:2,st:{atk:16},d:'传说沉于古井之名刃'},
- {id:'lianyu',n:'炼狱',slot:'weapon',cls:'w',tier:3,st:{atk:21},d:'沃玛深处的凶器'},
- {id:'caijue',n:'裁决之杖',slot:'weapon',cls:'w',tier:3,st:{atk:29},d:'战士梦寐以求的神兵'},
- {id:'bazhe',n:'霸者之刃',slot:'weapon',cls:'w',tier:4,st:{atk:36},d:'赤月峡谷的霸者遗物'},
- {id:'tulong',n:'屠龙',slot:'weapon',cls:'w',tier:4,st:{atk:52},d:'宝刀屠龙，号令玛法！'},
- {id:'wood_staff',n:'木杖',slot:'weapon',cls:'m',tier:1,st:{matk:5},d:'学徒的魔杖'},
- {id:'magic_staff',n:'魔杖',slot:'weapon',cls:'m',tier:1,st:{matk:10},d:'凝聚魔力之杖'},
- {id:'haihun',n:'海魂',slot:'weapon',cls:'m',tier:2,st:{matk:14},d:'蕴藏大海之魂'},
- {id:'shihun',n:'嗜魂法杖',slot:'weapon',cls:'m',tier:2,st:{matk:20},d:'摄人魂魄的法器'},
- {id:'guyu',n:'骨玉权杖',slot:'weapon',cls:'m',tier:3,st:{matk:28},d:'祖玛祭司的权杖'},
- {id:'shixue',n:'嗜血魔杖',slot:'weapon',cls:'m',tier:4,st:{matk:34},d:'饮血愈多的禁忌魔杖'},
- {id:'yinshe',n:'银蛇剑',slot:'weapon',cls:'t',tier:1,st:{matk:8},d:'剑走轻灵如银蛇'},
- {id:'wuji',n:'无极棍',slot:'weapon',cls:'t',tier:2,st:{matk:16},d:'道门无极之器'},
- {id:'longwen',n:'龙纹剑',slot:'weapon',cls:'t',tier:3,st:{matk:24},d:'剑身龙纹隐现'},
- {id:'xiaoyao',n:'逍遥扇',slot:'weapon',cls:'t',tier:4,st:{matk:32},d:'逍遥天地间的一柄折扇'},
- {id:'cloth',n:'布衣',slot:'armor',cls:'all',tier:1,st:{def:3},d:'粗布缝制'},
- {id:'light_armor',n:'轻型盔甲',slot:'armor',cls:'all',tier:1,st:{def:6},d:'皮甲轻便'},
- {id:'mid_armor',n:'中型盔甲',slot:'armor',cls:'all',tier:2,st:{def:9,hp:40},d:'铁片缀成'},
- {id:'heavy_armor',n:'重盔甲',slot:'armor',cls:'all',tier:2,st:{def:12,hp:60},d:'厚重的护身铁甲'},
- {id:'magic_robe',n:'魔法长袍',slot:'armor',cls:'m',tier:2,st:{def:8,matk:8},d:'法师的长袍'},
- {id:'soul_robe',n:'灵魂战衣',slot:'armor',cls:'t',tier:2,st:{def:9,matk:6,hp:30},d:'绣满符文的道袍'},
- {id:'tianmo',n:'天魔神甲',slot:'armor',cls:'w',tier:4,st:{def:20,hp:150},d:'1.76重装 · 战神甲胄'},
- {id:'fashen',n:'法神披风',slot:'armor',cls:'m',tier:4,st:{def:13,matk:15,hp:90},d:'1.76重装 · 法神之衣'},
- {id:'tianzun',n:'天尊道袍',slot:'armor',cls:'t',tier:4,st:{def:14,matk:12,hp:110},d:'1.76重装 · 天尊法衣'},
- {id:'cloth_hat',n:'布帽',slot:'helmet',cls:'all',tier:1,st:{def:2},d:'遮风挡雨'},
- {id:'skull_helm',n:'骷髅头盔',slot:'helmet',cls:'all',tier:1,st:{def:5},d:'以兽骨打磨'},
- {id:'black_iron',n:'黑铁头盔',slot:'helmet',cls:'all',tier:2,st:{def:8},d:'乌铁铸就'},
- {id:'prayer_helm',n:'祈祷头盔',slot:'helmet',cls:'all',tier:3,st:{def:11,hp:50},d:'蕴含祈祷之力'},
- {id:'bamboo_flute',n:'竹笛项链',slot:'necklace',cls:'all',tier:1,st:{atk:3},d:'清脆悦耳'},
- {id:'blue_jade',n:'蓝翡翠项链',slot:'necklace',cls:'all',tier:1,st:{matk:5},d:'温润的蓝玉'},
- {id:'soul_neck',n:'灵魂项链',slot:'necklace',cls:'all',tier:2,st:{matk:8,hp:40},d:'与灵魂共鸣'},
- {id:'tianzhu',n:'天珠项链',slot:'necklace',cls:'all',tier:3,st:{matk:12},d:'天珠蕴灵'},
- {id:'green_neck',n:'绿色项链',slot:'necklace',cls:'all',tier:3,st:{atk:10,hp:40},d:'翠色欲滴'},
- {id:'leather_brace',n:'皮制手镯',slot:'bracelet',cls:'all',tier:1,st:{def:2},d:'耐磨耐用'},
- {id:'firm_brace',n:'坚固手镯',slot:'bracelet',cls:'all',tier:2,st:{def:5},d:'坚固可靠'},
- {id:'knight_brace',n:'骑士手镯',slot:'bracelet',cls:'all',tier:2,st:{atk:7},d:'骑士的荣耀'},
- {id:'dragon_brace',n:'龙之手镯',slot:'bracelet',cls:'all',tier:3,st:{matk:9},d:'龙鳞制成'},
- {id:'iron_ring',n:'铁戒指',slot:'ring',cls:'all',tier:1,st:{atk:2},d:'普通的指环'},
- {id:'coral_ring',n:'珊瑚戒指',slot:'ring',cls:'all',tier:1,st:{atk:6},d:'深海珊瑚'},
- {id:'exorcism_ring',n:'降妖除魔戒指',slot:'ring',cls:'all',tier:2,st:{matk:7},d:'专克妖魔'},
- {id:'zibiluo',n:'紫碧螺',slot:'ring',cls:'all',tier:2,st:{matk:10,hp:30},d:'紫气东来'},
- {id:'power_ring',n:'力量戒指',slot:'ring',cls:'all',tier:3,st:{atk:11},d:'力量的象征'},
- {id:'shengzhan_ring',n:'圣战戒指',slot:'ring',cls:'all',tier:4,st:{atk:14,hp:60},d:'1.76重装 · 圣战套装'},
- {id:'fashen_ring',n:'法神戒指',slot:'ring',cls:'all',tier:4,st:{matk:14,mp:80},d:'1.76重装 · 法神套装'},
- {id:'tianzun_ring',n:'天尊戒指',slot:'ring',cls:'all',tier:4,st:{matk:11,hp:80},d:'1.76重装 · 天尊套装'},
+ {id:'wood_sword',n:'木剑',slot:'weapon',cls:'w',tier:1,st:{atk:[1,2]},d:'初入玛法的证明'},
+ {id:'dagger',n:'匕首',slot:'weapon',cls:'w',tier:1,st:{atk:[3,4]},d:'轻巧而锋利'},
+ {id:'ebony',n:'乌木剑',slot:'weapon',cls:'w',tier:1,st:{atk:[5,7]},d:'沉甸甸的黑木剑'},
+ {id:'bronze_axe',n:'青铜斧',slot:'weapon',cls:'w',tier:1,st:{atk:[7,10]},d:'矿工惯用的利斧'},
+ {id:'halfmoon_blade',n:'半月',slot:'weapon',cls:'w',tier:2,st:{atk:[9,13]},d:'弯如新月的利刃'},
+ {id:'jingzhongyue',n:'井中月',slot:'weapon',cls:'w',tier:2,st:{atk:[12,16]},d:'传说沉于古井之名刃'},
+ {id:'lianyu',n:'炼狱',slot:'weapon',cls:'w',tier:3,st:{atk:[15,21]},d:'沃玛深处的凶器'},
+ {id:'caijue',n:'裁决之杖',slot:'weapon',cls:'w',tier:3,st:{atk:[21,29]},d:'战士梦寐以求的神兵'},
+ {id:'bazhe',n:'霸者之刃',slot:'weapon',cls:'w',tier:4,st:{atk:[27,36]},d:'赤月峡谷的霸者遗物'},
+ {id:'tulong',n:'屠龙',slot:'weapon',cls:'w',tier:4,st:{atk:[39,52]},d:'宝刀屠龙，号令玛法！'},
+ {id:'wood_staff',n:'木杖',slot:'weapon',cls:'m',tier:1,st:{matk:[3,5],datk:[3,5]},d:'学徒的魔杖'},
+ {id:'magic_staff',n:'魔杖',slot:'weapon',cls:'m',tier:1,st:{matk:[7,10],datk:[7,10]},d:'凝聚魔力之杖'},
+ {id:'haihun',n:'海魂',slot:'weapon',cls:'m',tier:2,st:{matk:[10,14]},d:'蕴藏大海之魂'},
+ {id:'shihun',n:'嗜魂法杖',slot:'weapon',cls:'m',tier:2,st:{matk:[15,20]},d:'摄人魂魄的法器'},
+ {id:'guyu',n:'骨玉权杖',slot:'weapon',cls:'m',tier:3,st:{matk:[21,28]},d:'祖玛祭司的权杖'},
+ {id:'shixue',n:'嗜血魔杖',slot:'weapon',cls:'m',tier:4,st:{matk:[25,34]},d:'饮血愈多的禁忌魔杖'},
+ {id:'yinshe',n:'银蛇剑',slot:'weapon',cls:'t',tier:1,st:{datk:[6,8]},d:'剑走轻灵如银蛇'},
+ {id:'wuji',n:'无极棍',slot:'weapon',cls:'t',tier:2,st:{datk:[12,16]},d:'道门无极之器'},
+ {id:'longwen',n:'龙纹剑',slot:'weapon',cls:'t',tier:3,st:{datk:[18,24]},d:'剑身龙纹隐现'},
+ {id:'xiaoyao',n:'逍遥扇',slot:'weapon',cls:'t',tier:4,st:{datk:[24,32]},d:'逍遥天地间的一柄折扇'},
+ {id:'cloth',n:'布衣',slot:'armor',cls:'all',tier:1,st:{def:[2,3]},d:'粗布缝制'},
+ {id:'light_armor',n:'轻型盔甲',slot:'armor',cls:'all',tier:1,st:{def:[4,6]},d:'皮甲轻便'},
+ {id:'mid_armor',n:'中型盔甲',slot:'armor',cls:'all',tier:2,st:{def:[6,9],hp:[30,40]},d:'铁片缀成'},
+ {id:'heavy_armor',n:'重盔甲',slot:'armor',cls:'all',tier:2,st:{def:[9,12],hp:[45,60]},d:'厚重的护身铁甲'},
+ {id:'magic_robe',n:'魔法长袍',slot:'armor',cls:'m',tier:2,st:{def:[6,8],matk:[6,8]},d:'法师的长袍'},
+ {id:'soul_robe',n:'灵魂战衣',slot:'armor',cls:'t',tier:2,st:{def:[6,9],datk:[4,6],hp:[22,30]},d:'绣满符文的道袍'},
+ {id:'tianmo',n:'天魔神甲',slot:'armor',cls:'w',tier:4,st:{def:[15,20],hp:[112,150]},d:'1.76重装 · 战神甲胄'},
+ {id:'fashen',n:'法神披风',slot:'armor',cls:'m',tier:4,st:{def:[9,13],matk:[11,15],hp:[67,90]},d:'1.76重装 · 法神之衣'},
+ {id:'tianzun',n:'天尊道袍',slot:'armor',cls:'t',tier:4,st:{def:[10,14],datk:[9,12],hp:[82,110]},d:'1.76重装 · 天尊法衣'},
+ {id:'cloth_hat',n:'布帽',slot:'helmet',cls:'all',tier:1,st:{def:[1,2]},d:'遮风挡雨'},
+ {id:'skull_helm',n:'骷髅头盔',slot:'helmet',cls:'all',tier:1,st:{def:[3,5]},d:'以兽骨打磨'},
+ {id:'black_iron',n:'黑铁头盔',slot:'helmet',cls:'all',tier:2,st:{def:[6,8]},d:'乌铁铸就'},
+ {id:'prayer_helm',n:'祈祷头盔',slot:'helmet',cls:'all',tier:3,st:{def:[8,11],hp:[37,50]},d:'蕴含祈祷之力'},
+ {id:'bamboo_flute',n:'竹笛项链',slot:'necklace',cls:'all',tier:1,st:{atk:[2,3]},d:'清脆悦耳'},
+ {id:'blue_jade',n:'蓝翡翠项链',slot:'necklace',cls:'all',tier:1,st:{matk:[3,5],datk:[3,5]},d:'温润的蓝玉'},
+ {id:'soul_neck',n:'灵魂项链',slot:'necklace',cls:'all',tier:2,st:{matk:[6,8],datk:[6,8],hp:[30,40]},d:'与灵魂共鸣'},
+ {id:'tianzhu',n:'天珠项链',slot:'necklace',cls:'all',tier:3,st:{matk:[9,12],datk:[9,12]},d:'天珠蕴灵'},
+ {id:'green_neck',n:'绿色项链',slot:'necklace',cls:'all',tier:3,st:{atk:[7,10],hp:[30,40]},d:'翠色欲滴'},
+ {id:'leather_brace',n:'皮制手镯',slot:'bracelet',cls:'all',tier:1,st:{def:[1,2]},d:'耐磨耐用'},
+ {id:'firm_brace',n:'坚固手镯',slot:'bracelet',cls:'all',tier:2,st:{def:[3,5]},d:'坚固可靠'},
+ {id:'knight_brace',n:'骑士手镯',slot:'bracelet',cls:'all',tier:2,st:{atk:[5,7]},d:'骑士的荣耀'},
+ {id:'dragon_brace',n:'龙之手镯',slot:'bracelet',cls:'all',tier:3,st:{matk:[6,9],datk:[6,9]},d:'龙鳞制成'},
+ {id:'iron_ring',n:'铁戒指',slot:'ring',cls:'all',tier:1,st:{atk:[1,2]},d:'普通的指环'},
+ {id:'coral_ring',n:'珊瑚戒指',slot:'ring',cls:'all',tier:1,st:{atk:[4,6]},d:'深海珊瑚'},
+ {id:'exorcism_ring',n:'降妖除魔戒指',slot:'ring',cls:'all',tier:2,st:{matk:[5,7],datk:[5,7]},d:'专克妖魔'},
+ {id:'zibiluo',n:'紫碧螺',slot:'ring',cls:'all',tier:2,st:{matk:[7,10],datk:[7,10],hp:[22,30]},d:'紫气东来'},
+ {id:'power_ring',n:'力量戒指',slot:'ring',cls:'all',tier:3,st:{atk:[8,11]},d:'力量的象征'},
+ {id:'shengzhan_ring',n:'圣战戒指',slot:'ring',cls:'all',tier:4,st:{atk:[10,14],hp:[45,60]},d:'1.76重装 · 圣战套装'},
+ {id:'fashen_ring',n:'法神戒指',slot:'ring',cls:'all',tier:4,st:{matk:[10,14],mp:[60,80]},d:'1.76重装 · 法神套装'},
+ {id:'tianzun_ring',n:'天尊戒指',slot:'ring',cls:'all',tier:4,st:{datk:[8,11],hp:[60,80]},d:'1.76重装 · 天尊套装'},
  /* ===== tier5 魔龙系（终局装备，仅魔龙教主掉落）=====
    数值在 tier4 顶部（屠龙52 / 嗜血34 / 赤月三件套 / 圣法天三戒）之上约 +30%，
    穿戴门槛 42 级（EQ_REQ_LV）—— 40 级进图先打 tier4 过渡，42 级穿上毕业。
    白板卖价 base 3000（eqPrice）：与塔入场费 1 万的经济体量衔接。 */
- {id:'molong_blade',n:'魔龙战刃',slot:'weapon',cls:'w',tier:5,st:{atk:68},d:'魔龙城终极重装 · 屠龙之上的传说'},
- {id:'molong_staff',n:'魔龙法杖',slot:'weapon',cls:'m',tier:5,st:{matk:45},d:'魔龙城终极重装 · 汇聚灭世魔力'},
- {id:'molong_fan',n:'魔龙宝扇',slot:'weapon',cls:'t',tier:5,st:{matk:42},d:'魔龙城终极重装 · 一扇定山河'},
- {id:'molong_w',n:'魔龙战甲',slot:'armor',cls:'w',tier:5,st:{def:26,hp:195},d:'魔龙城终极重装 · 战神之甲'},
- {id:'molong_m',n:'魔龙法衣',slot:'armor',cls:'m',tier:5,st:{def:17,matk:20,hp:117},d:'魔龙城终极重装 · 法神之衣'},
- {id:'molong_t',n:'魔龙道袍',slot:'armor',cls:'t',tier:5,st:{def:18,matk:16,hp:143},d:'魔龙城终极重装 · 天尊法衣'},
- {id:'molong_wr',n:'魔龙战戒',slot:'ring',cls:'all',tier:5,st:{atk:18,hp:78},d:'魔龙城终极重装 · 战戒'},
- {id:'molong_mg',n:'魔龙法戒',slot:'ring',cls:'all',tier:5,st:{matk:18,mp:104},d:'魔龙城终极重装 · 法戒'},
- {id:'molong_dz',n:'魔龙道戒',slot:'ring',cls:'all',tier:5,st:{matk:14,hp:104},d:'魔龙城终极重装 · 道戒'}
+ {id:'molong_blade',n:'魔龙战刃',slot:'weapon',cls:'w',tier:5,st:{atk:[51,68]},d:'魔龙城终极重装 · 屠龙之上的传说'},
+ {id:'molong_staff',n:'魔龙法杖',slot:'weapon',cls:'m',tier:5,st:{matk:[33,45]},d:'魔龙城终极重装 · 汇聚灭世魔力'},
+ {id:'molong_fan',n:'魔龙宝扇',slot:'weapon',cls:'t',tier:5,st:{datk:[31,42]},d:'魔龙城终极重装 · 一扇定山河'},
+ {id:'molong_w',n:'魔龙战甲',slot:'armor',cls:'w',tier:5,st:{def:[19,26],hp:[146,195]},d:'魔龙城终极重装 · 战神之甲'},
+ {id:'molong_m',n:'魔龙法衣',slot:'armor',cls:'m',tier:5,st:{def:[12,17],matk:[15,20],hp:[87,117]},d:'魔龙城终极重装 · 法神之衣'},
+ {id:'molong_t',n:'魔龙道袍',slot:'armor',cls:'t',tier:5,st:{def:[13,18],datk:[12,16],hp:[107,143]},d:'魔龙城终极重装 · 天尊法衣'},
+ {id:'molong_wr',n:'魔龙战戒',slot:'ring',cls:'all',tier:5,st:{atk:[13,18],hp:[58,78]},d:'魔龙城终极重装 · 战戒'},
+ {id:'molong_mg',n:'魔龙法戒',slot:'ring',cls:'all',tier:5,st:{matk:[13,18],mp:[78,104]},d:'魔龙城终极重装 · 法戒'},
+ {id:'molong_dz',n:'魔龙道戒',slot:'ring',cls:'all',tier:5,st:{datk:[10,14],hp:[78,104]},d:'魔龙城终极重装 · 道戒'}
 ];
 const EQMAP={};EQUIPS.forEach(e=>EQMAP[e.id]=e);
 const TIER_NAME=['','普通','沃玛','祖玛','赤月','魔龙'];
@@ -673,7 +680,7 @@ const SETS=[
  {id:'woma_t',n:'道玄法衣',tier:2,cls:'t',color:'#6ab0ff',
   ids:['wuji','soul_robe','cloth_hat','soul_neck','leather_brace','coral_ring'],
   d:'道门的玄门法衣，护体养元',
-  st2:{matk:6},st4:{hp:70,def:4},st6:{matk:10}},
+  st2:{datk:6},st4:{hp:70,def:4},st6:{datk:10}},
  {id:'zuma_w',n:'祖玛战魂',tier:3,cls:'w',color:'#c88aff',
   ids:['caijue','heavy_armor','prayer_helm','green_neck','knight_brace','power_ring'],
   d:'祖玛祭司熔铸的战魂之力，越战越勇',
@@ -685,7 +692,7 @@ const SETS=[
  {id:'zuma_t',n:'祖玛道藏',tier:3,cls:'t',color:'#c88aff',
   ids:['longwen','soul_robe','skull_helm','soul_neck','firm_brace','exorcism_ring'],
   d:'祖玛道藏真经，正气浩然',
-  st2:{matk:10},st4:{hp:110,def:6},st6:{matk:15}},
+  st2:{datk:10},st4:{hp:110,def:6},st6:{datk:15}},
  {id:'crimson_w',n:'赤月战甲',tier:4,cls:'w',color:'#ffd870',
   ids:['bazhe','tianmo','prayer_helm','green_neck','dragon_brace','shengzhan_ring'],
   d:'赤月峡谷的霸主之甲，气吞山河',
@@ -697,7 +704,7 @@ const SETS=[
  {id:'crimson_t',n:'赤月道袍',tier:4,cls:'t',color:'#ffd870',
   ids:['xiaoyao','tianzun','skull_helm','green_neck','firm_brace','tianzun_ring'],
   d:'赤月深渊中的道袍，万法不侵',
-  st2:{matk:16},st4:{hp:200,def:8},st6:{matk:24}},
+  st2:{datk:16},st4:{hp:200,def:8},st6:{datk:24}},
  /* ===== tier5 魔龙套装 =====
    设计取舍：tier5 只有武/甲/戒 3 个部位，套装 6 格里其余 3 格刻意留
    老顶级装备（祈祷头盔/绿项链/龙之手镯等）—— 毕业配装 = 3 新件 + 3 老件，
@@ -713,7 +720,7 @@ const SETS=[
  {id:'molong_t',n:'魔龙道袍',tier:5,cls:'t',color:'#ff6ad8',
   ids:['molong_fan','molong_t','skull_helm','green_neck','firm_brace','molong_dz'],
   d:'魔龙深处的道袍，万法归一',
-  st2:{matk:22},st4:{hp:280,def:10},st6:{matk:32}},
+  st2:{datk:22},st4:{hp:280,def:10},st6:{datk:32}},
  /* 全职业通用套装 */
  {id:'common_guard',n:'护身三宝',tier:1,cls:'all',color:'#d8d8d0',
   ids:['halfmoon_blade','mid_armor','skull_helm','bamboo_flute','firm_brace','iron_ring'],
@@ -820,7 +827,7 @@ const POTIONS=[
 ];
 const POTMAP={};POTIONS.forEach(p=>POTMAP[p.id]=p);
 const RARITY_DROP={1:.62,2:.27,3:.09,4:.02}; // 按tier抽取权重基准
-const STAT_NAMES={atk:'物理攻击',matk:'魔法/道术',def:'物理防御',mdef:'魔法防御',hp:'生命',mp:'魔法'};
+const STAT_NAMES={atk:'物理攻击',matk:'魔法',datk:'道术',def:'物理防御',mdef:'魔法防御',hp:'生命',mp:'魔法值'};
 /* 趣味任务系统 */
 const QUESTS=[
  {id:'q1',n:'新手试炼',d:'击杀 5 只鸡，证明你不是来旅游的',type:'kill',t:['chicken'],n:5,rw:{gold:200,items:[{id:'hp_m',pid:1,n:3}]}},
@@ -902,42 +909,42 @@ function openAchvPanel(){
    使新手村 ~2 秒、中期 ~3 秒、后期 4~6 秒，形成渐进节奏。
    同时战士射程由 48 提升至 56，近战更容易够到目标。 */
 const MONSTERS={
- chicken:{n:'鸡',spr:'chicken',sc:1,hp:24,atk:2,def:0,exp:3,spd:60,aggr:0,atkR:26,atkCd:1.6,gold:[1,3],tier:1},
- deer:{n:'鹿',spr:'deer',sc:1,hp:42,atk:3,def:0,exp:5,spd:80,aggr:0,atkR:30,atkCd:1.6,gold:[2,5],tier:1},
- scare:{n:'稻草人',spr:'scare',sc:1,hp:68,atk:5,def:1,exp:8,spd:55,aggr:0,atkR:30,atkCd:1.5,gold:[3,8],tier:1},
- cat:{n:'多钩猫',spr:'cat',sc:1,hp:58,atk:5,def:0,exp:7,spd:95,aggr:1,atkR:28,atkCd:1.3,gold:[3,8],tier:1},
- cat2:{n:'钉耙猫',spr:'cat',sc:1.15,hp:88,atk:7,def:1,exp:11,spd:100,aggr:1,atkR:28,atkCd:1.3,gold:[5,12],tier:1,tint:'#c8c8d0'},
- village_guard:{n:'村口护卫',spr:'human',armed:1,sc:1.3,hp:230,atk:11,def:3,exp:45,spd:82,aggr:1,atkR:34,atkCd:1.3,gold:[25,50],tier:2,pal:'skelE',elite:1},
- bone_lord:{n:'骷髅王',spr:'human',armed:1,sc:1.9,hp:2400,atk:42,def:14,exp:780,spd:72,aggr:1,atkR:42,atkCd:1.5,gold:[260,520],tier:3,pal:'skelE',boss:1,
+ chicken:{n:'鸡',spr:'chicken',sc:1,hp:24,atk:2,def:0,mdef:1,exp:3,spd:60,aggr:0,atkR:26,atkCd:1.6,gold:[1,3],tier:1},
+ deer:{n:'鹿',spr:'deer',sc:1,hp:42,atk:3,def:0,mdef:1,exp:5,spd:80,aggr:0,atkR:30,atkCd:1.6,gold:[2,5],tier:1},
+ scare:{n:'稻草人',spr:'scare',sc:1,hp:68,atk:5,def:1,mdef:1,exp:8,spd:55,aggr:0,atkR:30,atkCd:1.5,gold:[3,8],tier:1},
+ cat:{n:'多钩猫',spr:'cat',sc:1,hp:58,atk:5,def:0,mdef:1,exp:7,spd:95,aggr:1,atkR:28,atkCd:1.3,gold:[3,8],tier:1},
+ cat2:{n:'钉耙猫',spr:'cat',sc:1.15,hp:88,atk:7,def:1,mdef:1,exp:11,spd:100,aggr:1,atkR:28,atkCd:1.3,gold:[5,12],tier:1,tint:'#c8c8d0'},
+ village_guard:{n:'村口护卫',spr:'human',armed:1,sc:1.3,hp:230,atk:11,def:3,mdef:2,exp:45,spd:82,aggr:1,atkR:34,atkCd:1.3,gold:[25,50],tier:2,pal:'skelE',elite:1},
+ bone_lord:{n:'骷髅王',spr:'human',armed:1,sc:1.9,hp:2400,atk:42,def:14,mdef:10,exp:780,spd:72,aggr:1,atkR:42,atkCd:1.5,gold:[260,520],tier:3,pal:'skelE',boss:1,
    skills:[{t:'summon',cd:11,mob:'skeleton',n:2,max:4,cry:'骷髅王吹响了骨笛！'},{t:'slam',cd:6,r:74,mult:1.9,cry:'碎骨重击！'}],
    drops:['halfmoon_blade','mid_armor','heavy_armor','black_iron','knight_brace','jingzhongyue']},
- skeleton:{n:'骷髅',spr:'human',armed:1,sc:1,hp:150,atk:11,def:3,exp:20,spd:75,aggr:1,atkR:34,atkCd:1.4,gold:[8,18],tier:1,pal:'skel'},
- maggot:{n:'洞蛆',spr:'maggot',sc:1,hp:110,atk:9,def:1,exp:14,spd:70,aggr:1,atkR:26,atkCd:1.2,gold:[5,12],tier:1},
- axe_skel:{n:'掷斧骷髅',spr:'human',armed:1,sc:1,hp:135,atk:13,def:2,exp:24,spd:65,aggr:1,ranged:1,atkR:170,atkCd:2,gold:[10,22],tier:1,pal:'skel'},
- skel_elite:{n:'骷髅精灵',spr:'human',armed:1,sc:1.25,hp:240,atk:16,def:5,exp:48,spd:90,aggr:1,atkR:36,atkCd:1.2,gold:[28,55],tier:2,pal:'skelE',elite:1},
- zombie:{n:'僵尸',spr:'human',armed:1,sc:1.05,hp:400,atk:21,def:7,exp:52,spd:55,aggr:1,atkR:36,atkCd:1.5,gold:[15,35],tier:2,pal:'zom'},
- rotten:{n:'腐僵尸',spr:'human',armed:1,sc:1.05,hp:540,atk:27,def:9,exp:75,spd:55,aggr:1,atkR:36,atkCd:1.5,gold:[20,45],tier:2,pal:'rot'},
- king_zombie:{n:'尸王',spr:'human',armed:1,sc:1.9,hp:2600,atk:52,def:16,exp:900,spd:60,aggr:1,atkR:42,atkCd:1.6,gold:[300,600],tier:3,pal:'zomK',boss:1,
+ skeleton:{n:'骷髅',spr:'human',armed:1,sc:1,hp:150,atk:11,def:3,mdef:2,exp:20,spd:75,aggr:1,atkR:34,atkCd:1.4,gold:[8,18],tier:1,pal:'skel'},
+ maggot:{n:'洞蛆',spr:'maggot',sc:1,hp:110,atk:9,def:1,mdef:1,exp:14,spd:70,aggr:1,atkR:26,atkCd:1.2,gold:[5,12],tier:1},
+ axe_skel:{n:'掷斧骷髅',spr:'human',armed:1,sc:1,hp:135,atk:13,def:2,mdef:1,exp:24,spd:65,aggr:1,ranged:1,atkR:170,atkCd:2,gold:[10,22],tier:1,pal:'skel'},
+ skel_elite:{n:'骷髅精灵',spr:'human',armed:1,sc:1.25,hp:240,atk:16,def:5,mdef:4,exp:48,spd:90,aggr:1,atkR:36,atkCd:1.2,gold:[28,55],tier:2,pal:'skelE',elite:1},
+ zombie:{n:'僵尸',spr:'human',armed:1,sc:1.05,hp:400,atk:21,def:7,mdef:5,exp:52,spd:55,aggr:1,atkR:36,atkCd:1.5,gold:[15,35],tier:2,pal:'zom'},
+ rotten:{n:'腐僵尸',spr:'human',armed:1,sc:1.05,hp:540,atk:27,def:9,mdef:6,exp:75,spd:55,aggr:1,atkR:36,atkCd:1.5,gold:[20,45],tier:2,pal:'rot'},
+ king_zombie:{n:'尸王',spr:'human',armed:1,sc:1.9,hp:2600,atk:52,def:16,mdef:11,exp:900,spd:60,aggr:1,atkR:42,atkCd:1.6,gold:[300,600],tier:3,pal:'zomK',boss:1,
    skills:[{t:'nova',cd:8,r:130,mult:1.5,color:'#8aff5a',cry:'尸王喷出了毒雾！'},{t:'summon',cd:13,mob:'rotten',n:2,max:4,cry:'尸王唤起了腐土！'}],
    drops:['jingzhongyue','halfmoon_blade','mid_armor','heavy_armor','prayer_helm']},
- black_maggot:{n:'黑色恶蛆',spr:'maggot',sc:1.1,hp:580,atk:31,def:9,exp:95,spd:85,aggr:1,atkR:28,atkCd:1.2,gold:[25,50],tier:2,tint:'#585868'},
- woma_soldier:{n:'沃玛战士',spr:'human',armed:1,sc:1.1,hp:860,atk:39,def:12,exp:135,spd:80,aggr:1,atkR:36,atkCd:1.4,gold:[30,60],tier:2,pal:'woma'},
- woma_hero:{n:'沃玛勇士',spr:'human',armed:1,sc:1.3,hp:1300,atk:50,def:15,exp:210,spd:85,aggr:1,atkR:38,atkCd:1.3,gold:[45,90],tier:2,pal:'womaH',elite:1},
- woma_lord:{n:'沃玛教主',spr:'human',armed:1,sc:2.0,hp:6200,atk:92,def:24,exp:3200,spd:70,aggr:1,atkR:46,atkCd:1.5,gold:[800,1600],tier:3,pal:'womaL',boss:1,
+ black_maggot:{n:'黑色恶蛆',spr:'maggot',sc:1.1,hp:580,atk:31,def:9,mdef:6,exp:95,spd:85,aggr:1,atkR:28,atkCd:1.2,gold:[25,50],tier:2,tint:'#585868'},
+ woma_soldier:{n:'沃玛战士',spr:'human',armed:1,sc:1.1,hp:860,atk:39,def:12,mdef:8,exp:135,spd:80,aggr:1,atkR:36,atkCd:1.4,gold:[30,60],tier:2,pal:'woma'},
+ woma_hero:{n:'沃玛勇士',spr:'human',armed:1,sc:1.3,hp:1300,atk:50,def:15,mdef:10,exp:210,spd:85,aggr:1,atkR:38,atkCd:1.3,gold:[45,90],tier:2,pal:'womaH',elite:1},
+ woma_lord:{n:'沃玛教主',spr:'human',armed:1,sc:2.0,hp:6200,atk:92,def:24,mdef:17,exp:3200,spd:70,aggr:1,atkR:46,atkCd:1.5,gold:[800,1600],tier:3,pal:'womaL',boss:1,
    skills:[{t:'volley',cd:7,n:5,gap:.24,spd:300,mult:1.05,color:'#ff8a2c',cry:'沃玛教主喷吐烈焰！'},
            {t:'heal',cd:14,pct:.10,cry:'沃玛教主汲取了祭坛之力！'},{t:'nova',cd:11,r:130,mult:1.4,color:'#ff6a2c',cry:'烈焰风暴！'}],
    drops:['lianyu','caijue','magic_robe','soul_robe','guyu','wuji','tianzhu','green_neck','prayer_helm','dragon_brace']},
- zuma_guard:{n:'祖玛卫士',spr:'human',armed:1,sc:1.15,hp:1080,atk:62,def:16,exp:310,spd:78,aggr:1,atkR:38,atkCd:1.4,gold:[50,100],tier:3,pal:'zuma'},
- zuma_archer:{n:'祖玛弓箭手',spr:'human',armed:1,sc:1.15,hp:940,atk:70,def:14,exp:330,spd:70,aggr:1,ranged:1,atkR:200,atkCd:2,gold:[55,110],tier:3,pal:'zuma'},
- zuma_statue:{n:'祖玛雕像',spr:'human',armed:1,sc:1.4,hp:1650,atk:86,def:21,exp:470,spd:60,aggr:1,atkR:40,atkCd:1.6,gold:[70,140],tier:3,pal:'zumaS',elite:1},
- zuma_lord:{n:'祖玛教主',spr:'human',armed:1,sc:2.1,hp:15000,atk:140,def:30,exp:8500,spd:75,aggr:1,atkR:48,atkCd:1.4,gold:[2000,4000],tier:4,pal:'zumaL',boss:1,
+ zuma_guard:{n:'祖玛卫士',spr:'human',armed:1,sc:1.15,hp:1080,atk:62,def:16,mdef:11,exp:310,spd:78,aggr:1,atkR:38,atkCd:1.4,gold:[50,100],tier:3,pal:'zuma'},
+ zuma_archer:{n:'祖玛弓箭手',spr:'human',armed:1,sc:1.15,hp:940,atk:70,def:14,mdef:10,exp:330,spd:70,aggr:1,ranged:1,atkR:200,atkCd:2,gold:[55,110],tier:3,pal:'zuma'},
+ zuma_statue:{n:'祖玛雕像',spr:'human',armed:1,sc:1.4,hp:1650,atk:86,def:21,mdef:15,exp:470,spd:60,aggr:1,atkR:40,atkCd:1.6,gold:[70,140],tier:3,pal:'zumaS',elite:1},
+ zuma_lord:{n:'祖玛教主',spr:'human',armed:1,sc:2.1,hp:15000,atk:140,def:30,mdef:21,exp:8500,spd:75,aggr:1,atkR:48,atkCd:1.4,gold:[2000,4000],tier:4,pal:'zumaL',boss:1,
    skills:[{t:'volley',cd:6.5,n:7,gap:.19,spd:330,mult:1.0,color:'#ffd84a',cry:'祖玛图腾齐鸣！'},
            {t:'dash',cd:9,mult:1.7,cry:'祖玛教主冲锋而来！'},{t:'nova',cd:10,r:150,mult:1.6,color:'#ffca4a',cry:'祖玛神力爆发！'}],
    drops:['caijue','guyu','xiaoyao','longwen','fashen','tianzun','tianmo','magic_robe','soul_robe','tianzhu','green_neck','power_ring','zibiluo','shengzhan_ring','fashen_ring','tianzun_ring','bazhe','shixue']},
- crimson_worm:{n:'赤月蠕虫',spr:'maggot',sc:1.3,hp:1750,atk:82,def:19,exp:620,spd:75,aggr:1,atkR:30,atkCd:1.3,gold:[90,180],tier:3,tint:'#8a4048'},
- devil_spider:{n:'恶魔蜘蛛',spr:'spider',sc:1.2,hp:2100,atk:94,def:21,exp:700,spd:95,aggr:1,atkR:34,atkCd:1.4,gold:[100,200],tier:3},
- gorilla:{n:'双头金刚',spr:'human',armed:1,sc:1.5,hp:2800,atk:108,def:24,exp:1100,spd:70,aggr:1,atkR:44,atkCd:1.6,gold:[150,300],tier:4,pal:'gori',elite:1},
- crimson_demon:{n:'赤月恶魔',spr:'demon',sc:2.3,hp:40000,atk:200,def:36,exp:20000,spd:80,aggr:1,atkR:50,atkCd:1.3,gold:[6000,12000],tier:4,pal:'demon',boss:1,
+ crimson_worm:{n:'赤月蠕虫',spr:'maggot',sc:1.3,hp:1750,atk:82,def:19,mdef:13,exp:620,spd:75,aggr:1,atkR:30,atkCd:1.3,gold:[90,180],tier:3,tint:'#8a4048'},
+ devil_spider:{n:'恶魔蜘蛛',spr:'spider',sc:1.2,hp:2100,atk:94,def:21,mdef:15,exp:700,spd:95,aggr:1,atkR:34,atkCd:1.4,gold:[100,200],tier:3},
+ gorilla:{n:'双头金刚',spr:'human',armed:1,sc:1.5,hp:2800,atk:108,def:24,mdef:17,exp:1100,spd:70,aggr:1,atkR:44,atkCd:1.6,gold:[150,300],tier:4,pal:'gori',elite:1},
+ crimson_demon:{n:'赤月恶魔',spr:'demon',sc:2.3,hp:40000,atk:200,def:36,mdef:25,exp:20000,spd:80,aggr:1,atkR:50,atkCd:1.3,gold:[6000,12000],tier:4,pal:'demon',boss:1,
    skills:[{t:'burn',cd:8,r:80,dur:5,mult:.55,color:'#ff3c1c',cry:'赤月恶魔燃起了血焰！'},
            {t:'drain',cd:7,r:80,mult:1.6,cry:'赤月恶魔吞噬生命！'},{t:'nova',cd:12,r:150,mult:1.7,color:'#ff1c3c',cry:'血月降临！'}],
    rage:{at:.45,mult:1.3,spd:1.2},
@@ -946,10 +953,10 @@ const MONSTERS={
    三种小怪数值整体在赤月系之上约 35%~45%，精英「魔龙力士」扛矿石/极品产出，
    魔龙教主是全作最强 BOSS：55000 血 + 三技能 + 40% 狂暴，
    drops 池放满 9 件 tier5 —— 全作唯一 tier5 产出点（75% 掉池内装备）。 */
- molong_soldier:{n:'魔龙刀兵',spr:'human',armed:1,sc:1.2,hp:2600,atk:112,def:26,exp:980,spd:78,aggr:1,atkR:38,atkCd:1.4,gold:[140,280],tier:4,pal:'molo'},
- molong_archer:{n:'魔龙射手',spr:'human',armed:1,sc:1.2,hp:2250,atk:124,def:22,exp:1020,spd:72,aggr:1,ranged:1,atkR:210,atkCd:2.1,gold:[150,300],tier:4,pal:'molo'},
- molong_brute:{n:'魔龙力士',spr:'human',armed:1,sc:1.6,hp:3900,atk:138,def:30,exp:1700,spd:66,aggr:1,atkR:44,atkCd:1.7,gold:[240,480],tier:5,pal:'moloE',elite:1},
- molong_lord:{n:'魔龙教主',spr:'demon',sc:2.4,hp:55000,atk:230,def:42,exp:32000,spd:82,aggr:1,atkR:52,atkCd:1.25,gold:[9000,18000],tier:5,pal:'moloL',boss:1,
+ molong_soldier:{n:'魔龙刀兵',spr:'human',armed:1,sc:1.2,hp:2600,atk:112,def:26,mdef:18,exp:980,spd:78,aggr:1,atkR:38,atkCd:1.4,gold:[140,280],tier:4,pal:'molo'},
+ molong_archer:{n:'魔龙射手',spr:'human',armed:1,sc:1.2,hp:2250,atk:124,def:22,mdef:15,exp:1020,spd:72,aggr:1,ranged:1,atkR:210,atkCd:2.1,gold:[150,300],tier:4,pal:'molo'},
+ molong_brute:{n:'魔龙力士',spr:'human',armed:1,sc:1.6,hp:3900,atk:138,def:30,mdef:21,exp:1700,spd:66,aggr:1,atkR:44,atkCd:1.7,gold:[240,480],tier:5,pal:'moloE',elite:1},
+ molong_lord:{n:'魔龙教主',spr:'demon',sc:2.4,hp:55000,atk:230,def:42,mdef:29,exp:32000,spd:82,aggr:1,atkR:52,atkCd:1.25,gold:[9000,18000],tier:5,pal:'moloL',boss:1,
    skills:[{t:'volley',cd:6.5,n:7,gap:.2,spd:340,mult:1.0,color:'#ff6ad8',cry:'魔龙教主喷吐灭世龙息！'},
            {t:'dash',cd:9,mult:1.8,cry:'魔龙教主撕裂空间冲锋！'},
            {t:'nova',cd:10,r:150,mult:1.7,color:'#c88aff',cry:'魔龙灭世！'}],
@@ -959,19 +966,19 @@ const MONSTERS={
     每只绑定一种天气，仅在对应天气出现于 Lv7+ 地图，主动追击玩家。
     属性按"该天气首次开放的地图档位"设计，保证不会越级屠杀。
     必掉 Boss 内丹（技能点道具），并有小概率掉落极品武器。 */
- wb_sun:{n:'烈阳金乌',spr:'chicken',sc:2.0,hp:5200,atk:66,def:16,exp:1800,spd:88,aggr:1,atkR:40,atkCd:1.4,gold:[900,1800],tier:3,pal:'sunny',boss:1,weatherBoss:'sun',
+ wb_sun:{n:'烈阳金乌',spr:'chicken',sc:2.0,hp:5200,atk:66,def:16,mdef:11,exp:1800,spd:88,aggr:1,atkR:40,atkCd:1.4,gold:[900,1800],tier:3,pal:'sunny',boss:1,weatherBoss:'sun',
    skills:[{t:'volley',cd:7,n:5,gap:.26,spd:320,mult:1.0,color:'#ff9a2c',cry:'金乌洒下炽羽！'},{t:'burn',cd:9,r:76,dur:4,mult:.5,color:'#ffb02c',cry:'烈日灼地！'}],
    drops:['halfmoon_blade','jingzhongyue','mid_armor','heavy_armor','knight_brace']},
- wb_cloud:{n:'阴云魔像',spr:'human',armed:1,sc:2.0,hp:8800,atk:88,def:22,exp:3000,spd:74,aggr:1,atkR:44,atkCd:1.5,gold:[1200,2400],tier:3,pal:'golem',boss:1,weatherBoss:'cloud',
+ wb_cloud:{n:'阴云魔像',spr:'human',armed:1,sc:2.0,hp:8800,atk:88,def:22,mdef:15,exp:3000,spd:74,aggr:1,atkR:44,atkCd:1.5,gold:[1200,2400],tier:3,pal:'golem',boss:1,weatherBoss:'cloud',
    skills:[{t:'slam',cd:6,r:80,mult:1.8,cry:'魔像巨拳砸地！'},{t:'nova',cd:9,r:140,mult:1.5,color:'#b0c4d8',cry:'魔像引发震地！'},{t:'dash',cd:11,mult:1.5,cry:'魔像碾压而来！'}],
    drops:['lianyu','caijue','magic_robe','soul_robe','green_neck']},
- wb_rain:{n:'雨夜水蛟',spr:'spider',sc:2.1,hp:14000,atk:112,def:26,exp:4800,spd:92,aggr:1,atkR:46,atkCd:1.4,gold:[1800,3600],tier:4,pal:'aqua',boss:1,weatherBoss:'rain',
+ wb_rain:{n:'雨夜水蛟',spr:'spider',sc:2.1,hp:14000,atk:112,def:26,mdef:18,exp:4800,spd:92,aggr:1,atkR:46,atkCd:1.4,gold:[1800,3600],tier:4,pal:'aqua',boss:1,weatherBoss:'rain',
    skills:[{t:'volley',cd:6,n:6,gap:.22,spd:340,mult:1.0,color:'#5ab0ff',cry:'水蛟射出连珠水箭！'},{t:'nova',cd:9,r:140,mult:1.55,color:'#5ac8ff',cry:'蛟龙搅起漩涡！'}],
    drops:['guyu','wuji','tianzhu','prayer_helm','dragon_brace']},
- wb_fog:{n:'雾隐妖姬',spr:'human',armed:1,sc:2.1,hp:22000,atk:142,def:30,exp:7600,spd:96,aggr:1,atkR:48,atkCd:1.3,gold:[2600,5200],tier:4,pal:'mist',boss:1,weatherBoss:'fog',
+ wb_fog:{n:'雾隐妖姬',spr:'human',armed:1,sc:2.1,hp:22000,atk:142,def:30,mdef:21,exp:7600,spd:96,aggr:1,atkR:48,atkCd:1.3,gold:[2600,5200],tier:4,pal:'mist',boss:1,weatherBoss:'fog',
    skills:[{t:'drain',cd:6.5,r:84,mult:1.5,cry:'妖姬抽取生气！'},{t:'burn',cd:8,r:80,dur:5,mult:.5,color:'#c88aff',cry:'妖姬布下迷雾瘴气！'},{t:'nova',cd:11,r:140,mult:1.6,color:'#c88aff',cry:'雾爆！'}],
    drops:['xiaoyao','longwen','bazhe','tianmo','shengzhan_ring','fashen_ring']},
- wb_thunder:{n:'雷霆战神',spr:'human',armed:1,sc:2.2,hp:34000,atk:178,def:34,exp:12000,spd:100,aggr:1,atkR:52,atkCd:1.25,gold:[4000,8000],tier:4,pal:'thunder',boss:1,weatherBoss:'thunder',
+ wb_thunder:{n:'雷霆战神',spr:'human',armed:1,sc:2.2,hp:34000,atk:178,def:34,mdef:24,exp:12000,spd:100,aggr:1,atkR:52,atkCd:1.25,gold:[4000,8000],tier:4,pal:'thunder',boss:1,weatherBoss:'thunder',
    skills:[{t:'nova',cd:6.5,r:150,mult:1.7,color:'#ffe95a',cry:'雷霆万钧！'},{t:'volley',cd:8,n:8,gap:.18,spd:360,mult:.95,color:'#ffe95a',cry:'战神掷出雷矛！'},{t:'dash',cd:10,mult:1.6,cry:'雷霆冲锋！'}],
    rage:{at:.4,mult:1.35,spd:1.15},
    drops:['tulong','shixue','fashen','tianzun','tianzun_ring','prayer_helm']},
@@ -1073,7 +1080,7 @@ function talResetCost(){return TAL_RESET_BASE*(1+(ST.talentReset||0));}
 function talentSpent(){let n=0;for(const k in ST.talents)n+=(ST.talents[k]||0);return n;}
 /* 天赋汇总：各类百分比/固定加成 */
 function talentBonus(){
-  const out={atkPct:0,matkPct:0,defPct:0,mdefPct:0,hpPct:0,mpPct:0,
+  const out={atkPct:0,matkPct:0,datkPct:0,defPct:0,mdefPct:0,hpPct:0,mpPct:0,
    cdCut:0,mpCut:0,dmgPct:0,healPct:0,critAdd:0,basicPct:0,rangeAdd:0,summonPct:0};
   const order=CLASSES[player.cls]?CLASSES[player.cls].skills:[];
   for(const key of order){
@@ -1709,7 +1716,7 @@ function botDropLoot(m){
       &&e.tier>=3&&(e.cls==='all'||e.cls===player.cls));
     if(jew.length){
       const jd=pick(jew);
-      MAP.drops.push({x:m.x+rnd(-24,24),y:m.y+rnd(-16,16),item:{id:jd.id,q:2,pid:0,n:1},t:150,bob:0,beam:4});
+      MAP.drops.push({x:m.x+rnd(-24,24),y:m.y+rnd(-16,16),item:{id:jd.id,q:2,pid:0,n:1,roll:rollEqStat(jd)},t:150,bob:0,beam:4});
       banner('★ 极品首饰 ★','散人「'+m.botName+'」掉落了 『小极品·'+jd.n+'』');
       addLog('✦ 击败散人「'+m.botName+'」（'+BOT_CLS_CN[m.botCls]+' Lv.'+m.botLv+'），爆出极品首饰 『小极品·'+jd.n+'』');
     }
@@ -1927,21 +1934,79 @@ let projectiles=[],aoes=[],particles=[],texts=[],slashes=[];
 /* BOSS 灼烧地带（地面持续伤害区域，如赤月恶魔的熔岩、天气 BOSS 的领域） */
 let zones=[];
 
+/* ============ 装备数值区间（2026-10 请求 Q）============
+   1.76 经典设定：装备数值是一个区间（如「攻击 3-8」），掉出来才定值。
+   本作实现：
+     · 定义层 st:{atk:[3,8]}  —— 数组即区间 [min,max]
+     · 实例层 it.roll={atk:6} —— 掉落瞬间 rollEqStat 定值（整数）
+     · 最终值 = round(roll × 品质q × 强化plus)，再套硬上限保护
+   为什么 roll 在乘算之前：品质与强化是"玩家投入"的放大器，
+   应该放大"这件装备的底子"，而不是反过来。这样一件 roll 满值的装备
+   强化起来收益更高，玩家才有"值得投入的底子"这个判断。
+   
+   极值分析（为什么需要硬上限）：
+     roll ≤ max（区间上限），q ≤ 2.0（小极品），plus ≤ +12（1.12^12=3.896）
+     → 理论最高 = max × 7.79。这是"区间满值 + 小极品 + 满强化"三重天胡。
+   EQ_STAT_CAP=6.0 把这个天花板压到 max × 6.0：
+     · 正常情况下（q=1、+N 有限）永远够不到，不影响任何现有玩家
+     · 只在"区间满值 × 小极品 × 高强化"同时叠加时生效 —— 正是要防的数值怪
+     · 旧版固定值装备不含 roll，实际上限是 max×7.79，新上限 6.0 相当于
+       对极限值略微收紧（但旧版能达到该极值的装备本身也极罕见） */
+const EQ_STAT_CAP=6.0;
+/* 掉落瞬间定值：把定义层区间摊平成整数实例值 → {atk:6,hp:120}
+   非区间（固定值字段）原样保留，保证旧数据格式仍可用。 */
+function rollEqStat(def){
+  if(!def||!def.st)return null;
+  const out={};
+  for(const k in def.st){
+    const v=def.st[k];
+    out[k]=Array.isArray(v)?rndi(v[0],v[1]):v;
+  }
+  return out;
+}
+function statsOf(e){
+  /* 实例 → 最终属性贡献（含区间定值、品质、强化、硬上限）。
+     e.roll 缺失时按定义层上限处理（旧存档装备 → 不削弱老玩家）。 */
+  const out={atk:0,matk:0,datk:0,def:0,mdef:0,hp:0,mp:0};
+  if(!e)return out;
+  const d=EQMAP[e.id];if(!d)return out;
+  const q=qmul(e),pm=Math.pow(1.12,e.plus||0);
+  for(const k in d.st){
+    const raw=d.st[k];
+    const maxV=Array.isArray(raw)?raw[1]:raw;      // 区间取上限作基准
+    const base=(e.roll&&e.roll[k]!==undefined)?e.roll[k]:maxV;
+    let v=base*q*pm;
+    /* 硬上限（防极端叠加）：上限锚定在「区间上限」，倍数 EQ_STAT_CAP=6。
+       含义：单件装备任一属性最多做到其白板上限的 6 倍。
+       正常情况下 +12 小极品 = 1.12^12×1.32 ≈ 5.15 倍，仍在 6 倍以内不受影响；
+       只有未来出现"品质+强化+额外乘区"三重叠加时才会触发，起兜底作用。
+       ★ 旧写法 hard=maxV*q*pm*6/(2×1.12^12) 是错的：plus=0 时 pm=1，
+         系数退化成 maxV*q*0.77，会把**所有**未强化装备砍掉两成多。 */
+    const hard=maxV*EQ_STAT_CAP;
+    if(v>hard)v=hard;
+    out[k]=(out[k]||0)+v;
+  }
+  return out;
+}
 function recalcStats(){
   const c=CLASSES[player.cls],lv=(player.level||1)-1;
-  let atk=c.atk+c.atkG*lv,matk=c.matk+c.matkG*lv,def=c.def+c.defG*lv,mdef=c.mdef+c.mdefG*lv;
+  /* matk=魔法（法师） / datk=道术（道士）—— 两个独立属性，互不通用。
+     装备词条 matk 只对法师生效、datk 只对道士生效；通用装备同时给两个属性时，
+     实际参与计算的只有本职业那一条（见 statsOf）。 */
+  let atk=c.atk+c.atkG*lv,matk=c.matk+c.matkG*lv,datk=c.datk+c.datkG*lv,
+      def=c.def+c.defG*lv,mdef=c.mdef+c.mdefG*lv;
   let hp=c.hp+c.hpG*lv,mp=c.mp+c.mpG*lv;
   for(const k in equip){const e=equip[k];if(!e)continue;
     const d=EQMAP[e.id];if(!d)continue;
-    const q=qmul(e),pm=Math.pow(1.12,e.plus||0); // 强化：主属性每级 +12%
-    atk+=(d.st.atk||0)*q*pm;matk+=(d.st.matk||0)*q*pm;
-    def+=(d.st.def||0)*q;mdef+=(d.st.mdef||0)*q;
-    hp+=(d.st.hp||0)*q;mp+=(d.st.mp||0)*q;}
+    const s=statsOf(e);                       // 已 roll 的实例属性（含区间定值+品质+强化）
+    atk+=s.atk;matk+=s.matk;datk+=s.datk;
+    def+=s.def;mdef+=s.mdef;
+    hp+=s.hp;mp+=s.mp;}
   /* 套装加成（固定值） */
   const sb=setBonus();
   for(const k in sb.st){
     const v=sb.st[k];
-    if(k==='atk')atk+=v;else if(k==='matk')matk+=v;
+    if(k==='atk')atk+=v;else if(k==='matk')matk+=v;else if(k==='datk')datk+=v;
     else if(k==='def')def+=v;else if(k==='mdef')mdef+=v;
     else if(k==='hp')hp+=v;else if(k==='mp')mp+=v;
   }
@@ -1949,18 +2014,21 @@ function recalcStats(){
   const tb=talentBonus();
   if(tb.atkPct)atk*=1+tb.atkPct;
   if(tb.matkPct)matk*=1+tb.matkPct;
+  if(tb.datkPct)datk*=1+tb.datkPct;
   if(tb.defPct)def*=1+tb.defPct;
   if(tb.mdefPct)mdef*=1+tb.mdefPct;
   if(tb.hpPct)hp*=1+tb.hpPct;
   if(tb.mpPct)mp*=1+tb.mpPct;
-  player.atk=Math.floor(sane(atk));player.matk=Math.floor(sane(matk));player.def=Math.floor(sane(def));player.mdef=Math.floor(sane(mdef));
+  player.atk=Math.floor(sane(atk));player.matk=Math.floor(sane(matk));
+  player.datk=Math.floor(sane(datk));
+  player.def=Math.floor(sane(def));player.mdef=Math.floor(sane(mdef));
   // 技能增益（狂暴战意/寒冰护甲/神圣护盾）
   const bf=player.buff;
   if(bf&&bf.t>0){
     if(bf.stat==='atk')player.atk=Math.floor(player.atk*(1+bf.pct));
     else if(bf.stat==='def')player.def=Math.floor(player.def*(1+bf.pct));
     else if(bf.stat==='mdef'){player.def=Math.floor(player.def*(1+bf.pct));player.mdef=Math.floor(player.mdef*(1+bf.pct));}
-    else if(bf.stat==='matk')player.matk=Math.floor(player.matk*(1+bf.pct));
+    else if(bf.stat==='matk'){player.matk=Math.floor(player.matk*(1+bf.pct));player.datk=Math.floor(player.datk*(1+bf.pct));}
   }
   const oldMax=player.maxHp;
   player.maxHp=Math.floor(sane(hp));player.maxMp=Math.floor(sane(mp));
@@ -2015,6 +2083,25 @@ function calcDamage(atk,def,mult){
   if(crit)d*=1.6;
   return{d:Math.floor(d),crit};
 }
+/* ============ 伤害属性分流（2026-10 请求 Q · 方案①）============
+   三职业各走各的属性与各吃各的防御：
+     战士  atk  → 怪物 def   （物理）
+     法师  matk → 怪物 mdef  （魔法）
+     道士  datk → 怪物 mdef  （道术）
+   matk 与 datk 完全独立：道士装备只给 datk、法师装备只给 matk，
+   通用装备给两条，但每个职业只取自己那一条 —— 混装不会"两头都吃"。
+   技能伤害一律用这里的 atkSrc()，保证普攻/技能/毒伤口径一致。 */
+function atkSrc(){
+  if(player.cls==='mage')return player.matk;
+  if(player.cls==='taoist')return player.datk;
+  return player.atk;
+}
+function defSrc(m){
+  /* 怪物物防/魔防：法师与道士吃 mdef，战士吃 def */
+  const isMagic=(player.cls==='mage'||player.cls==='taoist');
+  if(isMagic)return (m.d.mdef!==undefined)?m.d.mdef:Math.round((m.d.def||0)*.7);
+  return m.d.def||0;
+}
 function playerBasicAttack(){
   const t=player.target;
   if(!t||t.dead)return;
@@ -2026,7 +2113,7 @@ function playerBasicAttack(){
   if(player.cls==='warrior'){
     let mult=1,assault=false;
     if(player.level>=SKILLS.assault.unlock&&Math.random()<.15){mult=1.6;assault=true;}
-    const r=calcDamage(player.atk,t.d.def,mult);
+    const r=calcDamage(atkSrc(),defSrc(t),mult);
     hurtMonster(t,r.d,assault?'#ffd84a':'#ffffff',r.crit,assault?'攻杀！':null);
     slashes.push({x:t.x,y:t.y,t:.15,color:assault?'#ffd84a':(weaponGlowColor(equip.weapon)||'#ffffff')});
   }else{
@@ -2038,7 +2125,7 @@ function playerBasicAttack(){
              道士          atkCd .8s （DPS 基数 ≈0.98/s）→ 另有宠物承担约 40% 输出 */
     const mult=player.cls==='mage'?.62:.78;
     projectiles.push({x:player.x,y:player.y-14,tgt:t,spd:420,kind,mult,from:'p',
-     dmgBase:player.matk});
+     dmgBase:atkSrc(),defBase:defSrc(t)});
   }
 }
 function hurtMonster(m,dmg,color,isCrit,label){
@@ -2133,28 +2220,28 @@ function castSkill(idx){
   castFx(player.x,player.y,melee?'#ff8a4c':player.cls==='mage'?'#7ab0ff':'#8aff5a');
   switch(sk.type){
     case 'm':{ // 近战单体(烈火) 或 法术单体(雷电)
-      if(melee){SFX.fire();const r=calcDamage(player.atk,t.d.def,sk.mult*T);
+      if(melee){SFX.fire();const r=calcDamage(atkSrc(),defSrc(t),sk.mult*T);
         slashes.push({x:t.x,y:t.y,t:.22,color:'#ff6a1c',big:1});
         slashes.push({x:t.x,y:t.y-6,t:.18,color:'#ffd84a',big:0});
         sparkBurst(t.x,t.y,'#ff8a4c',14);
         hurtMonster(t,r.d,'#ff8a4c',r.crit);}
-      else{SFX.bolt();boltFx(t.x,t.y);const r=calcDamage(player.matk,t.d.mdef,sk.mult*T);
+      else{SFX.bolt();boltFx(t.x,t.y);const r=calcDamage(atkSrc(),defSrc(t),sk.mult*T);
         hurtMonster(t,r.d,'#ffe95a',r.crit);}
       break;}
     case 'p':{SFX.fire();projectiles.push({x:player.x,y:player.y-14,tgt:t,spd:440,kind:key,mult:sk.mult*T,from:'p',
-      dmgBase:player.matk});break;}
+      dmgBase:atkSrc(),defBase:defSrc(t)});break;}
     case 'aoe':{SFX.swing();
       slashes.push({arc:1,x:player.x,y:player.y,r:sk.r*(1+tb.rangeAdd),t:.4,color:'#ffca4a',a0:ST.time*13});
       for(const m of monsters()){if(m.dead)continue;
         if(Math.hypot(m.x-player.x,m.y-player.y)<=sk.r*(1+tb.rangeAdd)){
-          const r=calcDamage(player.atk,m.d.def,sk.mult*T);
+          const r=calcDamage(atkSrc(),defSrc(m),sk.mult*T);
           sparkBurst(m.x,m.y,'#ffd84a',5);
           hurtMonster(m,r.d,'#ffd84a',r.crit);}}
       ringFx(player.x,player.y,sk.r*(1+tb.rangeAdd),'#ffca4a');break;}
     case 'aoeP':{SFX.ice();const cx=t.x,cy=t.y;
       for(const m of monsters()){if(m.dead)continue;
         if(Math.hypot(m.x-cx,m.y-cy)<=sk.r*(1+tb.rangeAdd)){
-          const r=calcDamage(player.matk,m.d.mdef,sk.mult*T*weatherElemMul('ice'));
+          const r=calcDamage(atkSrc(),defSrc(m),sk.mult*T*weatherElemMul('ice'));
           hurtMonster(m,r.d,'#8ad8ff',r.crit);}}
       ringFx(cx,cy,sk.r*(1+tb.rangeAdd),'#8ad8ff');iceFx(cx,cy,sk.r*(1+tb.rangeAdd));
       sparkBurst(cx,cy,'#bfe8ff',12);particles.push({ring:1,x:cx,y:cy,r:6,max:sk.r*.7,t:.6,color:'#ffffffaa'});break;}
@@ -2165,13 +2252,13 @@ function castSkill(idx){
       for(let k=0;k<8;k++){const rr=k/8;
         particles.push({x:player.x+dx*rr,y:player.y+dy*rr+rnd(-4,4),vx:rnd(-14,14),vy:rnd(-40,-14),t:rnd(.3,.55),color:'#c8b090',r:rnd(2,4),g:60});}
       moveEntity(player,dx/d*mv,dy/d*mv);
-      const r=calcDamage(player.atk,t.d.def,sk.mult*T);
+      const r=calcDamage(atkSrc(),defSrc(t),sk.mult*T);
       sparkBurst(t.x,t.y,'#ff8a4c',10);
       hurtMonster(t,r.d,'#ff8a4c',r.crit);t.stun=Math.max(t.stun,sk.stun);
       addText(t.x,t.y-58,'眩晕','#ffd84a',11);
       ringFx(player.x,player.y,50,'#ffca4a');break;}
     case 'poison':{SFX.poison();
-      if(!t.poisonT||t.poisonT<=0){t.poisonT=sk.dur;t.poison=player.matk*sk.mult*T;}
+      if(!t.poisonT||t.poisonT<=0){t.poisonT=sk.dur;t.poison=atkSrc()*sk.mult*T;}
       addText(t.x,t.y-50,'中毒','#8aff5a',12);
       greenFx(t.x,t.y);ringFx(t.x,t.y,26,'#8aff5a');
       for(let i=0;i<6;i++)particles.push({x:t.x+rnd(-12,12),y:t.y-rnd(4,26),vx:rnd(-8,8),vy:rnd(-24,-10),t:rnd(.6,.9),color:'#5ad84a',r:rnd(2.5,4),g:-14});break;}
@@ -2192,7 +2279,7 @@ function castSkill(idx){
       pet.hp=pet.maxHp;
       summonFx(player.x,player.y);
       addLog('召唤出 '+PET_LV[pet.lvl].n+'（LV'+(pet.lvl+1)+' 攻'+Math.floor(pet.atk)+' 血'+Math.floor(pet.maxHp)+'）');break;}
-    case 'heal':{SFX.heal();const h=Math.floor((player.maxHp*.3+player.matk*2)*(1+tb.healPct));
+    case 'heal':{SFX.heal();const h=Math.floor((player.maxHp*.3+atkSrc()*2)*(1+tb.healPct));
       player.hp=Math.min(player.maxHp,player.hp+h);
       ST.stat.heal=(ST.stat.heal||0)+h;
       addText(player.x,player.y-50,'+'+h,'#5aff8a',15);healFx(player.x,player.y);
@@ -2209,7 +2296,7 @@ function castSkill(idx){
       let hit=0;
       for(const m of monsters()){if(m.dead)continue;
         if(Math.hypot(m.x-player.x,m.y-player.y)<=sk.r*(1+tb.rangeAdd)){
-          m.poisonT=sk.dur;m.poison=player.matk*sk.mult*T;
+          m.poisonT=sk.dur;m.poison=atkSrc()*sk.mult*T;
           addText(m.x,m.y-50,'中毒','#8aff5a',11);
           greenFx(m.x,m.y);hit++;}}
       ringFx(player.x,player.y,sk.r*(1+tb.rangeAdd),'#8aff5a');
@@ -2636,8 +2723,11 @@ function petRecalc(){
   if(!pet)return;
   const st=petStageOf();
   const ratio=(1+pet.lvl*.32)*st.hpM;
-  pet.maxHp=(56+player.matk*2.1)*ratio;
-  pet.atk=(7+player.matk*.52)*ratio;
+  /* 宠物是道士召唤物，成长用**道术 datk**（atkSrc 按职业取源）——
+     旧写法恒用 player.matk，道士转 datk 后 matk 恒 0，宠物会瞬间退化。 */
+  const src=atkSrc();
+  pet.maxHp=(56+src*2.1)*ratio;
+  pet.atk=(7+src*.52)*ratio;
   pet.spd=st.spd;
   /* 天赋「召唤」强化：宠物整体强度 */
   const tb=talentBonus();
@@ -2733,7 +2823,7 @@ function updateProjectiles(dt){
     if(d<=step+8){
       // 命中
       if(p.from==='p'){
-        const r=calcDamage(p.dmgBase,t.d.mdef,p.mult);
+        const r=calcDamage(p.dmgBase,p.defBase!==undefined?p.defBase:defSrc(t),p.mult);
         hurtMonster(t,r.d,p.kind==='ice'?'#8ad8ff':p.kind==='charm'?'#ffe95a':'#ff8a4c',r.crit);
         if(p.kind==='fireball'||p.kind==='thunder')SFX.fire();
       }else{
@@ -2935,13 +3025,32 @@ function rollEquipTier(mapDef,isBoss,elite){
        仅「中级以上地图的最大 BOSS」掉落，概率 30%。
        "中级以上" = 沃玛寺庙（lv22）及之后的图：沃玛教主 / 祖玛教主 / 赤月恶魔。
        骷髅王、尸王属初级图 BOSS，不掉（避免开局就刷技能点）。
-       天气 BOSS 算"最大 BOSS"，同样 30%（它们比同级图 BOSS 更强，理应给）。
+       天气 BOSS 算"最大 BOSS"，同样给出内丹（它们比同级图 BOSS 更强，理应给）。
        精英怪 0% —— 原 9% 取消，技能点不该是精英的副产品。
      设计后果：技能点从"挂机附带"变成"需要专门去打 BOSS"，与
-     "技能点唯一来自内丹"的设定真正闭环。 */
+     "技能点唯一来自内丹"的设定真正闭环。
+
+   ===== 全局爆率下调（2026-10 · B 档「中等」）=====
+   背景：原爆率下挂机 20 分钟就能攒满背包，装备/药水都不稀缺，
+   经济与成长压力被稀释。本轮整体收紧，但仍保留"打怪有收获"的体感：
+     药水      17% → 8%     —— 续航要靠买，购药成为真实金币消耗
+     普通怪装备 12% → 5%     —— 白装不再是挂机副产品
+     精英怪装备 50% → 25%    —— 精英仍是稳定装备来源（主动清精英有回报）
+     精英矿石  10% → 5%      —— 强化石继续稀缺
+     BOSS 内丹 30% → 15%     —— 技能点更金贵
+   ★ 刻意**不降**的三项（保底项，降了会出现"白跑一趟"的负体验）：
+     · BOSS 掉池 75%   —— BOSS 是目标性内容，掉空等于白打
+     · BOSS 矿石必掉   —— 同上，打 BOSS 保底有收获
+     · 普通怪矿石 0%   —— 本来就是 0
+   注意：药水/装备/矿石三处都会叠 luckMul（昼夜+天气+套装），
+   所以实测概率会略高于基值，这里给的是"无加成基线"。 */
+const POT_P_DROP=0.08;       // 药水掉落（原 0.17）
+const EQ_P_NORMAL=0.05;      // 普通怪装备（原 0.12）
+const EQ_P_ELITE=0.25;       // 精英怪装备（原 0.5）
+const EQ_P_BOSS=1;           // BOSS 装备：必掉（保底，不降）
 const ORE_P_NORMAL=0;        // 普通怪：不产强化石
-const ORE_P_ELITE=0.10;      // 精英怪：10%
-const DAN_P_BOSS=0.30;       // 中级以上地图 BOSS：30%
+const ORE_P_ELITE=0.05;      // 精英怪：5%（原 10%）
+const DAN_P_BOSS=0.15;       // 中级以上地图 BOSS：15%（原 30%）
 const DAN_MIN_MAP_LV=22;     // 「中级地图」的等级起点（沃玛寺庙）
 /* 判断某只怪是否属于「中级以上地图的最大 BOSS」
    注意 MONSTERS 是 {id:{...}} 结构，定义对象内部**没有** id 字段，
@@ -2966,23 +3075,23 @@ function dropLoot(m){
   /* 下限为 0 而非 1：试炼塔把怪物金币设为 [0,0]，原实现里的 Math.max(1,·)
      会把它抬成 1 金币，导致"塔内不产金币"失效（每杀一只白给 1 枚）。 */
   if(gv>0)MAP.drops.push({x:m.x+rnd(-14,14),y:m.y+rnd(-10,10),gold:gv,t:60,bob:0});
-  /* 药水：掉落几率下调（原 30%），减少无成本续航，让购药成为真实金币消耗 */
-  if(Math.random()<.17){const pid=pick(['hp_s','hp_s','hp_m','mp_s','mp_m']);
+  /* 药水：掉落几率（B 档下调，见 POT_P_DROP）——让购药成为真实金币消耗 */
+  if(Math.random()<POT_P_DROP){const pid=pick(['hp_s','hp_s','hp_m','mp_s','mp_m']);
     MAP.drops.push({x:m.x+rnd(-18,18),y:m.y+rnd(-12,12),item:{id:pid,pid:1,n:1},t:60,bob:0});}
-  /* 黑铁矿石（强化石）：普通怪 0%，精英 10%，BOSS 必掉 1~3 */
+  /* 黑铁矿石（强化石）：普通怪 0%，精英 ORE_P_ELITE，BOSS 必掉 1~3 */
   const oreP=(d.boss?1:d.elite?ORE_P_ELITE:ORE_P_NORMAL)*luckMul;
   if(Math.random()<oreP)
     MAP.drops.push({x:m.x+rnd(-16,16),y:m.y+rnd(-14,14),item:{id:'ore',pid:1,n:d.boss?rndi(1,3):1},t:90,bob:0});
-  /* Boss 内丹：仅中级以上地图的最大 BOSS，概率固定 30%。
+  /* Boss 内丹：仅中级以上地图的最大 BOSS，概率 DAN_P_BOSS（B 档 15%）。
      注意不要叠 luckMul —— 天气 BOSS 本身只在特定天气出现，
-     再乘「夜间+天气+套装」的掉落加成会把实测概率顶到 33%+，
-     偏离"30%"这个明确的数值承诺。内丹是技能点资源，宜稳定不宜浮动。 */
+     再乘「夜间+天气+套装」的掉落加成会把实测概率顶高，
+     偏离明确的数值承诺。内丹是技能点资源，宜稳定不宜浮动。 */
   if(danEligible(d,m.id)&&Math.random()<DAN_P_BOSS){
     MAP.drops.push({x:m.x+rnd(-22,22),y:m.y+rnd(-16,16),item:{id:'dan',pid:1,n:1},t:120,bob:0});
     addLog('✦ '+d.n+' 掉落了 『Boss内丹』（炼化可得 1 技能点）');
   }
-  /* 装备 */
-  const dropP=(d.boss?1:d.elite?.5:.12)*luckMul;
+  /* 装备掉落（B 档：普通 5% / 精英 25% / BOSS 必掉） */
+  const dropP=(d.boss?EQ_P_BOSS:d.elite?EQ_P_ELITE:EQ_P_NORMAL)*luckMul;
   if(Math.random()<dropP){
     let itemId=null,q=rollEqQ();
     /* 天气 BOSS：小概率掉落「极品武器」——强制武器位 + 最高品质档 */
@@ -2991,7 +3100,7 @@ function dropLoot(m){
       const wp=EQUIPS.filter(e=>e.slot==='weapon'&&e.tier===4&&(e.cls==='all'||CLS_FULL[e.cls]===player.cls));
       if(wp.length){
         const wd=pick(wp);itemId=wd.id;q=2;
-        MAP.drops.push({x:m.x+rnd(-20,20),y:m.y+rnd(-14,14),item:{id:itemId,q},t:120,bob:0,beam:4});
+        MAP.drops.push({x:m.x+rnd(-20,20),y:m.y+rnd(-14,14),item:{id:itemId,q,roll:rollEqStat(wd)},t:120,bob:0,beam:4});
         banner('★ 极品武器 ★',d.n+' 掉落了 『小极品·'+wd.n+'』');
         addLog('✦✦ '+d.n+' 爆出了极品武器 『小极品·'+wd.n+'』');
         return;
@@ -3003,7 +3112,7 @@ function dropLoot(m){
       const pool=EQUIPS.filter(e=>e.tier===tier&&(e.cls==='all'||CLS_FULL[e.cls]===player.cls));
       itemId=pool.length?pick(pool).id:'wood_sword';
     }
-    MAP.drops.push({x:m.x+rnd(-20,20),y:m.y+rnd(-14,14),item:{id:itemId,q},t:90,bob:0,
+    MAP.drops.push({x:m.x+rnd(-20,20),y:m.y+rnd(-14,14),item:{id:itemId,q,roll:rollEqStat(EQMAP[itemId])},t:90,bob:0,
       beam:EQMAP[itemId].tier});
     const eq=EQMAP[itemId];
     if(eq.tier>=3)addLog('✦ '+d.n+' 掉落了 『'+(q===2?'小极品·':q===0?'劣质·':'')+eq.n+'』');
@@ -3025,6 +3134,9 @@ function addInv(item){
      原实现只带 q 不带 plus，会导致强化等级被静默清零 */
   if(item.q!==undefined)it2.q=item.q;
   if(item.plus)it2.plus=item.plus;
+  /* ★ 保留掉落瞬间的数值 roll（请求 Q）：丢失它会让「掉出来是攻击 4」的装备
+     一进背包就变回理论上限，区间随机形同虚设。 */
+  if(item.roll)it2.roll=item.roll;
   inv.push(it2);
   return true;
 }
@@ -3292,7 +3404,10 @@ function autoSellCanFree(){
        bracelet2/ring2 —— 穿在右手上的装备会被自动出售卖掉，属严重数据损坏。 */
     if(eqWornSlot(it))continue;
     const def=EQMAP[it.id];if(!def)continue;
-    if(cfg.t[def.tier]&&(cfg.oc||def.cls==='all'||def.cls===player.cls))return true;
+    /* ★ def.cls 是短码（w/m/t/all），player.cls 是全名（warrior/mage/taoist），
+       必须经 CLS_FULL 转换再比 —— 旧写法 'w'==='warrior' 恒 false，
+       导致「本职业专属装备」永远算作不可自动出售，背满时腾不出格子。 */
+    if(cfg.t[def.tier]&&(cfg.oc||def.cls==='all'||CLS_FULL[def.cls]===player.cls))return true;
   }
   return false;
 }
@@ -3314,8 +3429,9 @@ function autoSellWhite(){
   for(let i=inv.length-1;i>=0;i--){const it=inv[i];
     if(it.pid)continue;                      // 药水/矿石不自动卖
     const e=EQMAP[it.id];if(!e)continue;
-    /* 出售条件：颜色档勾选 中 或 非本职业专属且开启 oc */
-    const want=cfg.t[e.tier]||(cfg.oc&&e.cls!==player.cls&&e.cls!=='all');
+    /* 出售条件：颜色档勾选 中 或 非本职业专属且开启 oc
+       ★ cls 短码需经 CLS_FULL 转换（同 autoSellCanFree 的修复理由） */
+    const want=cfg.t[e.tier]||(cfg.oc&&e.cls!=='all'&&CLS_FULL[e.cls]!==player.cls);
     if(!want)continue;
     if((it.plus||0)>0)continue;              // 强化过的不卖
     const worn=Object.values(equip).includes(it);
@@ -3443,7 +3559,7 @@ function giveQuestReward(q){
   if(q.rw.loot){
     const pool=EQUIPS.filter(e=>e.tier===q.rw.loot&&(e.cls==='all'||CLS_FULL[e.cls]===player.cls));
     const eq=pool.length?pick(pool):EQMAP.wood_sword;
-    const inst={id:eq.id,q:rollEqQ()};
+    const inst={id:eq.id,q:rollEqQ(),roll:rollEqStat(eq)};
     const r=addOrConvert(inst,{silent:true});
     if(r.ok)addLog('额外奖励 『'+eqName(inst)+'』');
     else if(r.conv>0)addLog('背包已满，奖励折算为 '+r.conv+' 金币');
@@ -3986,9 +4102,11 @@ function bagPotOrder(id){
        分数完全相同，「↑可装」永远是 false，玩家永远换不掉手里的旧装。 */
 function eqScore(it){
   const d=EQMAP[it.id];if(!d||!d.st)return 0;
-  const q=qmul(it),pm=plusMul(it);
   let s=0;
-  for(const k in d.st)s+=(d.st[k]||0)*q*pm*(CMP_W[k]||0);
+  /* ★ 用 statsOf(it) 读**实值**（含掉落实值 roll），与穿戴后的真实面板一致；
+     旧写法读定义层 st[k] 会把区间上限当成实际值，导致「标了↑可装、装上却没提升」。 */
+  const real=statsOf(it);
+  for(const k in d.st)s+=(real[k]||0)*(CMP_W[k]||0);
   return s;
 }
 /* 该背包装备是否"值得换上"：同部位存在空槽（手镯②/戒指②空着）→ 可装；
@@ -4148,16 +4266,21 @@ function openBag(){
       '<div class="eqSub">'+c.name+' · Lv.'+player.level+'</div>'+
       '<canvas id="eqAv"></canvas>'+
       '<div class="eqPed"></div>'+
-      '<div class="eqSet">'+((setBonus().list.length)?('✦ 套装 '+setBonus().list.map(x=>x.count).join('/')+' 件生效'):('战力 '+Math.floor((player.atk+player.matk)*2+player.def*1.2+player.mdef+player.maxHp*.15)))+'</div>'+
+      '<div class="eqSet">'+((setBonus().list.length)?('✦ 套装 '+setBonus().list.map(x=>x.count).join('/')+' 件生效'):('战力 '+Math.floor((player.atk+player.matk+player.datk)*2+player.def*1.2+player.mdef+player.maxHp*.15)))+'</div>'+
     '</div>'+
     '<div class="eqCol">'+rightSlots.map(([k,n])=>slotHtml(k,n,66)).join('')+'</div>'+
     '</div>';
 
   /* ---------- ② 属性（压缩 3 行，给背包让出竖向空间） ---------- */
   const setH=genSetHtml();
+  /* 第二行随职业变：战士显示物攻、法师显示魔法、道士显示道术
+     —— matk 与 datk 已完全独立，把另一职业的属性摆出来只会造成误导。 */
+  const atkLine=(player.cls==='mage')?('<span>魔法</span><b>'+player.matk+'</b>')
+    :(player.cls==='taoist')?('<span>道术</span><b>'+player.datk+'</b>')
+    :('<span>物理攻击</span><b>'+player.atk+'</b>');
   const statRow='<div class="eqStat">'+
     '<div><span>生命 / 魔法</span><b>'+Math.floor(player.hp)+' / '+Math.floor(player.mp)+'</b></div>'+
-    '<div><span>攻击 / 道术</span><b>'+player.atk+' / '+player.matk+'</b></div>'+
+    '<div>'+atkLine+'</div>'+
     '<div><span>防御 / 魔防</span><b>'+player.def+' / '+player.mdef+'</b></div>'+
     '</div><div id="eqSetBox" class="hidden">'+setH+'</div>';
 
@@ -4385,8 +4508,22 @@ function batchDrop(){
 function openChar(){openBag();}
 /* 属性权重：折算成"战力分"用于优劣总评。
    攻击类权重最高（直接决定清怪速度），防御类次之，HP/MP 按比例给分。 */
-const CMP_W={atk:2.0,matk:2.0,def:1.2,mdef:1.0,hp:.15,mp:.10};
-function statCompareRows(def,q,plus){
+const CMP_W={atk:2.0,matk:2.0,datk:2.0,def:1.2,mdef:1.0,hp:.15,mp:.10};
+/* 装备定义 st 取值：区间数组 [min,max] 取 max（用于「理论天花板」比较），
+   标量则原样返回。instance 层用 statsOf() 读实值。 */
+function stMax(v){return Array.isArray(v)?v[1]:v;}
+function stMin(v){return Array.isArray(v)?v[0]:v;}
+/* 区间展示后缀：+4（区间 3-4）—— 让玩家一眼看出"这件是掷到下限还是上限"。
+   非区间（标量）返回空串，保持旧装备的展示不变。 */
+function rollTag(def,k,it,q,plus){
+  const raw=def.st&&def.st[k];
+  if(!Array.isArray(raw))return '';
+  const real=it&&it.roll?(it.roll[k]!==undefined?it.roll[k]:raw[1]):raw[1];
+  const atMax=(real>=raw[1]);
+  const c=atMax?'#8ad8ff':'#a89058';
+  return ' <span style="font-size:11px;color:'+c+'">('+raw[0]+'-'+raw[1]+')</span>';
+}
+function statCompareRows(def,q,plus,it){
   /* 与当前已穿戴同部位装备对比（计入品质与强化系数）。
      ★ 双槽位（手镯/戒指）：取该部位已穿戴两件中"更强的那件"作为对比基准 ——
        玩家想知道的是"换上它有没有进步"，跟弱的那件比没有参考价值；
@@ -4398,21 +4535,27 @@ function statCompareRows(def,q,plus){
   /* ★ 折算必须与 eqScore / recalcStats 三方一致：
        品质用 qmul()、强化对所有部位生效。
        旧写法把 plus 系数限定在 weapon 上，导致两件只差强化等级的头盔/戒指
-       在详情页显示"基本持平"，而背包角标也用同一套错误系数 → 玩家永远换不掉旧装。 */
+       在详情页显示"基本持平"，而背包角标也用同一套错误系数 → 玩家永远换不掉旧装。
+     ★ 候选装备若带 roll（掉落实例）用实值，否则取区间上限（理论值）。 */
   const myMul=qmul({q})*plusMul({plus});
-  const keys=['atk','matk','def','mdef','hp','mp'];
+  const keys=['atk','matk','datk','def','mdef','hp','mp'];
   let rows='',score=0,nUp=0,nDown=0,nSame=0;
   for(const k of keys){
-    const nv=(def.st&&def.st[k]||0)*myMul;
-    const cv=curDef?(curDef.st[k]||0)*qmul(cur)*plusMul(cur):0;
+    const rawV=(def.st&&def.st[k]!==undefined)?def.st[k]:0;
+    /* 本件数值：优先用实例 roll 的实值，退化为区间上限 */
+    const base=(it&&it.roll&&it.roll[k]!==undefined)?it.roll[k]:stMax(rawV);
+    const nv=base*myMul;
+    const cv=cur?(statsOf(cur)[k]||0):0;
     if(!nv&&!cv)continue;
     const delta=Math.floor(nv)-Math.floor(cv);
     if(curDef){
       if(delta>0)nUp++;else if(delta<0)nDown++;else nSame++;
       score+=delta*(CMP_W[k]||0);
     }
-    const dTxt=curDef?(delta>=0?' <span class="up">▲+'+delta+'</span>':' <span class="down">▼'+delta+'</span>'):'';
-    rows+='<div class="row"><span>'+STAT_NAMES[k]+'</span><b>+'+Math.floor(nv)+dTxt+'</b></div>';
+    /* delta=0 时不给箭头：同数值标「▲+0」会让玩家误以为有提升 */
+    const dTxt=!curDef?'':(delta>0?' <span class="up">▲+'+delta+'</span>':delta<0?' <span class="down">▼'+delta+'</span>':'');
+    const tag=(it&&Array.isArray(rawV))?rollTag(def,k,it,q,plus):'';
+    rows+='<div class="row"><span>'+STAT_NAMES[k]+'</span><b>+'+Math.floor(nv)+tag+dTxt+'</b></div>';
   }
   if(curDef){
     /* 优劣总评：加权总分 + 属性条目数共同决定结论 */
@@ -4458,7 +4601,7 @@ function showItemDetail(def,idx){
       '<div style="font-size:11px;color:#8a7a50;margin-top:3px">当前技能点余额：<b style="color:#7ab0ff">'+(ST.skillPt||0)+'</b> 点</div>';
     if(def.ore)stats+='<div style="font-size:11px;color:#8a7a50;margin-top:4px">背包存量：'+countOre()+' 个（击败怪物有几率掉落）</div>';
   }else if(def.slot){
-    stats=statCompareRows(def,q,plus);
+    stats=statCompareRows(def,q,plus,it);
   }
   let extra='';
   /* 强化区：六个部位全部可强化（仅背包内装备） */
@@ -4604,9 +4747,12 @@ function showItemDetailOff(def,slot){
   if(!cur){hideItemDetail();return;}      /* 槽位在打开瞬间被清空（如卸下后重绘）→ 安全退出 */
   const q=qOf(cur);
   let stats='';
+  /* 用 statsOf 读实值（含掉落区间 roll），与穿戴后的真实面板一致 */
+  const realSt=statsOf(cur);
   if(def.st)for(const k in def.st){
-    const v=Math.floor((def.st[k]||0)*qmul(cur));
-    stats+='<div class="row"><span>'+STAT_NAMES[k]+'</span><b>+'+v+'</b></div>';
+    const v=Math.floor(realSt[k]||0);
+    const tag=rollTag(def,k,cur,q,cur.plus||0);
+    stats+='<div class="row"><span>'+STAT_NAMES[k]+'</span><b>+'+v+tag+'</b></div>';
   }
   /* 强化区：与背包物品详情同一套面板（6 部位全可强化） */
   const forgeBtn=forgePanelHtml(cur,false);
@@ -5863,6 +6009,10 @@ function reforgeDo(item,after){
   const before=qOf(item);
   const nq=rollRerollQ(before);
   item.q=nq;
+  /* ★ 数值区间（请求 Q）：重铸一并重掷 roll —— 品质是"投入放大器"，
+     数值是"掉落运气"，两者一起重掷才符合"把装备洗一次"的直觉。 */
+  const nr=rollEqStat(d);
+  if(nr)item.roll=nr;
   const onBody=Object.values(equip).includes(item);
   if(onBody)recalcStats();
   if(nq>before){SFX.lvl();banner('✦ 重铸提升 ✦',EQQ[before].n+' → '+EQQ[nq].n+' · '+eqName(item));}
@@ -6075,7 +6225,7 @@ function towerFloorReward(floor){
       return pool.length?pick(pool):null;
     };
     const d=pickFrom(4)||pickFrom(3);
-    if(d)eqItem={id:d.id,q:2,pid:0,n:1,plus:TOWER_EQ_PLUS};
+    if(d)eqItem={id:d.id,q:2,pid:0,n:1,plus:TOWER_EQ_PLUS,roll:rollEqStat(d)};
   }
   return {dan,eqItem};
 }
@@ -7144,6 +7294,7 @@ function startGameInner(cls,save,slot,broken){
     recalcStats();player.hp=player.maxHp;player.mp=player.maxMp;
     // 初始武器（补 q:1，避免初始装备品质为 undefined 导致属性倍率异常）
     const w=player.cls==='warrior'?{id:'wood_sword',q:1}:player.cls==='mage'?{id:'wood_staff',q:1}:{id:'yinshe',q:1};
+    w.roll=rollEqStat(EQMAP[w.id]);   // 初始武器也走区间 roll，与掉落口径一致
     equip.weapon=w;recalcStats();
     $('title').classList.add('hidden');$('gameUI').classList.remove('hidden');
     switchMap('village');
@@ -7232,6 +7383,10 @@ function init(){
     /* 试炼塔产出体系（请求 F） */
     towerFloorReward,danEligible,TOWER_DAN_STEP,TOWER_EQ_P,TOWER_EQ_PLUS,
     ORE_P_NORMAL,ORE_P_ELITE,DAN_P_BOSS,DAN_MIN_MAP_LV,
+    POT_P_DROP,EQ_P_NORMAL,EQ_P_ELITE,EQ_P_BOSS,
+    /* 魔法/道术分离 + 装备数值区间（请求 Q）：
+       statsOf 读实例实值、rollEqStat 掉落实测、atkSrc/defSrc 决定伤害用哪条属性 */
+    STAT_NAMES,CMP_W,stMax,stMin,EQ_STAT_CAP,rollEqStat,statsOf,atkSrc,defSrc,rollTag,
     /* 背包整理（请求 E）：排序键 + 主函数，供自动化断言 */
     tidyBag,bagCatOf,bagItemLess,BAG_SLOT_ORDER,
     /* 新手攻略面板（请求 E） */
