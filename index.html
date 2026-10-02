@@ -289,7 +289,7 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges}
 /* 勾选模式下角标让位：勾选圈占左上，避免与品质标记叠字 */
 .cell.checked .marks,.cell.checked .mkUp{display:none}
 .q1{border-color:#8a8a82}.q2{border-color:#4a90d8}.q3{border-color:#a84ae8}.q4{border-color:#ffca4a}
-.tq1{color:#d8d8d0}.tq2{color:#6ab0ff}.tq3{color:#c88aff}.tq4{color:#ffd870}
+.tq1{color:#d8d8d0}.tq2{color:#6ab0ff}.tq3{color:#c88aff}.tq4{color:#ffd870}.tq5{color:#ff6ad8}
 #itemDetail{position:absolute;left:0;right:0;bottom:0;margin:0 auto;max-width:420px;width:94%;padding:14px;z-index:41}
 /* 标题画面弹窗模式：槽位覆盖/读档失败等对话框要盖过标题层(z:50) */
 body.titleDlg #dtBack{z-index:55}
@@ -503,11 +503,12 @@ const TOWER_COST=10000;          // 入场费（金币）：每次进入试炼�
      tier2 蓝装 → 沃玛寺庙（22+）
      tier3 紫装 → 祖玛寺庙（30+）
      tier4 金装 → 赤月峡谷（38+）
+     tier5 魔龙装 → 魔龙城（42+，仅魔龙教主掉落）
    这样「装备门槛」与「地图门槛」完全一致，玩家看到一个等级数字就够了。
    为什么需要这个限制：试炼塔会产出 +9 的 tier4 金装，若不限等级，
    1 级小号爬塔摸到一件就能直接穿上，把前 37 级的成长曲线整个跳过。
    加限制后，塔产装备变成「提前攒下的毕业装备」，而不是「插队入场券」。 */
-const EQ_REQ_LV={1:1,2:22,3:30,4:38};
+const EQ_REQ_LV={1:1,2:22,3:30,4:38,5:42};
 function eqReqLv(def){
   if(!def||!def.slot)return 1;
   const lv=EQ_REQ_LV[def.tier|0];
@@ -639,11 +640,24 @@ const EQUIPS=[
  {id:'power_ring',n:'力量戒指',slot:'ring',cls:'all',tier:3,st:{atk:11},d:'力量的象征'},
  {id:'shengzhan_ring',n:'圣战戒指',slot:'ring',cls:'all',tier:4,st:{atk:14,hp:60},d:'1.76重装 · 圣战套装'},
  {id:'fashen_ring',n:'法神戒指',slot:'ring',cls:'all',tier:4,st:{matk:14,mp:80},d:'1.76重装 · 法神套装'},
- {id:'tianzun_ring',n:'天尊戒指',slot:'ring',cls:'all',tier:4,st:{matk:11,hp:80},d:'1.76重装 · 天尊套装'}
+ {id:'tianzun_ring',n:'天尊戒指',slot:'ring',cls:'all',tier:4,st:{matk:11,hp:80},d:'1.76重装 · 天尊套装'},
+ /* ===== tier5 魔龙系（终局装备，仅魔龙教主掉落）=====
+   数值在 tier4 顶部（屠龙52 / 嗜血34 / 赤月三件套 / 圣法天三戒）之上约 +30%，
+   穿戴门槛 42 级（EQ_REQ_LV）—— 40 级进图先打 tier4 过渡，42 级穿上毕业。
+   白板卖价 base 3000（eqPrice）：与塔入场费 1 万的经济体量衔接。 */
+ {id:'molong_blade',n:'魔龙战刃',slot:'weapon',cls:'w',tier:5,st:{atk:68},d:'魔龙城终极重装 · 屠龙之上的传说'},
+ {id:'molong_staff',n:'魔龙法杖',slot:'weapon',cls:'m',tier:5,st:{matk:45},d:'魔龙城终极重装 · 汇聚灭世魔力'},
+ {id:'molong_fan',n:'魔龙宝扇',slot:'weapon',cls:'t',tier:5,st:{matk:42},d:'魔龙城终极重装 · 一扇定山河'},
+ {id:'molong_w',n:'魔龙战甲',slot:'armor',cls:'w',tier:5,st:{def:26,hp:195},d:'魔龙城终极重装 · 战神之甲'},
+ {id:'molong_m',n:'魔龙法衣',slot:'armor',cls:'m',tier:5,st:{def:17,matk:20,hp:117},d:'魔龙城终极重装 · 法神之衣'},
+ {id:'molong_t',n:'魔龙道袍',slot:'armor',cls:'t',tier:5,st:{def:18,matk:16,hp:143},d:'魔龙城终极重装 · 天尊法衣'},
+ {id:'molong_wr',n:'魔龙战戒',slot:'ring',cls:'all',tier:5,st:{atk:18,hp:78},d:'魔龙城终极重装 · 战戒'},
+ {id:'molong_mg',n:'魔龙法戒',slot:'ring',cls:'all',tier:5,st:{matk:18,mp:104},d:'魔龙城终极重装 · 法戒'},
+ {id:'molong_dz',n:'魔龙道戒',slot:'ring',cls:'all',tier:5,st:{matk:14,hp:104},d:'魔龙城终极重装 · 道戒'}
 ];
 const EQMAP={};EQUIPS.forEach(e=>EQMAP[e.id]=e);
-const TIER_NAME=['','普通','沃玛','祖玛','赤月'];
-const TIER_COLOR=['','#d8d8d0','#6ab0ff','#c88aff','#ffd870'];
+const TIER_NAME=['','普通','沃玛','祖玛','赤月','魔龙'];
+const TIER_COLOR=['','#d8d8d0','#6ab0ff','#c88aff','#ffd870','#ff6ad8'];
 /* ============ 装备套装系统 ============
    同一套装的装备混搭穿戴，达到 2/4/6 件分别激活档位加成。
    加成方式：固定值(bonus.st) + 百分比(bonus.pct，作用于 recalcStats 的最终属性) */
@@ -684,6 +698,22 @@ const SETS=[
   ids:['xiaoyao','tianzun','skull_helm','green_neck','firm_brace','tianzun_ring'],
   d:'赤月深渊中的道袍，万法不侵',
   st2:{matk:16},st4:{hp:200,def:8},st6:{matk:24}},
+ /* ===== tier5 魔龙套装 =====
+   设计取舍：tier5 只有武/甲/戒 3 个部位，套装 6 格里其余 3 格刻意留
+   老顶级装备（祈祷头盔/绿项链/龙之手镯等）—— 毕业配装 = 3 新件 + 3 老件，
+   赤月/祖玛毕业件退役前再发挥一程价值，套装加成数值在赤月套之上约 +35%。 */
+ {id:'molong_w',n:'魔龙战甲',tier:5,cls:'w',color:'#ff6ad8',
+  ids:['molong_blade','molong_w','prayer_helm','green_neck','dragon_brace','molong_wr'],
+  d:'魔龙教主的镇城之甲，攻无可挡',
+  st2:{atk:22},st4:{def:16,hp:300},st6:{atk:36}},
+ {id:'molong_m',n:'魔龙法装',tier:5,cls:'m',color:'#ff6ad8',
+  ids:['molong_staff','molong_m','black_iron','tianzhu','knight_brace','molong_mg'],
+  d:'魔龙魔力凝成的法装，法力无边',
+  st2:{matk:24},st4:{mp:300,def:8},st6:{matk:38,def:10}},
+ {id:'molong_t',n:'魔龙道袍',tier:5,cls:'t',color:'#ff6ad8',
+  ids:['molong_fan','molong_t','skull_helm','green_neck','firm_brace','molong_dz'],
+  d:'魔龙深处的道袍，万法归一',
+  st2:{matk:22},st4:{hp:280,def:10},st6:{matk:32}},
  /* 全职业通用套装 */
  {id:'common_guard',n:'护身三宝',tier:1,cls:'all',color:'#d8d8d0',
   ids:['halfmoon_blade','mid_armor','skull_helm','bamboo_flute','firm_brace','iron_ring'],
@@ -768,7 +798,7 @@ const PET_MAX=5; /* 最高级索引（LV6 血煞骷髅封顶）；死亡等级�
 function qOf(e){return (e&&e.q!==undefined&&e.q!==null)?e.q:1;}
 function qmul(e){return EQQ[qOf(e)]?EQQ[qOf(e)].mul:1;}
 function eqName(e){const q=qOf(e);return (e.plus?'+'+e.plus+' ':'')+(q===0?'劣质·':q===2?'小极品·':'')+EQMAP[e.id].n;}
-function eqPrice(e){const base=[0,40,150,400,1200][EQMAP[e.id].tier]||40;const q=qOf(e);return Math.floor(base*(q===0?.5:q===2?2:1));}
+function eqPrice(e){const base=[0,40,150,400,1200,3000][EQMAP[e.id].tier]||40;const q=qOf(e);return Math.floor(base*(q===0?.5:q===2?2:1));}
 /* 出售价（统一口径：单件出售 / 批量出售 / 一键出售三处共用）。
    强化装备按「基础价 ×（1 + 强化等级 × 25%）」返金币 —— 卖强化装有钱拿，
    但远低于强化投入（光 +1 一级就要 260 金币 + 矿石，+12 累计约 20 万金币，
@@ -808,7 +838,8 @@ const QUESTS=[
  {id:'q13',n:'紫装收藏家',d:'同时拥有 4 件紫色（祖玛级）或更好的装备',type:'own',t:3,n:4,rw:{gold:6000}},
  {id:'q14',n:'赤月降临',d:'击杀 15 只赤月系怪物',type:'kill',t:['crimson_worm','devil_spider','gorilla'],n:15,rw:{gold:10000}},
  {id:'q15',n:'屠龙传说',d:'击败赤月恶魔，终结玛法大陆的浩劫',type:'kill',t:['crimson_demon'],n:1,rw:{gold:30000,loot:4}},
- {id:'q16',n:'玛法传奇',d:'达到 40 级，成为一代宗师',type:'level',n:40,rw:{gold:20000,loot:4}}
+ {id:'q16',n:'玛法传奇',d:'达到 40 级，成为一代宗师',type:'level',n:40,rw:{gold:20000,loot:4}},
+ {id:'q17',n:'魔龙远征',d:'击败魔龙教主，夺取终极重装',type:'kill',t:['molong_lord'],n:1,rw:{gold:50000,loot:5}}
 ];
 /* ---------------- 成就系统 ---------------- */
 const ACHV=[
@@ -911,6 +942,19 @@ const MONSTERS={
            {t:'drain',cd:7,r:80,mult:1.6,cry:'赤月恶魔吞噬生命！'},{t:'nova',cd:12,r:150,mult:1.7,color:'#ff1c3c',cry:'血月降临！'}],
    rage:{at:.45,mult:1.3,spd:1.2},
    drops:['tulong','bazhe','shixue','xiaoyao','tianmo','fashen','tianzun','shengzhan_ring','fashen_ring','tianzun_ring','prayer_helm','power_ring']},
+ /* ===== 魔龙城（终局地图，Lv40-45）=====
+   三种小怪数值整体在赤月系之上约 35%~45%，精英「魔龙力士」扛矿石/极品产出，
+   魔龙教主是全作最强 BOSS：55000 血 + 三技能 + 40% 狂暴，
+   drops 池放满 9 件 tier5 —— 全作唯一 tier5 产出点（75% 掉池内装备）。 */
+ molong_soldier:{n:'魔龙刀兵',spr:'human',armed:1,sc:1.2,hp:2600,atk:112,def:26,exp:980,spd:78,aggr:1,atkR:38,atkCd:1.4,gold:[140,280],tier:4,pal:'molo'},
+ molong_archer:{n:'魔龙射手',spr:'human',armed:1,sc:1.2,hp:2250,atk:124,def:22,exp:1020,spd:72,aggr:1,ranged:1,atkR:210,atkCd:2.1,gold:[150,300],tier:4,pal:'molo'},
+ molong_brute:{n:'魔龙力士',spr:'human',armed:1,sc:1.6,hp:3900,atk:138,def:30,exp:1700,spd:66,aggr:1,atkR:44,atkCd:1.7,gold:[240,480],tier:5,pal:'moloE',elite:1},
+ molong_lord:{n:'魔龙教主',spr:'demon',sc:2.4,hp:55000,atk:230,def:42,exp:32000,spd:82,aggr:1,atkR:52,atkCd:1.25,gold:[9000,18000],tier:5,pal:'moloL',boss:1,
+   skills:[{t:'volley',cd:6.5,n:7,gap:.2,spd:340,mult:1.0,color:'#ff6ad8',cry:'魔龙教主喷吐灭世龙息！'},
+           {t:'dash',cd:9,mult:1.8,cry:'魔龙教主撕裂空间冲锋！'},
+           {t:'nova',cd:10,r:150,mult:1.7,color:'#c88aff',cry:'魔龙灭世！'}],
+   rage:{at:.4,mult:1.35,spd:1.2},
+   drops:['molong_blade','molong_staff','molong_fan','molong_w','molong_m','molong_t','molong_wr','molong_mg','molong_dz']},
  /* ===== 天气专属 BOSS（2026-10 新增）=====
     每只绑定一种天气，仅在对应天气出现于 Lv7+ 地图，主动追击玩家。
     属性按"该天气首次开放的地图档位"设计，保证不会越级屠杀。
@@ -958,7 +1002,13 @@ const MAPS=[
   boss:'zuma_lord'},
  {id:'crimson',n:'赤月峡谷',lv:[38,99],w:60,h:60,pal:{g:'#54262c',g2:'#481e24',g3:'#623036',deco:'blood'},
   mobs:[{id:'crimson_worm',w:4},{id:'devil_spider',w:4},{id:'gorilla',w:2}],max:19,
-  boss:'crimson_demon'}
+  boss:'crimson_demon'},
+ /* 魔龙城：终局大图（76²，比赤月大 60%），Lv40-45 补内容真空带。
+   同屏怪上限 32（此前最高 28）—— 图大面积大，怪密度也要跟上才不空旷。
+   deco 用 lava（岩浆 + 火盆），配紫黑底色营造「魔龙巢穴」氛围。 */
+ {id:'molong',n:'魔龙城',lv:[40,99],w:76,h:76,pal:{g:'#32203a',g2:'#2a1a32',g3:'#41284e',deco:'lava'},
+  mobs:[{id:'molong_soldier',w:5},{id:'molong_archer',w:4},{id:'molong_brute',w:2}],max:32,
+  boss:'molong_lord'}
 ];
 const MAPMAP={};MAPS.forEach(m=>MAPMAP[m.id]=m);
 /* 经验需求 */
@@ -1112,6 +1162,10 @@ const PAL={
  zumaL:{H:'#b0b8e8',S:'#c8d0ff',E:'#ffe050',A:'#8088c0',B:'#565e98',L:'#6a72a8'},
  gori:{H:'#c8a860',S:'#d8bc78',E:'#301810',A:'#a08040',B:'#6a5428',L:'#7a6230'},
  demon:{H:'#d8b848',S:'#d04038',E:'#ffe040',A:'#8a2018',B:'#5a1008',L:'#4a1410'},
+ /* 魔龙城配色：紫红魔力系（普通兵 / 力士精英 / 教主） */
+ molo:{H:'#c8a8e8',S:'#8a4ac8',E:'#ffd8f8',A:'#5a2a8a',B:'#3a1858',L:'#2a1040'},
+ moloE:{H:'#e8b8d8',S:'#c84aa8',E:'#ffe8f8',A:'#8a2a6a',B:'#5a1848',L:'#401034'},
+ moloL:{H:'#ffd8f0',S:'#e84ad0',E:'#fff0ff',A:'#8a1a7a',B:'#4a0a48',L:'#30062e'},
  npc1:{H:'#7a5a30',S:'#f8c890',E:'#201510',A:'#8a6a3a',B:'#5a441e',L:'#4a3a20'},
  npc2:{H:'#4a4a68',S:'#f8c890',E:'#201510',A:'#5a5a8a',B:'#3a3a5a',L:'#3a3a50'},
  /* 天气专属 BOSS 配色 */
@@ -3093,6 +3147,7 @@ function plusMul(e){return Math.pow(1.12,e.plus||0);}
 function weaponGlowColor(e){
   if(!e)return null;
   const d=EQMAP[e.id];if(!d)return null;
+  if(d.tier===5)return '#ff6ad8';   /* tier5 魔龙装：全部位品红神光（终局识别度） */
   if(d.tier===4&&d.slot==='weapon')return CLASSES[player.cls].color;
   if((e.plus||0)>=10)return '#ffd84a';
   if((e.plus||0)>=7)return '#ffb050';
@@ -3192,10 +3247,10 @@ function showForgePanel(w){
 /* 自动拾取配置兜底：旧存档 autoPick 没有 eqT/dan 字段，这里补齐
    eqT = 按品质档（1普通/2沃玛/3祖玛/4赤月）勾选是否自动拾取该档装备 */
 function ensureAutoPickCfg(){
-  if(!ST.autoPick)ST.autoPick={gold:true,pot:true,eq:true,eqT:{1:true,2:true,3:true,4:true},dan:true};
+  if(!ST.autoPick)ST.autoPick={gold:true,pot:true,eq:true,eqT:{1:true,2:true,3:true,4:true,5:true},dan:true};
   const p=ST.autoPick;
-  if(!p.eqT||typeof p.eqT!=='object')p.eqT={1:true,2:true,3:true,4:true};
-  for(const k of[1,2,3,4])if(p.eqT[k]===undefined)p.eqT[k]=true;
+  if(!p.eqT||typeof p.eqT!=='object')p.eqT={1:true,2:true,3:true,4:true,5:true};
+  for(const k of[1,2,3,4,5])if(p.eqT[k]===undefined)p.eqT[k]=true;
   if(p.dan===undefined)p.dan=true;
   return p;
 }
@@ -3246,9 +3301,9 @@ function autoSellCanFree(){
    oc = 是否同时出售「非本职业专属」装备（通用 all 装备不算非本职业）
    恒定保护：强化过的、身上穿的不卖；药水/矿石不参与 */
 function ensureAutoSellCfg(){
-  if(!ST.autoSellCfg)ST.autoSellCfg={t:{1:true,2:false,3:false,4:false},oc:false};
+  if(!ST.autoSellCfg)ST.autoSellCfg={t:{1:true,2:false,3:false,4:false,5:false},oc:false};
   const t=ST.autoSellCfg.t;
-  for(const k of[1,2,3,4])if(t[k]===undefined)t[k]=(k===1);
+  for(const k of[1,2,3,4,5])if(t[k]===undefined)t[k]=(k===1);
   if(ST.autoSellCfg.oc===undefined)ST.autoSellCfg.oc=false;
   return ST.autoSellCfg;
 }
@@ -3291,7 +3346,7 @@ function sellInvItem(idx){
   return true;
 }
 /* 一键出售弹窗：自选品质档与药水 */
-const sellSel={w:true,b:true,p:false,pot:false,g:false};
+const sellSel={w:true,b:true,p:false,pot:false,g:false,d:false};
 function showSellDialog(){
   const d=$('itemDetail');showItemDetailBox();
   function calc(){
@@ -3305,6 +3360,7 @@ function showSellDialog(){
       else if(e.tier===2&&sellSel.b){total+=eqPrice(it);cnt++;}
       else if(e.tier===3&&sellSel.p){total+=eqPrice(it);cnt++;}
       else if(e.tier===4&&sellSel.g){total+=eqPrice(it);cnt++;}
+      else if(e.tier===5&&sellSel.d){total+=eqPrice(it);cnt++;}
     }
     return{total,cnt};
   }
@@ -3314,7 +3370,7 @@ function showSellDialog(){
     d.innerHTML='<b style="font-size:16px;color:#ffd870">一键出售</b>'+
      '<div style="margin-top:8px">'+
      mk('w','白色装备','普通',0)+mk('b','蓝色装备','沃玛级',0)+mk('p','紫色装备','祖玛级',0)+
-     mk('g','金色装备','赤月级（慎选）',0)+mk('pot','药水','折价回收（不含矿石）',0)+
+     mk('g','金色装备','赤月级（慎选）',0)+mk('d','魔龙装备','魔龙级（慎选）',0)+mk('pot','药水','折价回收（不含矿石）',0)+
      '</div>'+
      '<div class="row"><span>预计出售 <b id="sellCnt">'+cnt+'</b> 件</span><b style="color:#ffd84a">得 '+total+' 金币</b></div>'+
      '<div style="font-size:11px;color:#8a7a50;margin:4px 0 0">★ 强化过的装备不参与一键出售，请单独出售（可获金币）或批量勾选处理</div>'+
@@ -3336,7 +3392,8 @@ function showSellDialog(){
              批量勾选（那两处都会写明金额再确认）。 */
           if((it.plus||0)>0){keep.push(it);continue;}
           if(e.tier===1)sell=sellSel.w;else if(e.tier===2)sell=sellSel.b;
-          else if(e.tier===3)sell=sellSel.p;else if(e.tier===4)sell=sellSel.g;}
+          else if(e.tier===3)sell=sellSel.p;else if(e.tier===4)sell=sellSel.g;
+          else if(e.tier===5)sell=sellSel.d;}
         if(sell){total+=sellValueOf(it);cnt++;}
         else keep.push(it);
       }
@@ -5001,6 +5058,7 @@ function openSettings(){
    '<div style="margin-top:5px">'+
      colorBtn(1,pk.eqT[1]!==false,'pickt')+colorBtn(2,pk.eqT[2]!==false,'pickt')+
      colorBtn(3,pk.eqT[3]!==false,'pickt')+colorBtn(4,pk.eqT[4]!==false,'pickt')+
+     colorBtn(5,pk.eqT[5]!==false,'pickt')+
    '</div>'+
    '<div style="margin-top:11px;font-size:12px;color:#a89058">自动拾取 Boss内丹：'+(pk.dan!==false?'开':'关')+'</div>'+
    '<button class="goldbtn" id="set_dan">'+(pk.dan!==false?'关闭':'开启')+'</button>'+
@@ -5010,7 +5068,7 @@ function openSettings(){
    '<p>背包满时自动出售勾选颜色档的装备；「非本职业」开启后，别职业专属装备无论颜色都会卖（通用装备除外）。强化过的与身上穿戴的永远保留。</p>'+
    '<button class="goldbtn" id="set_sellFull">'+(ST.autoSellFull?'关闭':'开启')+'</button>'+
    '<div style="margin-top:9px;font-size:12px;color:#a89058">出售颜色：</div>'+
-   '<div style="margin-top:5px">'+tierBtn(1)+tierBtn(2)+tierBtn(3)+tierBtn(4)+'</div>'+
+   '<div style="margin-top:5px">'+tierBtn(1)+tierBtn(2)+tierBtn(3)+tierBtn(4)+tierBtn(5)+'</div>'+
    '<div style="margin-top:9px;font-size:12px;color:#a89058">出售非本职业装备：'+(asc.oc?'开':'关')+'</div>'+
    '<button class="goldbtn" id="set_oc">'+(asc.oc?'关闭':'开启')+'</button>'+
    '</div>';
@@ -5127,11 +5185,11 @@ const GUIDE_CATS=[
    ['·','被动技能（如攻杀剑术）常驻生效，不用放，不占操作']
  ],tip:'法师和道士前期很难，因为蓝药贵。解决办法不是省技能，而是把「魔法保留」调到 0，用蓝换清怪速度——清得快才买得起药。'},
  {ico:'🛡',n:'装备系统',s:'品质怎么看、什么装备该留',rows:[
-   ['品质','<b>白 → 沃玛蓝 → 祖玛紫 → 赤月金</b>，四档由弱到强，装备名字颜色即品质'],
+   ['品质','<b>白 → 沃玛蓝 → 祖玛紫 → 赤月金 → 魔龙红</b>，五档由弱到强，装备名字颜色即品质'],
    ['特殊','刷怪时小概率出现 <em>小极品</em>（全属性 +32%）和 <s>劣质</s>（属性减半），背包格左上角有标记'],
    ['部位','武器 / 头盔 / 衣服 / 项链 / 手镯 / 戒指，共 6 个部位，都能强化'],
    ['专属','装备上标「战/法/道」的是职业专属，只有对应职业能穿；没标记的是通用'],
-   ['等级','<b>穿戴有等级门槛</b>，与品质档绑定：白装 1 级 / 沃玛蓝 22 级 / 祖玛紫 30 级 / 赤月金 38 级。未达等级时详情页会显示「等级不足，需 LvN」，按钮不给点'],
+   ['等级','<b>穿戴有等级门槛</b>，与品质档绑定：白装 1 级 / 沃玛蓝 22 级 / 祖玛紫 30 级 / 赤月金 38 级 / 魔龙红 42 级。未达等级时详情页会显示「等级不足，需 LvN」，按钮不给点'],
    ['对比','点开装备详情会<b>自动与身上同部位对比</b>，逐条列出 ▲+X / ▼X，底部给「全面强于/略强/基本持平/弱于」总评'],
    ['留哪件','通用判断：<b>品质高的留，强化过的留，本职业的留</b>。别职业的紫装基本都是卖钱货']
  ],tip:'背包只有 40 格。别囤着舍不得卖——本作装备爆率不低，囤积带来的唯一后果是打到的极品进不了包。'},
@@ -5150,7 +5208,7 @@ const GUIDE_CATS=[
    ['视野','浓雾会降低视野，雷暴有环境伤害，出门前看左上角天气图标']
  ],tip:'看到「XXX降临」的横幅提示，立刻打开自动挂机——天气 BOSS 限时出现，错过要等下一轮天气。'},
  {ico:'🗺',n:'地图与 BOSS',s:'去哪练级、BOSS 怎么打',rows:[
-   ['·','地图顺序：<b>玛法村 → 骷髅洞窟 → 僵尸矿洞 → 沃玛寺庙 → 祖玛寺庙 → 赤月峡谷</b>'],
+   ['·','地图顺序：<b>玛法村 → 骷髅洞窟 → 僵尸矿洞 → 沃玛寺庙 → 祖玛寺庙 → 赤月峡谷 → 魔龙城</b>'],
    ['·','每张图有等级门槛，低于门槛会被怪压制。<b>等级不够就先在上一张图练级</b>'],
    ['·','<b>踩上传送阵</b>（地面蓝色光圈）会立刻弹出地图面板；点右上角「图」按钮同样可以打开，两者等效'],
    ['·','左侧「回」按钮随时回城，回城后可从地图面板直接传送到已解锁的地图'],
@@ -5197,6 +5255,7 @@ function genGuideHtml(openSet){
   else if(lv>=14&&lv<21)rec='僵尸矿洞';
   else if(lv>=21&&lv<29)rec='沃玛寺庙';
   else if(lv>=29&&lv<37)rec='祖玛寺庙';
+  else if(lv>=40)rec='魔龙城';
   else if(lv>=37)rec='赤月峡谷';
   const eqN=Object.keys(equip).filter(k=>equip[k]).length;
   const qDone=ST.qClaimed.length;
@@ -5248,7 +5307,8 @@ function updateGuide(){
   else if(lv<21)tip='可前往 僵尸矿洞，小心尸王出没（点击本条查看任务）';
   else if(lv<29)tip='可前往 沃玛寺庙，挑战沃玛教主（点击本条查看任务）';
   else if(lv<37)tip='可前往 祖玛寺庙，猎取祖玛教主（点击本条查看任务）';
-  else tip='赤月峡谷已开放，1.76 重装神装等你来爆！（点击本条查看任务）';
+  else if(lv<40)tip='赤月峡谷已开放，1.76 重装神装等你来爆！（点击本条查看任务）';
+  else tip='魔龙城已开放，终极重装「魔龙系」与魔龙教主等你挑战！（点击本条查看任务）';
   $('guide').textContent='冒险指引：'+tip;
 }
 /* 角色头像（左上角图标）：绘制当前职业精灵半身像 */
@@ -6275,7 +6335,7 @@ function render(){
       }else if(d.beam&&d.beam>=3){
         const g=ctx.createLinearGradient(0,d.y-90,0,d.y);
         g.addColorStop(0,'rgba(255,255,255,0)');
-        g.addColorStop(1,d.beam===4?'#ffca4a99':'#c88aff99');
+        g.addColorStop(1,d.beam===5?'#ff6ad899':d.beam===4?'#ffca4a99':'#c88aff99');
         ctx.fillStyle=g;ctx.fillRect(d.x-5,d.y-90,10,90);
       }
       ctx.save();ctx.translate(d.x,d.y-6+Math.sin(d.bob)*3);
