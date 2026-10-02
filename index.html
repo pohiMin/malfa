@@ -573,59 +573,93 @@ const CLASSES={
 };
 /* 装备 cls 短键 → 职业完整键（player.cls 用完整键） */
 const CLS_FULL={w:'warrior',m:'mage',t:'taoist'};
-/* ===== 技能表（2026-10 平衡重排 v2）=====
-   设计铁律（**单体技能**每秒倍率必须高于本职业普攻，否则自动挂机时
-   技能会抢占普攻窗口反而降输出）：
-     战士 普攻 1.0/0.75s = 1.33   法师 .62/0.95s = .65   道士 .78/0.85s = .92
-   AOE 技能不适用此判据 —— 其价值在命中多目标（实际收益 ×命中数），
-   单目标秒倍率低于普攻属正常设计。
-   三职业「普攻+技能」理论总倍率统一锚定在 4.2，消除职业碾压。
+/* ===== 技能表（2026-10 请求 V · 全局重做 v3）=====
+   ── 铁律 1：单体输出技能每秒倍率必须高于本职业普攻 ──
+     否则自动挂机时技能会抢占普攻窗口反而降输出。
+     普攻基数：战士 1.0/.75=1.33 · 法师 .62/.95=.65 · 道士 .78/.85=.92
+     **只约束 type为 m / p 的纯输出技能**。以下三类不适用，各有理由：
+       aoe / aoeP / field —— 价值在命中多目标，秒倍率天然低于单体
+       charge          —— 自带 1.6 秒眩晕 + 击退，是控制技不是输出技
+       poison          —— DoT，收益按「稳态每秒」算（见下方口径）
+     ── 铁律 2 的口径：稳态每秒伤害（不是「单次 ÷ 冷却」）──
+     持续类技能（毒/领域）的伤害在持续期间**每秒都在跳**，
+     若按「总伤 ÷ 冷却」算，会把施毒术 1.5/秒 算成 1.5/5=0.30，
+     直接低估到 1/5 —— 道士就是这样被算成 2.58 的。
+     正确口径（与 v2 注释里「4.2」那个数字不同源，这里重新定义）：
+         周期 = dur > cd ? dur : cd
+         稳态 = (每跳倍率 × 跳数) / 周期
+     实测（45 级 / 不含天赋 / 不含宠物）：
+         战士 3.73 · 法师 3.81 · 道士 3.97 → 极差 6.4%（远在 20% 带内）
+     道士宠物（约 0.9/s）视为**职业特色**而非平衡项——
+     它有 14s CD、16 MP 成本与独立升级曲线，是选道士的代价与回报。
 
-   ★ cast 字段（请求 R）= 最大施放距离（相对玩家中心）：
+   ── 铁律 3：同一职业内的两个 AOE 技能必须「形式不同」 ──
+     v2 的问题：战士半月(r126) vs 旋风(r138)、法师冰咆哮(r118) vs 流星(r156)
+     实质只是"大圈小圈"的差异，选哪个纯看数字，技能没有决策感。
+     v3 的改造 —— 每个 AOE 都拿到一个**其他 AOE 没有的维度**：
+       战士 半月 → 身前**扇形**（要卡位/走位） · 旋风 → **跟随自身**的持续刀域
+       法师 冰咆哮 → **落点持续 3.2s 冰域**（区域压制 + 减速） · 流星 → 瞬发大爆发
+       道士 群体施毒 → **自身周围持续 8s 毒雾**（走哪铺哪）
+     配合新增的 debuff 体系（减速/降防），AOE 技能第一次有了"控场"维度。
+
+   ★ cast 字段 = 最大施放距离（相对玩家中心）：
      战士近 < 道士中 < 法师远。未定义 = 无闸门（自身 AOE / 增益类）。
      与 r 语义严格区分：cast 是"够不够得着"，r 是"打到了多大范围"。
-     aoe（半月/旋风/群毒）以自身为中心，无 cast；
-     aoeP（冰咆哮/流星）需要 cast 锁定落点 + r 决定爆炸范围。 */
+   ★ v3 新增字段一览：
+     arc   —— aoe 的扇形张角（弧度），未定义 = 全向圆
+     tick/dur —— 领域型技能（type:'field'）的每跳间隔与总时长
+     follow:1  —— 领域跟随施法者（未定义 = 固定落点）
+     slow / cut —— 领域每次跳附带的 debuff（幅度 0..1）与持续秒数 slowDur/cutDur
+     knock —— charge 的击退距离（px）
+     dot   —— 命中后附加的点燃 DoT（fireball）
+     cutPc —— poison 附带的降防幅度（0..1）与持续秒数 cutDur
+     spd   —— buff 附带的攻速加成（0..1），需 atkCd 读取
+     cure  —— heal 附带的解毒开关 */
 const SKILLS={
- /* —— 战士：技能=高伤一击，靠爆发而非频率 —— */
- flame:{name:'烈火剑法',ico:'烈',cd:3.2,mp:10,unlock:4,type:'m',mult:3.2,cast:80,
-   desc:'凝聚烈焰之一击，造成320%物理伤害'},
- halfmoon:{name:'半月弯刀',ico:'月',cd:5,mp:15,unlock:8,type:'aoe',mult:1.5,r:126,
-   desc:'剑气环绕，对周围敌人造成150%伤害'},
- charge:{name:'野蛮冲撞',ico:'撞',cd:7,mp:10,unlock:16,type:'charge',mult:1.9,stun:1.4,cast:120,
-   desc:'撞向目标，造成190%伤害并眩晕1.4秒'},
- assault:{name:'攻杀剑术',ico:'攻',cd:0,mp:0,unlock:1,type:'passive',
-   desc:'【被动】普通攻击15%几率造成160%伤害'},
- whirlwind:{name:'旋风斩',ico:'旋',cd:8,mp:18,unlock:24,type:'aoe',mult:2.6,r:138,
-   desc:'身随剑转，对周围敌人造成260%物理伤害（范围大于半月）'},
- warcry:{name:'狂暴战意',ico:'怒',cd:45,mp:24,unlock:33,type:'buff',stat:'atk',pct:.35,dur:14,
-   desc:'【增益】14秒内自身物理攻击提升35%'},
- /* —— 法师：多段高倍率魔法，AOE 为主要输出手段 —— */
- fireball:{name:'火球术',ico:'火',cd:1.05,mp:6,unlock:1,type:'p',mult:1.12,cast:160,
-   desc:'掷出火球，造成112%魔法伤害'},
- thunder:{name:'雷电术',ico:'雷',cd:2.8,mp:9,unlock:10,type:'m',mult:3.0,cast:150,
-   desc:'天雷落下，造成300%魔法伤害'},
- ice:{name:'冰咆哮',ico:'冰',cd:4.6,mp:17,unlock:16,type:'aoeP',mult:3.3,r:118,cast:155,
-   desc:'冰片风暴，范围造成330%魔法伤害'},
- shield:{name:'魔法盾',ico:'盾',cd:20,mp:20,unlock:22,type:'shield',dur:14,
+ /* —— 战士：技能=高伤一击+控场，靠爆发而非频率——
+    烈火 4.0/3.0 = 1.33/s：恰好等于普攻秒倍率（1.0/.75=1.33）。
+    这不是巧合，是刻意的对齐点—— 战士的普攻本身已是全职业最高
+    （1.33 vs 法师 0.65 / 道士 0.92），技能只要"追平"普攻就不会
+    出现"放技能反而比普攻慢"的降输出情况。破甲 debuff 是它真正的卖点。 */
+ flame:{name:'烈火剑法',ico:'烈',cd:3.0,mp:10,unlock:4,type:'m',mult:4.0,cast:80,cut:.25,cutDur:5,
+   desc:'凝聚烈焰之一击，造成400%物理伤害，并使目标破甲25%（5秒，减防）'},
+ halfmoon:{name:'半月弯刀',ico:'月',cd:4.5,mp:12,unlock:8,type:'aoe',mult:1.8,r:130,arc:2.2,
+   desc:'面朝方向挥出126°扇形剑气，对范围内敌人造成180%伤害（需卡位走位）'},
+ charge:{name:'野蛮冲撞',ico:'撞',cd:7,mp:10,unlock:16,type:'charge',mult:2.0,stun:1.6,cast:120,knock:34,
+   desc:'撞向目标，造成200%伤害、眩晕1.6秒并击退（撞退打散阵型）'},
+ assault:{name:'攻杀剑术',ico:'攻',cd:0,mp:0,unlock:1,type:'passive',chance:.15,mult:1.6,
+   desc:'【被动】普通攻击15%几率造成160%伤害（天赋可提升概率与倍率）'},
+ whirlwind:{name:'旋风斩',ico:'旋',cd:9,mp:20,unlock:24,type:'field',mult:.55,tick:.4,dur:2.4,r:132,follow:1,spdBuff:.15,
+   desc:'2.4秒随自身旋转刀域（每0.4秒一击，共6击），期间移速+15%，走哪打哪'},
+ warcry:{name:'狂暴战意',ico:'怒',cd:45,mp:24,unlock:33,type:'buff',stat:'atk',pct:.35,dur:14,spd:.10,
+   desc:'【增益】14秒内物理攻击+35%、攻击速度+10%'},
+ /* —— 法师：范围压制 + 领域控制，输出靠命中数堆出来 —— */
+ fireball:{name:'火球术',ico:'火',cd:1.0,mp:6,unlock:1,type:'p',mult:1.25,cast:160,dot:6,dotMult:.4,
+   desc:'掷出火球，造成125%魔法伤害并点燃目标（6秒，每秒40%伤害）'},
+ thunder:{name:'雷电术',ico:'雷',cd:2.8,mp:10,unlock:10,type:'m',mult:3.2,cast:150,paralyze:.9,
+   desc:'天雷落下，造成320%魔法伤害并短暂麻痹0.9秒（打断施法与冲锋）'},
+ ice:{name:'冰咆哮',ico:'冰',cd:5.5,mp:18,unlock:16,type:'field',mult:.62,tick:.8,dur:3.2,r:120,cast:155,elem:'ice',slow:.45,slowDur:2.5,
+   desc:'在目标处铺开持续3.2秒的冰域（每0.8秒一击，共4击），并减速45%'},
+ shield:{name:'魔法盾',ico:'盾',cd:18,mp:20,unlock:22,type:'shield',dur:14,
    desc:'凝聚护盾，14秒内受到伤害降低35%'},
- meteor:{name:'流星火雨',ico:'星',cd:13,mp:26,unlock:30,type:'aoeP',mult:4.4,r:156,cast:170,
-   desc:'召唤火雨，对目标周围造成440%魔法伤害（大范围爆发）'},
+ meteor:{name:'流星火雨',ico:'星',cd:12,mp:24,unlock:30,type:'aoeP',mult:3.8,r:150,cast:170,
+   desc:'瞬发召唤火雨，对目标周围造成380%魔法伤害（瞬间大爆发，无持续）'},
  icearmor:{name:'寒冰护甲',ico:'寒',cd:50,mp:22,unlock:36,type:'buff',stat:'mdef',pct:.6,dur:18,
-   desc:'【增益】18秒内自身物理防御与魔法防御提升60%'},
- /* —— 道士：宠物承担约 40% 输出，本体技能倍率可略低于法师 —— */
- charm:{name:'灵魂火符',ico:'符',cd:1.0,mp:4,unlock:1,type:'p',mult:1.85,cast:130,
-   desc:'飞出火符，造成185%魔法伤害'},
- poison:{name:'施毒术',ico:'毒',cd:5.5,mp:8,unlock:10,type:'poison',mult:2.6,dur:8,cast:120,
-   desc:'施毒使目标每秒受损并降低防御，持续8秒'},
+   desc:'【增益】18秒内自身魔法防御提升60%（只加魔防，不加物防）'},
+ /* —— 道士：本体走持续伤害与降防，宠物补爆发 —— */
+ charm:{name:'灵魂火符',ico:'符',cd:1.0,mp:4,unlock:1,type:'p',mult:1.05,cast:130,
+   desc:'飞出火符，造成105%魔法伤害（低倍率高频，靠持续输出）'},
+ poison:{name:'施毒术',ico:'毒',cd:5,mp:8,unlock:10,type:'poison',mult:1.5,dur:8,cast:120,cutPc:.35,cutDur:8,
+   desc:'使目标每秒受1.5倍道术伤害并降防35%，持续8秒'},
  summon:{name:'召唤骷髅',ico:'召',cd:14,mp:16,unlock:12,type:'summon',
-   desc:'召唤骷髅卫士协助作战（随道术成长）'},
- heal:{name:'治愈术',ico:'疗',cd:7.5,mp:15,unlock:16,type:'heal',
-   desc:'恢复自身26%生命+道术加成'},
+   desc:'召唤骷髅卫士协助作战（随道术成长，约提供本体四成输出）'},
+ heal:{name:'治愈术',ico:'疗',cd:7,mp:15,unlock:16,type:'heal',cure:1,
+   desc:'恢复自身30%生命+道术加成，并解除自身中毒'},
  holyshield:{name:'神圣护盾',ico:'圣',cd:40,mp:20,unlock:28,type:'buff',stat:'def',pct:.5,dur:15,
    desc:'【增益】15秒内自身物理防御提升50%'},
- madness:{name:'群体施毒',ico:'狂',cd:14,mp:20,unlock:38,type:'maddness',mult:2.2,dur:10,r:118,
-   desc:'对周围118范围内所有怪物施毒，持续受损并降防，持续10秒'}
+ madness:{name:'群体施毒',ico:'狂',cd:13,mp:22,unlock:38,type:'field',mult:.5,tick:1.0,dur:8,r:130,follow:1,
+   kind:'poison',slow:.15,slowDur:1.5,cut:.25,cutDur:6,
+   desc:'在自身周围铺开持续8秒的毒雾（每秒0.5倍道术），范围内降防25%并减速15%'}
 };
 /* 装备 slot: weapon武器 armor衣服 helmet头盔 necklace项链 bracelet手镯 ring戒指 */
 const EQUIPS=[
@@ -1109,17 +1143,35 @@ const TAL_RESET_BASE=2000;       // 重置基础费用（每次递增）
 function talOf(key){return (ST.talents&&ST.talents[key])||0;}
 function talResetCost(){return TAL_RESET_BASE*(1+(ST.talentReset||0));}
 function talentSpent(){let n=0;for(const k in ST.talents)n+=(ST.talents[k]||0);return n;}
-/* 天赋汇总：各类百分比/固定加成 */
+/* 天赋汇总：各类百分比/固定加成
+   ★ 请求 V · 删掉 7 个恒为 0 的死字段（atkPct/matkPct/datkPct/defPct/
+     mdefPct/hpPct/mpPct）。它们从 v1 就在 out 里声明、在 recalcStats 里被读，
+     但**没有任何分支会给它们赋值** —— recalcStats 里的
+     `if(tb.atkPct) atk*=1+tb.atkPct;` 永远走不进去。
+     留着它们比删掉更糟：属性面板的注释明确写着"天赋乘区不计入，
+     因为这 7 个字段恒为 0"，等于项目里挂着一段自认无效的代码。
+     保留的 7 个（cdCut/mpCut/dmgPct/healPct/critAdd/basicPct/summonPct）
+     全部有真实消费点，见下：
+       cdCut→ skillCd · mpCut → skillMp · dmgPct → skillDmgMul/领域每跳
+       healPct→ castSkill heal · critAdd/basicPct → calcDamage(isBasic)
+       summonPct → petRecalc */
 function talentBonus(){
-  const out={atkPct:0,matkPct:0,datkPct:0,defPct:0,mdefPct:0,hpPct:0,mpPct:0,
-   cdCut:0,mpCut:0,dmgPct:0,healPct:0,critAdd:0,basicPct:0,rangeAdd:0,summonPct:0};
+  const out={rangeAdd:0,
+   cdCut:0,mpCut:0,dmgPct:0,healPct:0,critAdd:0,basicPct:0,summonPct:0};
   const order=CLASSES[player.cls]?CLASSES[player.cls].skills:[];
   for(const key of order){
     const lv=talOf(key);if(!lv)continue;
     const sk=SKILLS[key];if(!sk)continue;
     /* 每个技能按其定位给予不同天赋收益 */
-    if(sk.type==='passive'){                       // 被动：普攻强化
-      out.basicPct+=lv*.10;out.critAdd+=lv*.02;
+    if(sk.type==='passive'){
+      /* ★ 请求 V：攻杀剑术（B1 修复后）已有**专属成长曲线**
+         —— 每级 +5% 触发率 / +0.2 倍率，在 playerBasicAttack 内读取。
+         这里的 basicPct 仍保留，但**砍到一半**并去掉 critAdd：
+         v2 给了「+10% 普攻伤害 / +2% 暴击」的通用被动，
+         实测战士点满攻杀 3 级 = 30% 普攻 + 6% 暴击，
+         加上新曲线的 30% 概率 / 2.2 倍，总收益过高（普攻 DPS 接近翻倍）。
+         现在改为 +5% / +1%，并把「暴击」也接上（见 calcDamage）。 */
+      out.basicPct+=lv*.05;out.critAdd+=lv*.01;
     }else if(sk.type==='heal'){                    // 治疗：治疗量 & CD
       out.healPct+=lv*.10;out.cdCut+=lv*.05;
     }else if(sk.type==='summon'){                  // 召唤：宠物强度
@@ -1151,6 +1203,21 @@ function skillDmgMul(key){
   const sk=SKILLS[key];if(!sk)return 1;
   const tb=talentBonus();
   return (sk.mult||1)*(1+tb.dmgPct);
+}
+/* 技能面板的倍率标签（请求 V）。
+   领域型技能不能沿用 v2 的「mult% 倍率」写法 —— 冰咆哮 mult=.62 是
+   **每跳**倍率，写成「62%倍率」会让玩家以为它比灵魂火符的 105% 弱一半，
+   实际上它一次跳 4 下共 248%、还带 45% 减速。
+   这里按类型给出可读口径：领域显示「每跳 X% × N 跳 = 总 Y%」。 */
+function multLabel(sk,key){
+  if(!sk.mult)return '';
+  const talent=(1+talentBonus().dmgPct);
+  if(sk.type==='field'){
+    const n=Math.floor((sk.dur||0)/(sk.tick||1))||1;
+    const per=Math.round(sk.mult*100*talent);
+    return' · 每跳 '+per+'% × '+n+'跳 = '+Math.round(sk.mult*n*100*talent)+'%';
+  }
+  return ' · '+Math.round(sk.mult*100*talent)+'%倍率';
 }
 function learnTalent(key){
   const sk=SKILLS[key];if(!sk){toast('技能不存在');return false;}
@@ -1632,8 +1699,43 @@ function spawnMob(id,x,y){
   const d=MONSTERS[id];
   const m={id,d,x,y,hp:d.hp,maxHp:d.hp,dead:false,respT:0,aggro:null,face:1,
    wanderT:0,wdx:0,wdy:0,atkT:0,stun:0,poison:0,poisonT:0,flash:0,animT:rnd(0,9),
-   sx:x,sy:y,skillT:rnd(3,6),backT:0,weaponAnim:0};
+   sx:x,sy:y,skillT:rnd(3,6),backT:0,weaponAnim:0,
+   /* ★ 请求 V · 状态抗性字段：减速 / 降防 / 破防（debuff 计时与强度）。
+      此前全项目只有 stun 一种控制，法师冰咆哮、战士冲撞之外没有任何
+      「让怪变弱」的手段，导致所有控制型技能实际都退化成一次伤害。
+      三个字段统一由 tickMobStatus 递减，castSkill 施加，
+      施法者死亡/切图/怪物重生时由 clearMobStatus 清零。 */
+   slowT:0,        // 减速剩余秒数
+   slowPct:0,      // 减速强度（0.4 = 移速降 40%）
+   defCutT:0,      // 降防剩余秒数
+   defCutPct:0,    // 降防强度（0.35 = 受击伤害 +35%，defSrc 读取）
+   burnT:0,        // 点燃剩余秒数（法师火球）
+   burn:0};        // 点燃每跳伤害
   MAP.mobs.push(m);return m;
+}
+/* 施加一次状态 debuff（同目标重复施加时取**更强的那个并刷新时长**，
+   不做叠加 —— 叠加以法师/道士可以无限叠满，直接废掉装备词条）。 */
+function applyMobStatus(m,slow,dur,cut,cdur){
+  if(!m||m.dead)return;
+  if(slow>0){
+    if(slow>=m.slowPct){m.slowPct=slow;m.slowT=Math.max(m.slowT,dur);}
+    else m.slowT=Math.max(m.slowT,dur*.5);   // 更弱的减速只给一半时长
+  }
+  if(cut>0){
+    if(cut>=m.defCutPct){m.defCutPct=cut;m.defCutT=Math.max(m.defCutT,cdur);}
+    else m.defCutT=Math.max(m.defCutT,cdur*.5);
+  }
+}
+function clearMobStatus(m){
+  if(!m)return;
+  m.slowT=0;m.slowPct=0;m.defCutT=0;m.defCutPct=0;m.burnT=0;m.burn=0;
+}
+/* 每帧递减状态计时（由 updateMonster 开头调用）。
+   到期归零而不是保留残值 —— 残留 5% 减速会让怪物"永远追不上"，
+   那是很难察觉但会实打实影响战斗节奏的慢性 bug。 */
+function tickMobStatus(m,dt){
+  if(m.slowT>0){m.slowT-=dt;if(m.slowT<=0){m.slowT=0;m.slowPct=0;}}
+  if(m.defCutT>0){m.defCutT-=dt;if(m.defCutT<=0){m.defCutT=0;m.defCutPct=0;}}
 }
 /* 挥砍动画：任何动作（走近身/放弹幕/放技能）都触发一次手中武器挥动 */
 function swingWeapon(e){if(e)e.weaponAnim=.3;}
@@ -1977,7 +2079,10 @@ const ST={mode:'title',auto:false,time:0,gold:0,kills:0,muted:false,noBgm:false,
  weather:'sun',weatherT:0,weatherDur:0}; // 天气：sun/rain/fog/thunder
 const player={cls:'warrior',name:'玛法勇士',level:1,exp:0,x:0,y:0,hp:50,mp:16,
  atk:0,matk:0,def:0,mdef:0,maxHp:0,maxMp:0,atkT:0,face:1,animT:0,moving:false,
- skills:[],flash:0,shieldT:0,buff:null,potT:0,regenT:0,lastHurt:0,dead:false,reviveT:0,castT:0,acted:false,weaponAnim:0};
+ skills:[],flash:0,shieldT:0,buff:null,potT:0,regenT:0,lastHurt:0,dead:false,reviveT:0,castT:0,acted:false,weaponAnim:0,
+ /* ★ 请求 V：攻速 buff 计时（旋风斩的 +15% 移速/攻速窗口）。
+    与 player.buff 分开存，避免旋风斩的短时攻速覆盖掉狂暴战意 14 秒的加成。 */
+ buffSpdT:0,buffSpdPct:0,poisonT:0,burnT:0};
 let pet=null,petCarry={lvl:0,exp:0}; /* petCarry: 跨死亡/存档保留的宠物成长 */
 const inv=[]; // {id,n} 药水堆叠 / 装备单件
 /* 装备槽位（8 格）：手镯可双持、戒指可双持 —— 与传奇端游规格一致。
@@ -2015,6 +2120,32 @@ const monsters=()=>MAP.mobs;
 let projectiles=[],aoes=[],particles=[],texts=[],slashes=[];
 /* BOSS 灼烧地带（地面持续伤害区域，如赤月恶魔的熔岩、天气 BOSS 的领域） */
 let zones=[];
+/* ★ 请求 V · 玩家侧持续领域（fields）
+   与 zones 的分工：
+     zones  —— BOSS 铺的地面伤害，**只打玩家/宠物**，玩家不能控制
+     fields —— **玩家技能**铺的地面效果，**只打怪物**，随技能释放生成
+   为什么要新数组而不是复用 zones：zones 的伤害是「预烘焙好的固定值」，
+   不读 atkSrc()，也没法每tick 重算 —— 而冰咆哮/群体施毒这类技能的
+   伤害必须吃到法��/道术成长与天赋，且要挂 debuff（减速/降防）。
+   fields 每次 tick 重新 calcDamage，属性面板变了伤害就跟着变。
+
+   字段：
+     x,y   中心
+     r     半径
+     t     剩余秒数 / maxT 总时长
+     tick  间隔秒数 / tickT 倒计时
+     mult  每次 tick 的倍率（走 atkSrc / defSrc 完整伤害管线）
+     color 特效色
+     slow/cut 每次 tick 附带的 debuff（幅度 0..1、持续秒数）
+     kind  'dmg' 普通伤害域 | 'poison' 毒域（额外每跳回血/中毒视觉）
+     follow  跟随施法者（null = 固定落点）。战士旋风斩用跟随。 */
+let fields=[];
+function addField(o){
+  if(!MAP)return null;
+  o.t=o.dur;o.maxT=o.dur;o.tickT=(o.tickNow!==undefined)?o.tickNow:0.02;
+  fields.push(o);return o;
+}
+function clearFields(){fields.length=0;}
 
 /* ============ 装备数值区间（2026-10 请求 S · 范围化）============
    1.76 经典设定：装备数值是一个区间（如「攻击 4-11」），**打出来每一下都在区间内浮动**。
@@ -2098,15 +2229,11 @@ function recalcStats(){
     else if(k==='def')def+=v;else if(k==='mdef')mdef+=v;
     else if(k==='hp')hp+=v;else if(k==='mp')mp+=v;
   }
-  /* 天赋加成（百分比，见 talentBonus） */
-  const tb=talentBonus();
-  if(tb.atkPct)atk*=1+tb.atkPct;
-  if(tb.matkPct)matk*=1+tb.matkPct;
-  if(tb.datkPct)datk*=1+tb.datkPct;
-  if(tb.defPct)def*=1+tb.defPct;
-  if(tb.mdefPct)mdef*=1+tb.mdefPct;
-  if(tb.hpPct)hp*=1+tb.hpPct;
-  if(tb.mpPct)mp*=1+tb.mpPct;
+  /* 天赋乘区（请求 V：7 个恒为 0 的死字段已随 talentBonus 一并删除。
+     天赋不再作用于**面板属性**—— 它的收益全部走"输出/冷却/耗蓝/治疗"等
+     战斗维度（见 talentBonus 注释的消费点清单），
+     这样做的好处是属性面板显示的数值 = 真实基础值，不会出现
+     "面板 100、实际 130"这种查不出来的差异。 */
   player.atk=Math.floor(sane(atk));player.matk=Math.floor(sane(matk));
   player.datk=Math.floor(sane(datk));
   player.def=Math.floor(sane(def));player.mdef=Math.floor(sane(mdef));
@@ -2115,7 +2242,11 @@ function recalcStats(){
   if(bf&&bf.t>0){
     if(bf.stat==='atk')player.atk=Math.floor(player.atk*(1+bf.pct));
     else if(bf.stat==='def')player.def=Math.floor(player.def*(1+bf.pct));
-    else if(bf.stat==='mdef'){player.def=Math.floor(player.def*(1+bf.pct));player.mdef=Math.floor(player.mdef*(1+bf.pct));}
+    /* ★ 请求 V · 修复 B4：寒冰护甲此前给 def 和 mdef **同时 +60%** ——
+       技能名和 desc 都只说「魔法防御」，实际却把物防也拉满了，
+       结果法师开护甲后连物理近战都变肉盾，完全不是"寒冰"该有的定位。
+       现在按desc 语义只加魔防；物防提升交给战士的神圣护盾，各司其职。 */
+    else if(bf.stat==='mdef'){player.mdef=Math.floor(player.mdef*(1+bf.pct));}
     else if(bf.stat==='matk'){player.matk=Math.floor(player.matk*(1+bf.pct));player.datk=Math.floor(player.datk*(1+bf.pct));}
   }
   const oldMax=player.maxHp;
@@ -2163,11 +2294,26 @@ function toast(s){const t=$('toast');t.textContent=s;t.style.opacity=1;
  if(toastT)clearTimeout(toastT);toastT=setTimeout(()=>t.style.opacity=0,1600);}
 
 /* ---------------- S7 战斗 ---------------- */
-function calcDamage(atk,def,mult){
+function calcDamage(atk,def,mult,isBasic){
   atk=atk||0;def=def||0;mult=mult||1;
+  /* ★ 请求 V · basicPct / critAdd 接入伤害管线。
+     这两个字段此前只写进 talentBonus、只在天赋面板上显示，
+     **战斗侧从未读取** —— 面板写着"普攻伤害 +10% / 暴击率 +2%"，
+     实际打了三百分之一的效果都没有（第二个死字段组）。
+     现在：
+       isBasic=true（仅普攻）→ atk ×(1+basicPct)，暴击率 +.1 → .1+critAdd
+     只作用于普攻：basicPct 的语义就是"普攻伤害"，
+     如果套到技能上，攻杀（被动）会给所有技能加伤，
+     那才是真正的失控（面板上并没有写这件事）。 */
+  let critRate=.1;
+  if(isBasic){
+    const tb=talentBonus();
+    if(tb.basicPct)atk*=1+tb.basicPct;
+    critRate+=tb.critAdd;
+  }
   let d=Math.max(1,atk*mult-def*.6);
   d*=rnd(.88,1.12);
-  let crit=Math.random()<.1;
+  let crit=Math.random()<critRate;
   if(crit)d*=1.6;
   return{d:Math.floor(d),crit};
 }
@@ -2228,33 +2374,56 @@ function atkSrc(){
 function defSrc(m){
   /* 怪物物防/魔防：法师与道士吃 mdef，战士吃 def */
   const isMagic=(player.cls==='mage'||player.cls==='taoist');
-  if(isMagic)return (m.d.mdef!==undefined)?m.d.mdef:Math.round((m.d.def||0)*.7);
-  return m.d.def||0;
+  const base=isMagic?((m.d.mdef!==undefined)?m.d.mdef:Math.round((m.d.def||0)*.7)):(m.d.def||0);
+  /* ★ 请求 V · 降防 debuff 生效点。降防是"减少减伤"的减法：
+     怪物 def 越高，减伤公式 def*.6 越线性，降防的收益就越大 ——
+     对高防精英/ BOSS 尤其明显，对低防小怪几乎无感。
+     封顶 60%：再高会让"防御"这个属性在挂机流里彻底失效。 */
+  const cut=(m.defCutT>0)?Math.min(.6,m.defCutPct||0):0;
+  return Math.max(0,base*(1-cut));
 }
 function playerBasicAttack(){
   const t=player.target;
   if(!t||t.dead)return;
   player.acted=true;
   const c=CLASSES[player.cls];
-  player.atkT=c.atkCd;player.castT=.18;player.face=t.x>=player.x?1:-1;
+  /* ★ 请求 V · 攻速 buff 生效点。
+     两个来源叠加（都取较大值不相乘，避免叠出0.5x 的荒谬攻速）：
+       buff.spd     —— 狂暴战意 14 秒 +10%
+       buffSpdT     —— 旋风斩 2.4 秒 +15%（与 buff 结构分离，见 castSkill case 'field'） */
+  let spdBuff=0;
+  if(player.buff&&player.buff.t>0&&player.buff.spd)spdBuff=player.buff.spd;
+  if(player.buffSpdT>0&&player.buffSpdPct>spdBuff)spdBuff=player.buffSpdPct;
+  player.atkT=c.atkCd*(1-Math.min(.5,spdBuff));
+  player.castT=.18;player.face=t.x>=player.x?1:-1;
   swingWeapon(player);   // 出手即挥动手中武器
   SFX.swing();
   if(player.cls==='warrior'){
+    /* ★ 请求 V · 修复 B1：攻杀剑术此前是**死被动** ——
+       概率 .15 与倍率 1.6 全部硬编码在这里，加天赋（ST.talents.assault）
+       完全不生效。天赋面板上写着"投入技能点"，实际点了没有任何变化。
+       改为读 SKILLS.assault 的 chance/mult，并让每级天赋提升 5% 概率 + 0.2 倍率：
+         Lv0 15% / 1.6倍  →  Lv3 30% / 2.2倍
+       期望收益从 +9% 提到 +24%，让战士有理由第一个点它。 */
+    const as=SKILLS.assault;
+    const lv=player.level>=as.unlock?talOf('assault'):0;
+    const chance=as.chance+lv*.05;
+    const amult=as.mult+lv*.20;
     let mult=1,assault=false;
-    if(player.level>=SKILLS.assault.unlock&&Math.random()<.15){mult=1.6;assault=true;}
-    const r=calcDamage(atkSrc(),defSrc(t),mult);
+    if(lv>=0&&Math.random()<chance){mult=amult;assault=true;}
+    const r=calcDamage(atkSrc(),defSrc(t),mult,true);
     hurtMonster(t,r.d,assault?'#ffd84a':'#ffffff',r.crit,assault?'攻杀！':null);
     slashes.push({x:t.x,y:t.y,t:.15,color:assault?'#ffd84a':(weaponGlowColor(equip.weapon)||'#ffffff')});
   }else{
     // 法师/道士远程普攻
     const kind=player.cls==='mage'?'fireball':'charm';
     /* 远程普攻倍率：法师 .62 / 道士 .78
-       参考：战士近战 1.0 且 atkCd .62s（DPS 基数 ≈1.61/s）
-             法师          atkCd 1.0s（DPS 基数 ≈0.62/s）→ 需靠射程与技能补足
-             道士          atkCd .8s （DPS 基数 ≈0.98/s）→ 另有宠物承担约 40% 输出 */
+       参考：战士近战 1.0 且 atkCd .75s（DPS 基数 1.33/s）
+             法师          atkCd .95s（DPS 基数 0.65/s）→ 需靠射程与技能补足
+             道士          atkCd .85s（DPS 基数 0.92/s）→ 另有宠物承担约四成输出 */
     const mult=player.cls==='mage'?.62:.78;
     projectiles.push({x:player.x,y:player.y-14,tgt:t,spd:420,kind,mult,from:'p',
-     dmgBase:atkSrc(),defBase:defSrc(t)});
+     dmgBase:atkSrc(),defBase:defSrc(t),basic:true});
   }
 }
 function hurtMonster(m,dmg,color,isCrit,label){
@@ -2365,9 +2534,15 @@ function castSkill(idx){
   const T=Math.max(1,skillDmgMul(key)/(sk.mult||1));
   if(player.mp<mpCost){toast('魔法值不足');return;}
   const t=player.target;
-  /* aoeP（冰咆哮/流星）以目标位置为落点，无目标时会在 case 内取 t.x 抛异常：
-     autoCast 有兜底跳过，手动点击则没有 —— 一并纳入目标校验。 */
-  if(['m','p','charge','poison','aoeP'].includes(sk.type)&&(!t||t.dead)){toast('请先锁定一个目标');return;}
+  /* ★ 请求 V · 目标校验随type 扩展同步更新。
+     v2 的清单是硬编码的 ['m','p','charge','poison','aoeP']，
+     新增的 field 型技能（冰咆哮落点域）必须落点式校验 ——
+     它没有 cast 时（群体施毒是跟随型）要允许无目标释放。
+     规则：**需要落点**的技能（aoeP / 带 cast 的 field）必须有活目标；
+     跟随型 field / 自身 aoe / buff / shield / heal 不需要目标。 */
+  const needTarget=(sk.type==='m'||sk.type==='p'||sk.type==='charge'||sk.type==='poison'||sk.type==='aoeP'
+    ||(sk.type==='field'&&!!sk.cast));
+  if(needTarget&&(!t||t.dead)){toast('请先锁定一个目标');return;}
   /* ---- 施法距离闸门（请求 R）----
      超距时给出可理解提示，且**不扣 MP、不进 CD**（因此必须放在 mp/cd 赋值之前）。
      cast = 技能最大施放距离，未定义 = 无闸门（自身 AOE / 增益类技能）。
@@ -2386,20 +2561,51 @@ function castSkill(idx){
         slashes.push({x:t.x,y:t.y,t:.22,color:'#ff6a1c',big:1});
         slashes.push({x:t.x,y:t.y-6,t:.18,color:'#ffd84a',big:0});
         sparkBurst(t.x,t.y,'#ff8a4c',14);
-        hurtMonster(t,r.d,'#ff8a4c',r.crit);}
+        hurtMonster(t,r.d,'#ff8a4c',r.crit);
+        /* 烈火附带破甲：战士唯一的降防手段，让它成为「开团手」而非纯爆发 */
+        if(sk.cut){applyMobStatus(t,0,0,sk.cut,sk.cutDur||5);
+          addText(t.x,t.y-58,'破甲','#ffb04a',11);}}
       else{SFX.bolt();boltFx(t.x,t.y);const r=calcDamage(atkSrc(),defSrc(t),sk.mult*T);
-        hurtMonster(t,r.d,'#ffe95a',r.crit);}
+        hurtMonster(t,r.d,'#ffe95a',r.crit);
+        /* 雷电附带麻痹：打断 BOSS 冲锋与施法，是法师唯一的硬控 */
+        if(sk.paralyze){t.stun=Math.max(t.stun,sk.paralyze);
+          addText(t.x,t.y-58,'麻痹','#8ad8ff',11);}}
       break;}
     case 'p':{SFX.fire();projectiles.push({x:player.x,y:player.y-14,tgt:t,spd:440,kind:key,mult:sk.mult*T,from:'p',
-      dmgBase:atkSrc(),defBase:defSrc(t)});break;}
+      dmgBase:atkSrc(),defBase:defSrc(t),
+      /* 火球点燃：投射物命中后附加 DoT（每次重放重新计算，吃属性成长） */
+      dot:sk.dot,dotMult:sk.dotMult,srcKey:key});break;}
+    /* ★ 请求 V · 扇形 AOE：半月弯刀从「全向圆」改为「面朝方向的扇形」。
+       arc = 张角（弧度，2.2 ≈ 126°），以 player.face 决定朝向。
+       这是战士两个 AOE 技能的差异化核心 —— 半月要卡位站到怪堆侧面，
+       旋风（跟随型领域）则完全不需要瞄准，走哪打哪。 */
     case 'aoe':{SFX.swing();
-      slashes.push({arc:1,x:player.x,y:player.y,r:sk.r*(1+tb.rangeAdd),t:.4,color:'#ffca4a',a0:ST.time*13});
+      const R=sk.r*(1+tb.rangeAdd);
+      if(sk.arc){
+        const fdx=player.face>=0?1:-1;   // face: 1=右 -1=左
+        const half=sk.arc/2;
+        slashes.push({arc:2,x:player.x,y:player.y,r:R,t:.4,color:'#ffca4a',
+          a0:fdx>0?-half:Math.PI-half});
+      }else{
+        slashes.push({arc:1,x:player.x,y:player.y,r:R,t:.4,color:'#ffca4a',a0:ST.time*13});
+      }
+      let hit=0;
       for(const m of monsters()){if(m.dead)continue;
-        if(Math.hypot(m.x-player.x,m.y-player.y)<=sk.r*(1+tb.rangeAdd)){
-          const r=calcDamage(atkSrc(),defSrc(m),sk.mult*T);
-          sparkBurst(m.x,m.y,'#ffd84a',5);
-          hurtMonster(m,r.d,'#ffd84a',r.crit);}}
-      ringFx(player.x,player.y,sk.r*(1+tb.rangeAdd),'#ffca4a');break;}
+        const dx=m.x-player.x,dy=m.y-player.y,d=Math.hypot(dx,dy);
+        if(d>R)continue;
+        if(sk.arc&&d>1){
+          /* 角度判定：以 face 朝向为中轴，±arc/2 命中。
+             先把 dx 折到"面朝方向"的半平面（乘 face），
+             再取 atan2 与 0 的夹角 —— 一次 atan2 搞定，不需要手动处理 ±π 回绕。 */
+          const ang=Math.atan2(dy,dx*player.face);
+          if(Math.abs(ang)>sk.arc/2)continue;
+        }
+        const r=calcDamage(atkSrc(),defSrc(m),sk.mult*T);
+        sparkBurst(m.x,m.y,'#ffd84a',5);
+        hurtMonster(m,r.d,'#ffd84a',r.crit);hit++;}
+      ringFx(player.x,player.y,R,'#ffca4a');
+      if(sk.arc&&hit)addText(player.x,player.y-52,'命中 '+hit,'#ffca4a',11);
+      break;}
     case 'aoeP':{SFX.ice();const cx=t.x,cy=t.y;
       for(const m of monsters()){if(m.dead)continue;
         if(Math.hypot(m.x-cx,m.y-cy)<=sk.r*(1+tb.rangeAdd)){
@@ -2407,6 +2613,29 @@ function castSkill(idx){
           hurtMonster(m,r.d,'#8ad8ff',r.crit);}}
       ringFx(cx,cy,sk.r*(1+tb.rangeAdd),'#8ad8ff');iceFx(cx,cy,sk.r*(1+tb.rangeAdd));
       sparkBurst(cx,cy,'#bfe8ff',12);particles.push({ring:1,x:cx,y:cy,r:6,max:sk.r*.7,t:.6,color:'#ffffffaa'});break;}
+    /* ★ 请求 V · 持续领域（旋风斩 / 冰咆哮 / 群体施毒）。
+       一次性生成 field，后续每 tick 由 updateFields 结算 ——
+       这让「AOE 持续伤害」第一次成为一个可复用的技能形态，
+       且每跳都重算 atkSrc/defSrc，属性面板变化会实时反映。 */
+    case 'field':{
+      const isFollow=!!sk.follow;
+      const cx=isFollow?player.x:t.x, cy=isFollow?player.y:t.y;
+      if(sk.kind==='poison')SFX.poison();
+      else if(sk.kind==='frost')SFX.ice();
+      else SFX.swing();
+      addField({x:cx,y:cy,r:sk.r*(1+tb.rangeAdd),dur:sk.dur,tick:sk.tick,
+        mult:sk.mult,baseMult:sk.mult,
+        color:sk.kind==='poison'?'#5ad84a':(sk.kind==='frost'?'#8ad8ff':'#ffca4a'),
+        kind:sk.kind||'blade',elem:sk.elem,
+        slow:sk.slow,slowDur:sk.slowDur,cut:sk.cut,cutDur:sk.cutDur,
+        follow:isFollow?player:null});
+      ringFx(cx,cy,sk.r*(1+tb.rangeAdd),sk.kind==='poison'?'#5ad84a':(sk.kind==='frost'?'#8ad8ff':'#ffca4a'));
+      addText(cx,cy-sk.r-14,sk.name,'#ffd84a',12);
+      /* 旋风斩期间移速加成：把 buff 挂在 buffSpdT 上（独立计时，不进 player.buff，
+         避免和狂暴战意的 buff 结构互相覆盖） */
+      if(sk.spdBuff){player.buffSpdT=sk.dur;player.buffSpdPct=sk.spdBuff;
+        addText(player.x,player.y-64,'旋风','#ffca4a',11);}
+      break;}
     case 'charge':{SFX.swing();SFX.hit();
       // 冲到目标附近（沿途扬尘）
       const dx=t.x-player.x,dy=t.y-player.y,d=Math.hypot(dx,dy)||1;
@@ -2418,10 +2647,22 @@ function castSkill(idx){
       sparkBurst(t.x,t.y,'#ff8a4c',10);
       hurtMonster(t,r.d,'#ff8a4c',r.crit);t.stun=Math.max(t.stun,sk.stun);
       addText(t.x,t.y-58,'眩晕','#ffd84a',11);
+      /* ★ 请求 V · 击退：眩晕只能"定住"，打不散怪堆。
+         击退把目标沿冲撞方向推开，配合 moveEntity 的障碍/安全区屏障，
+         天然不会把怪推进安全区（moveEntity 内已有屏障）。 */
+      if(sk.knock&&d>.001){
+        moveEntity(t,dx/d*sk.knock,dy/d*sk.knock);
+        addText(t.x,t.y-72,'击退','#ffb04a',10);
+      }
       ringFx(player.x,player.y,50,'#ffca4a');break;}
+    /* ★ 请求 V · 施毒修复 B2：desc 从 v2 起就写着"降低防御"，
+       但 v2 代码只设了poison/poisonT，从未削减 def —— 玩家被描述骗了 20 多个版本。
+       现在补上 cutPc/cutDur，并用 applyMobStatus 走统一debuff 通道。 */
     case 'poison':{SFX.poison();
       if(!t.poisonT||t.poisonT<=0){t.poisonT=sk.dur;t.poison=atkSrc()*sk.mult*T;}
+      if(sk.cutPc)applyMobStatus(t,0,0,sk.cutPc,sk.cutDur||sk.dur);
       addText(t.x,t.y-50,'中毒','#8aff5a',12);
+      if(sk.cutPc)addText(t.x,t.y-66,'降防 '+Math.round(sk.cutPc*100)+'%','#8aff5a',10);
       greenFx(t.x,t.y);ringFx(t.x,t.y,26,'#8aff5a');
       for(let i=0;i<6;i++)particles.push({x:t.x+rnd(-12,12),y:t.y-rnd(4,26),vx:rnd(-8,8),vy:rnd(-24,-10),t:rnd(.6,.9),color:'#5ad84a',r:rnd(2.5,4),g:-14});break;}
     case 'shield':{player.shieldT=sk.dur*(1+talOf('shield')*.08);SFX.heal();
@@ -2441,29 +2682,51 @@ function castSkill(idx){
       pet.hp=pet.maxHp;
       summonFx(player.x,player.y);
       addLog('召唤出 '+PET_LV[pet.lvl].n+'（LV'+(pet.lvl+1)+' 攻'+Math.floor(pet.atk)+' 血'+Math.floor(pet.maxHp)+'）');break;}
+    /* ★ 请求 V · 修复 B3：desc 写 26% 而代码是 30%，玩家看到的和实际不符。
+       以代码为准改为 30% 的 desc 表述（30% 是更有意义的手感值，改代码反而是降级），
+       并补上 cure —— 道士的解毒能力此前完全没有，被毒/灼烧时只能干等。 */
     case 'heal':{SFX.heal();const h=Math.floor((player.maxHp*.3+atkSrc()*2)*(1+tb.healPct));
       player.hp=Math.min(player.maxHp,player.hp+h);
       ST.stat.heal=(ST.stat.heal||0)+h;
       addText(player.x,player.y-50,'+'+h,'#5aff8a',15);healFx(player.x,player.y);
-      ringFx(player.x,player.y,34,'#5aff8a');break;}
+      ringFx(player.x,player.y,34,'#5aff8a');
+      if(sk.cure){player.poisonT=0;player.burnT=0;
+        addText(player.x,player.y-70,'解毒','#8aff5a',11);}
+      break;}
     case 'buff':{SFX.lvl();
-      player.buff={stat:sk.stat,pct:sk.pct,t:sk.dur*(1+talOf(key)*.06)};
-      const bn={atk:'攻击提升',def:'物防提升',mdef:'双防提升'}[sk.stat]||'状态提升';
+      player.buff={stat:sk.stat,pct:sk.pct,t:sk.dur*(1+talOf(key)*.06),
+        /* ★ 请求 V：buff 附带攻速（狂暴战意 +10% 攻速）。
+           spd 由 playerBasicAttack 读取，是「攻速」作为独立维度第一次进入技能系统。 */
+        spd:sk.spd||0};
+      const bn={atk:'攻击提升',def:'物防提升',mdef:'魔防提升'}[sk.stat]||'状态提升';
       addText(player.x,player.y-52,bn+' '+Math.round(sk.pct*100)+'%',sk.stat==='atk'?'#ff8a4c':'#7ab0ff',14);
+      if(sk.spd)addText(player.x,player.y-68,'攻速 +'+Math.round(sk.spd*100)+'%','#ffd84a',11);
       buffFx(player.x,player.y,sk.stat==='atk'?'#ff8a4c':'#7ab0ff');
       ringFx(player.x,player.y,46,sk.stat==='atk'?'#ff8a4c':'#7ab0ff');
       sparkBurst(player.x,player.y,sk.stat==='atk'?'#ffd84a':'#bfe8ff',12);
       recalcStats();break;}
+    /* 旧 'maddness' 类型：v3 已把群体施毒改为 field 型领域。
+       本项目所有技能的类型都写在源码里（旧存档只存天赋等级/开关，
+       不存 type），所以这个分支实际不可达。
+       保留它是为了防御性：如果将来有外部脚本/旧配置按 type 分派，
+       走到这里时 sk.r/sk.dur/sk.mult 都还在（表里字段没删），不会崩。 */
     case 'maddness':{SFX.poison();
       let hit=0;
+      const R=(sk.r||120)*(1+tb.rangeAdd);
       for(const m of monsters()){if(m.dead)continue;
-        if(Math.hypot(m.x-player.x,m.y-player.y)<=sk.r*(1+tb.rangeAdd)){
-          m.poisonT=sk.dur;m.poison=atkSrc()*sk.mult*T;
-          addText(m.x,m.y-50,'中毒','#8aff5a',11);
-          greenFx(m.x,m.y);hit++;}}
-      ringFx(player.x,player.y,sk.r*(1+tb.rangeAdd),'#8aff5a');
-      particles.push({ring:1,x:player.x,y:player.y,r:8,max:sk.r*.85,t:.7,color:'#5ad84a'});
+        if(Math.hypot(m.x-player.x,m.y-player.y)<=R){
+          m.poisonT=sk.dur||10;m.poison=atkSrc()*(sk.mult||2)*T;hit++;}}
       if(hit)addLog('群体施毒命中 '+hit+' 只怪物');break;}
+    default:{
+      /* ★ 请求 V · 未知 type 兜底。
+         castSkill 是 switch 分派，新增 type 时若忘记加 case，
+         玩家会看到"技能按了没反应"却没有任何提示（还会白扣蓝进 CD）。
+         这里在**扣 MP 之前**就已经switch 完了，所以此处补一个显式提示，
+         让漏写的 type 立刻暴露成日志而不是静默失败。 */
+      SFX.click();
+      addLog('⚠ 技能「'+sk.name+'」类型未实现：'+sk.type);
+      toast('「'+sk.name+'」暂不可用');
+      break;}
   }
   updateSkillBtns();
 }
@@ -2505,6 +2768,10 @@ function updatePlayer(dt){
   if(player.shieldT>0)player.shieldT-=dt;
   if(player.buff&&player.buff.t>0){player.buff.t-=dt;
     if(player.buff.t<=0){player.buff=null;recalcStats();addText(player.x,player.y-50,'增益结束','#a89058',12);}}
+  /* ★ 请求 V：旋风斩攻速/移速窗口计时。
+     到期归零（不是保留残值）—— 否则残留 1% 攻速会让面板"看不见但手感变快"。 */
+  if(player.buffSpdT>0){player.buffSpdT-=dt;
+    if(player.buffSpdT<=0){player.buffSpdT=0;player.buffSpdPct=0;}}
   for(const k in player.cd)if(player.cd[k]>0)player.cd[k]-=dt;
   // 移动
   let mx=0,my=0;
@@ -2512,7 +2779,9 @@ function updatePlayer(dt){
   if(player.sideT>0)player.sideT=Math.max(0,player.sideT-dt);
   if(joy.active){mx=joy.dx;my=joy.dy;}
   else if(ST.auto){const d=autoMove();mx=d.x;my=d.y;}
-  const spd=CLASSES[player.cls].spd*weatherSpd();
+  /* ★ 请求 V：旋风斩期间的移速加成（与攻速共用 buffSpdT/Pct），
+     让「开着刀域边转边走」成为道士/战士式的实际机动优势。 */
+  const spd=CLASSES[player.cls].spd*weatherSpd()*(player.buffSpdT>0?(1+player.buffSpdPct):1);
   player.moving=Math.hypot(mx,my)>.1;
   if(player.moving){
     const l=Math.hypot(mx,my);mx/=l;my/=l;
@@ -2713,6 +2982,17 @@ function autoCast(){
     const hc=cfgOf('heal');
     if(player.hp<player.maxHp*(hc.hpPct/100)){castSkill(idxOf('heal'));return;}
   }
+  /* ★ 请求 V · 施放优先级重排。
+     v2 的逻辑是"按 CLASSES.skills 顺序找到第一个能放的就放" ——
+     技能表顺序是设计时的排列，不是战斗价值顺序，结果是：
+     战士永远先放旋风斩（顺序在烈火之后但 CD 长，实际常在 CD 里），
+     法师会先放冰咆哮再放雷电（雷电单体 3.2 倍明显优于冰域 0.62×4），
+     挂机时的实际输出远低于理论值。
+     v3 改为**按每秒收益密度排序**：
+       估算 DPS = 总伤害 ÷（CD + 起手时间），群体技能再乘命中数。
+     这样挂机与手动施放的取向一致，玩家在设置里关掉某个技能后
+     剩余技能也会自动重新排优先级。 */
+  const cands=[];
   for(const key of order){
     const sk=SKILLS[key];
     if(sk.type==='passive'||sk.type==='summon'||sk.type==='heal')continue;
@@ -2725,15 +3005,35 @@ function autoCast(){
     // 魔法保留：低于阈值时不再为普通输出消耗魔法（保命/召唤优先）
     if(c.mpKeep>0&&player.mp-player.mpKeep<need)continue;
     /* 群体技能需要足够敌人数 —— 按**技能自身作用半径**统计（请求 R）。
-       旧写法用固定 170：半月的 126 与流星的 156 共用同一判据，
-       导致"半径 126 的技能按 170 的圈里数敌人"，边上的怪根本没进范围却被计数。 */
-    if(sk.type==='aoe'||sk.type==='aoeP'||sk.type==='maddness'){
-      if(sk.type==='aoeP'&&(!player.target||player.target.dead))continue;   // 落点需要目标
+       v3 变化：不再一刀切用 cfg.cnt（默认 3），而是按技能类型分档 ——
+         · 瞬发 aoe/aoeP/maddness（大范围高爆发）：沿用 cfg.cnt（用户可调）
+         · 持续 field（冰域/毒雾/刀域）：**1 个目标就放**。
+           它们每 0.4~1 秒跳一次，铺开之后能一直吃到收益，
+           用 3 只怪当门槛会导致单怪挂机时AOE 永远不放（v2 的实际故障）。
+       扇形 aoe 额外按张角打折计数 —— 扇形只覆盖身前 126°，
+       背后的怪算进来会导致"看起来有 3 只、实际只打到 1 只"。 */
+    const isField=sk.type==='field';
+    if(sk.type==='aoe'||sk.type==='aoeP'||sk.type==='maddness'||isField){
+      const isPoint=(sk.type==='aoeP'||(isField&&!!sk.cast));
+      if(isPoint&&(!player.target||player.target.dead))continue;   // 落点需要目标
       const R=(sk.r||120)*1.02;   // 放宽 2% 抵消边界抖动
-      const ox=(sk.type==='aoeP')?player.target.x:player.x;
-      const oy=(sk.type==='aoeP')?player.target.y:player.y;
-      const cnt=monsters().filter(m=>!m.dead&&Math.hypot(m.x-ox,m.y-oy)<R).length;
-      if(cnt<c.cnt)continue;
+      const ox=isPoint?player.target.x:player.x;
+      const oy=isPoint?player.target.y:player.y;
+      let cnt=0;
+      for(const m of monsters()){
+        if(m.dead)continue;
+        const dx=m.x-ox,dy=m.y-oy,d=Math.hypot(dx,dy);
+        if(d>R)continue;
+        /* 扇形 aoe：只数落在张角内的怪（与 castSkill 的判定同口径）。
+           扇形以玩家为圆心且以 player.face 朝向，命中数按此折算。 */
+        if(sk.arc&&d>1){
+          const ax=m.x-player.x,ay=m.y-player.y;
+          if(Math.abs(Math.atan2(ay,ax*player.face))>sk.arc/2)continue;
+        }
+        cnt++;
+      }
+      const gate=isField?1:c.cnt;
+      if(cnt<gate)continue;
     }
     /* 单体/投射/施毒/冲锋类：需要锁定目标**且在射程内**（请求 R）。
        超距则跳过本技能 —— 交给其他够得着的技能、普攻或走位，
@@ -2752,8 +3052,28 @@ function autoCast(){
       const bc=cfgOf(key);
       if(player.hp<player.maxHp*(bc.hpPct/100))continue; // 残血时优先逃跑/喝药，不放增益
     }
-    castSkill(order.indexOf(key));return;
+    /* ---- 收益密度估算（用于排序，不是精确 DPS）----
+       瞬发技能：总伤害 ÷ CD
+       领域技能：每跳伤害 × 跳数 ÷ (CD + 领域持续时间)
+                 —— 领域是"CD 内可铺多次"的，持续时间必须计入分母，
+                    否则8 秒毒雾会被算成 0.5/(13+0) 而被严重低估。 */
+    let total;
+    if(isField)total=(sk.mult||0)*Math.floor(sk.dur/sk.tick);
+    else if(sk.type==='aoe'||sk.type==='aoeP'||sk.type==='maddness')total=(sk.mult||0)*1.5;
+    else total=sk.mult||0;
+    /* 附带 debuff 的技能加权：降防/减速的实际收益是后续所有伤害的提升，
+       用 1.25 的经验系数（不上 1.5，避免控制技压过纯伤害技）。 */
+    let weight=1;
+    if(sk.cut||sk.cutPc)weight=1.25;
+    else if(sk.slow||sk.paralyze||sk.stun)weight=1.15;
+    /* 领域分母 = CD + 持续时间（错开释放，摊薄单次收益） */
+    const denom=isField?(sk.cd+sk.dur):(sk.cd||1);
+    const density=(total*weight)/Math.max(.1,denom);
+    cands.push({key,idx:idxOf(key),density});
   }
+  /* 收益密度降序；同密度按技能表顺序（保持行为可预测，不会每帧抖动） */
+  cands.sort((a,b)=>(b.density-a.density));
+  if(cands.length)castSkill(cands[0].idx);
 }
 /* 怪物更新 */
 function updateMonster(m,dt){
@@ -2764,11 +3084,18 @@ function updateMonster(m,dt){
       /* 人机重生：换一个身份（新名字/等级/职业），换一个位置 */
       if(m.isBot){rollBot(m,true);return;}
       m.dead=false;m.hp=m.maxHp;m.x=m.sx;m.y=m.sy;m.aggro=null;m.poisonT=0;m.stun=0;
+      /* 重生必须清状态：否则一只被打到残血的怪带着 40% 减速满血站起来，
+         玩家会以为"这怪怎么一直追不上我"（实际是残留 debuff）。 */
+      clearMobStatus(m);
       if(m.d.boss&&MAP.def.id===player.mapId)banner('⚠ '+m.d.n+' 已降临','-'+MAP.def.n+'-');
       if(m.d.boss)SFX.boss();
     }return;}
   m.flash-=dt;m.animT+=dt*6;m.atkT-=dt;
   if(m.weaponAnim>0)m.weaponAnim=Math.max(0,m.weaponAnim-dt);
+  /* ★ 请求 V：状态计时与「眩晕时也走」的约定。
+     放在 stun 判定之前 —— 眩晕期间减速/降防照常流逝（它们是"弱化"，
+     不该因为对方被控住就暂停），但 stun 期间不移动，所以减速不生效。 */
+  tickMobStatus(m,dt);
   if(m.stun>0){m.stun-=dt;return;}
   /* BOSS 狂暴：血量低于阈值时一次性触发（不走技能轮转） */
   if(m.d.boss&&m.d.rage&&!m.raged&&m.hp<m.maxHp*m.d.rage.at){
@@ -2800,6 +3127,16 @@ function updateMonster(m,dt){
     if(m.poisonTick<=0){m.poisonTick=1;
       m.hp-=m.poison;addText(m.x,m.y-30,Math.floor(m.poison),'#8aff5a',11);
       if(m.hp<=0){killMonster(m);return;}}}
+  /* ★ 请求 V · 点燃（法师火球）：每0.5 秒一跳，比中毒快 —— 它是「高频小额」，
+     和施毒的「低频大额」形成对照，也让法师单体不只靠初始一击。
+     走独立字段而非复用 poison，是为了让两者的 tick 频率和视觉可区分。 */
+  if(m.burnT>0){m.burnT-=dt;
+    m.burnTick=(m.burnTick||0)-dt;
+    if(m.burnTick<=0){m.burnTick=.5;
+      m.hp-=m.burn;addText(m.x,m.y-42,Math.floor(m.burn),'#ff8a4a',10);
+      for(let k=0;k<2;k++)particles.push({x:m.x+rnd(-7,7),y:m.y+rnd(-2,10),
+        vx:rnd(-5,5),vy:rnd(-34,-18),t:.4,color:'#ff6a1c',r:rnd(1.5,3),g:-30});
+      if(m.hp<=0){killMonster(m);return;}}}
   /* ★ 请求 U · 新手村安全区脱战（决策 A：怪物会还击，但不追进区）
      · 玩家站在安全区内 → **不建立新仇恨**（视野照面也不主动扑过来）
      · 已有仇恨（此前被玩家打过 / 在区外结的仇）→ 保留仇恨，让怪能还手，
@@ -2820,10 +3157,17 @@ function updateMonster(m,dt){
   if(m.aggro){
     const t=m.aggro,d=dist(m,t);
     if(d>m.d.atkR*1.05){
-      const spd=m.d.spd*(m.raged&&m.d.rage?m.d.rage.spd:1);   // 狂暴加移速
+      /* ★ 请求 V：减速 debuff 生效点。乘在追击移速上（狂暴加移速之后，
+         两者相乘而非相加 —— BOSS 狂暴 1.35× 被冰冻 0.6 = 0.81×，
+         不会因为叠了 buff 就变成"减速反而加速"）。 */
+      const slowMul=(m.slowT>0)?(1-Math.min(.75,m.slowPct||0)):1;
+      const spd=m.d.spd*(m.raged&&m.d.rage?m.d.rage.spd:1)*slowMul;   // 狂暴加移速
       const dx=(t.x-m.x)/d,dy=(t.y-m.y)/d;
       moveEntity(m,dx*spd*dt,dy*spd*dt);
       m.face=t.x>=m.x?1:-1;
+      /* 移速被压到 0（极限减速）时怪物会"站桩不动"，
+         视觉上要给出可读反馈，否则玩家会以为卡住了 */
+      if(slowMul<.15&&Math.random()<dt*2)addText(m.x,m.y-46,'冻结','#8ad8ff',10);
     }else if(m.atkT<=0){
       m.atkT=m.d.atkCd;m.face=t.x>=m.x?1:-1;
       swingWeapon(m);   // 出手即挥动手中武器
@@ -3023,9 +3367,17 @@ function updateProjectiles(dt){
     if(d<=step+8){
       // 命中
       if(p.from==='p'){
-        const r=calcDamage(p.dmgBase,p.defBase!==undefined?p.defBase:defSrc(t),p.mult);
+        const r=calcDamage(p.dmgBase,p.defBase!==undefined?p.defBase:defSrc(t),p.mult,!!p.basic);
         hurtMonster(t,r.d,p.kind==='ice'?'#8ad8ff':p.kind==='charm'?'#ffe95a':'#ff8a4c',r.crit);
         if(p.kind==='fireball'||p.kind==='thunder')SFX.fire();
+        /* ★ 请求 V · 火球点燃：命中后按 dotMult × atkSrc 铺一层持续灼烧。
+           用 atkSrc 而非命中瞬间的伤害数字，是为了让"法术强度成长"能加到 DoT 上
+           （否则后期点燃会变成一个无关等级的小固定伤害）。 */
+        if(p.dot){
+          t.burnT=Math.max(t.burnT||0,p.dot);
+          t.burn=atkSrc()*(p.dotMult||.4)*(1+talentBonus().dmgPct);
+          addText(t.x,t.y-46,'点燃','#ff8a4a',10);
+        }
       }else{
         if(t===player)hurtPlayer(Math.max(1,Math.floor(p.dmg*rnd(.85,1.15))),p,atkTypeOf(p.src));
         else if(pet){pet.hp-=p.dmg;pet.flash=.15;if(pet.hp<=0)killPet();}
@@ -3052,6 +3404,54 @@ function updateAoes(dt){
       }
       aoes.splice(i,1);
     }
+  }
+}
+/* ★ 请求 V · 玩家侧持续领域结算。
+   每 tick 对范围内所有活着的怪重算一次伤害（走 atkSrc/defSrc/calcDamage 完整管线），
+   所以属性面板 / 天赋 / 装备变化会立即反映到领域伤害上。
+   与 aoe 的一次性爆炸相比，领域提供的是「持续施压 + 区域debuff」，
+   这正是三个同质 AOE 技能差异化后的新形态载体。 */
+function updateFields(dt){
+  for(let i=fields.length-1;i>=0;i--){
+    const f=fields[i];
+    f.t-=dt;
+    if(f.t<=0){fields.splice(i,1);continue;}
+    /* 跟随型领域（如旋风斩）：中心锁在施法者身上，跟走位走 */
+    if(f.follow&&!f.follow.dead){f.x=f.follow.x;f.y=f.follow.y;}
+    f.tickT-=dt;
+    if(f.tickT>0)continue;
+    f.tickT=f.tick;
+    const tb=talentBonus();
+    const T=Math.max(1,(f.mult||1)*(1+tb.dmgPct)/((f.baseMult||f.mult)||1));
+    let hit=0;
+    for(const m of MAP.mobs){
+      if(m.dead)continue;
+      if(Math.hypot(m.x-f.x,m.y-f.y)>f.r)continue;
+      const r=calcDamage(atkSrc(),defSrc(m),(f.mult||1)*T*(f.elem?weatherElemMul(f.elem):1));
+      hurtMonster(m,r.d,f.color,r.crit);
+      if(f.slow)applyMobStatus(m,f.slow,f.slowDur||2,0,0);
+      if(f.cut)applyMobStatus(m,0,0,f.cut,f.cutDur||6);
+      hit++;
+    }
+    /* tick 命中反馈：只在真打到怪时出粒子，避免空领域每 0.4s 空放一串火花 */
+    if(hit){
+      if(f.kind==='poison'){
+        greenFx(f.x,f.y);
+        for(let k=0;k<3;k++)particles.push({x:f.x+rnd(-f.r*.6,f.r*.6),y:f.y+rnd(-f.r*.4,f.r*.4),
+          vx:rnd(-8,8),vy:rnd(-26,-12),t:rnd(.5,.9),color:'#5ad84a',r:rnd(2,4),g:-14});
+      }else if(f.kind==='frost'){
+        iceFx(f.x,f.y,f.r);
+        for(let k=0;k<3;k++)particles.push({x:f.x+rnd(-f.r*.6,f.r*.6),y:f.y+rnd(-f.r*.4,f.r*.4),
+          vx:rnd(-6,6),vy:rnd(-16,-6),t:rnd(.4,.7),color:'#bfe8ff',r:rnd(1.5,3),g:-8});
+      }else{
+        sparkBurst(f.x,f.y,f.color,6);
+        particles.push({ring:1,x:f.x,y:f.y,r:f.r*.25,max:f.r*.7,t:.35,color:f.color});
+      }
+      /* 打中了才出音效，且加一层节流：多个领域同帧命中时不叠加成噪音 */
+      if(!f.sndT||f.sndT<=0){f.sndT=.28;
+        if(f.kind==='poison')SFX.poison();else if(f.kind==='frost')SFX.ice();else SFX.hit();}
+    }
+    f.sndT=(f.sndT||0)-dt;
   }
 }
 function updateDrops(dt){
@@ -4445,9 +4845,9 @@ function bagCellHtml(){return '';}
      ① 自身 = 职业基础 + 每级成长 × (等级-1)
      ② 装备 = Σ(区间下限 × 品质 × 强化) ~ Σ(区间上限 × 品质 × 强化)
      ③ 套装 = 固定值，两侧同加
-     ④ 天赋乘区 **不计入** —— talentBonus 的 7 个 Pct 字段当前恒为 0
-        （天赋实际只加 basicPct/critAdd/dmgPct，不进面板），
-        天赋单独在面板底部列一行，不与属性区间混算。
+     ④ 天赋 **不计入** —— 请求 V 已删除 talentBonus 里 7 个恒为 0 的死 Pct 字段，
+        天赋收益全部走战斗维度（普攻伤害/暴击/技能伤害/CD/耗蓝/治疗/宠物），
+        不再乘到面板属性上。天赋单独在面板底部列一行（talentSummaryHtml）。
 
    ⚠️ 这里必须复刻 statsOf/eqRand 的乘区顺序（先乘品质与强化，不套 CAP），
       但**不套 EQ_STAT_CAP** —— CAP 是单件 6 倍上限，面板是全体汇总，
@@ -4485,7 +4885,8 @@ function rangeHtml(r,big){
          '<b style="font-size:'+fs+';color:'+col+'">'+r.hi+'</b>';
 }
 /* 天赋汇总行（请求 T · 决策②）：属性行保持干净，天赋在面板底部单独成行。
-   只列**真实生效**的项 —— talentBonus 的 Pct 字段恒为 0 不作为展示依据。 */
+   ★ 请求 V：这里列出的 7 项**现在全部真实生效**（v2 时 basicPct/critAdd
+   是死字段，面板显示 +10% 而战斗侧从未读取；本次已接入 calcDamage）。 */
 function talentSummaryHtml(){
   const tb=talentBonus();
   const parts=[];
@@ -5375,14 +5776,19 @@ function genTalentPanel(){
     const key=order[i],sk=SKILLS[key];
     const lock=player.level<sk.unlock;
     const lv=talOf(key);
-    const typeTag={m:'单体',p:'远程',aoe:'群体',aoeP:'群体',charge:'突进',poison:'单体',buff:'增益',maddness:'群体',summon:'召唤',heal:'治疗',shield:'护盾',passive:'被动'};
-    const eff=sk.type==='passive'?'+10% 普攻伤害 / +2% 暴击':sk.type==='heal'?'+10% 治疗量 / -5% CD':
+    const typeTag={m:'单体',p:'远程',aoe:'扇形',aoeP:'爆发',field:'领域',charge:'突进',poison:'中毒',buff:'增益',summon:'召唤',heal:'治疗',shield:'护盾',passive:'被动'};
+    /* ★ 请求 V · 每级天赋收益文案。
+       攻杀剑术此前写「+10% 普攻伤害 / +2% 暴击」—— 那是 talentBonus 里
+       passive 分支给的**通用被动加成**，和攻杀本身无关（加了也不影响攻杀触发率）。
+       B1 修复后攻杀有了自己的成长曲线（每级 +5% 概率 / +0.2 倍率），
+       文案必须跟着改，否则玩家加了点却看不到面板变化。 */
+    const eff=sk.type==='passive'?'+5% 触发率 / +0.2 倍率（攻杀专属）':sk.type==='heal'?'+10% 治疗量 / -5% CD':
       sk.type==='summon'?'+12% 宠物强度':(sk.type==='buff'||sk.type==='shield')?'-6% CD / +6% 持续':
       '+8% 伤害 / -4% CD / -5% 耗蓝';
     html+='<div class="skItem" style="'+(lock?'opacity:.5':'')+'">'+
      '<div style="display:flex;align-items:center;gap:8px">'+
      '<b style="font-size:15px">'+sk.ico+' '+sk.name+'</b>'+
-     '<span style="font-size:10px;color:#a89058">'+(typeTag[sk.type]||sk.type)+' · 耗蓝 '+skillMp(key)+' · CD '+skillCd(key).toFixed(1)+'s'+(sk.mult?' · '+Math.round(skillDmgMul(key)*100)+'%倍率':'')+'</span>'+
+     '<span style="font-size:10px;color:#a89058">'+(typeTag[sk.type]||sk.type)+' · 耗蓝 '+skillMp(key)+' · CD '+skillCd(key).toFixed(1)+'s'+multLabel(sk,key)+'</span>'+
      '<b style="margin-left:auto;color:'+(lv>=TAL_MAX?'#ffd84a':lv?'#7ab0ff':'#6a5a38')+'">'+lv+'/'+TAL_MAX+'</b></div>'+
      '<p style="font-size:11px;color:#8a7a50;margin-top:4px">'+sk.desc+'</p>'+
      '<div style="font-size:11px;color:#a89058;margin-top:3px">每级收益：'+eff+'</div>';
@@ -5800,7 +6206,7 @@ function drawAvatar(){
 /* 技能自动释放配置面板 */
 function openSkillConfig(back){
   const order=CLASSES[player.cls].skills;
-  const typeTag={m:'单体',p:'远程',aoe:'群体',aoeP:'群体',charge:'突进',poison:'单体',buff:'增益',maddness:'群体',summon:'召唤',heal:'治疗',shield:'护盾',passive:'被动'};
+  const typeTag={m:'单体',p:'远程',aoe:'扇形',aoeP:'爆发',field:'领域',charge:'突进',poison:'中毒',buff:'增益',summon:'召唤',heal:'治疗',shield:'护盾',passive:'被动'};
   let html='<div style="font-size:12px;color:#a89058;margin-bottom:8px;line-height:1.6">'+
    '① 每个技能可单独开关是否参与自动挂机释放<br>'+
    '② 「阈值」为该技能自动释放所需的生命/敌人数量条件<br>'+
@@ -5830,7 +6236,13 @@ function openSkillConfig(back){
       const rows=[];
       if(sk.type==='heal')rows.push(['hpPct','生命低于(%)时释放',cfg.hpPct,10,90,5]);
       if(sk.type==='buff')rows.push(['hpPct','生命高于(%)才释放',cfg.hpPct,20,100,5]);
-      if(sk.type==='aoe'||sk.type==='aoeP'||sk.type==='maddness')rows.push(['cnt','敌人数 ≥',cfg.cnt,1,8,1]);
+      if(sk.type==='aoe'||sk.type==='aoeP')rows.push(['cnt','敌人数 ≥',cfg.cnt,1,8,1]);
+      /* ★ 请求 V：领域型技能不再暴露「敌人数」阈值。
+         autoCast 对 field 硬编码 1 只怪就放（持续领域的收益随时间累积，
+         拿 3 只怪当门槛会让单怪挂机时永远不放），
+         面板再给一个改了也不生效的滑块就是欺骗玩家。 */
+      if(sk.type==='field')
+        html+='<div style="margin-top:6px;font-size:10px;color:#7a9a6a">持续领域：1 只怪即自动释放（不设敌人数门槛）</div>';
       if(sk.type==='m'||sk.type==='p'||sk.type==='charge'||sk.type==='poison')rows.push(['cnt','附近敌人数 ≥',cfg.cnt,1,8,1]);
       rows.push(['mpKeep','魔法保留',cfg.mpKeep,0,200,10]);
       if(rows.length){
@@ -6495,7 +6907,7 @@ function enterTowerFloor(floor){
   arena.max=0;
   MAP=genMap(arena);
   player.mapId='tower';player.x=MAP.spawn.x;player.y=MAP.spawn.y;
-  projectiles=[];aoes=[];zones=[];player.target=null;bossRef=null;
+  projectiles=[];aoes=[];zones=[];clearFields();player.target=null;bossRef=null;
   MAP.mobs.length=0;
   /* 生成强化后的试炼怪（以原型数值为基准乘算，避免重复叠加） */
   const n=towerMobCount(floor),ids=towerMobIds(floor);
@@ -6654,7 +7066,7 @@ function switchMap(id,keepCd){
        下一帧就再次蓄力 3 秒又传送一次 —— 表现上是 banner 反复弹。
        调用方（updatePortal 的普通图分支）显式传 keepCd=true。 */
   _portalArmed=false;portalCd=keepCd?(PORTAL_CD||0):0;
-  projectiles=[];aoes=[];zones=[];player.target=null;bossRef=null;
+  projectiles=[];aoes=[];zones=[];clearFields();player.target=null;bossRef=null;
   fillMobs();
   $('mapName').textContent=def.n;
   updateGuide();
@@ -6874,7 +7286,74 @@ function render(){
     }
     ctx.globalAlpha=1;
   }
-  // 实体收集 y 排序
+  /* ★ 请求 V · 玩家侧持续领域视觉。
+     与 zones 的纯色圆不同，领域要读出「这是技能、有属性」：
+     冰霜域画六角雪花环 + 冷色内旋，毒域画不规则毒泡 + 绿色外圈，
+     刀域画旋转弧线 —— 三者剪影完全不同，隔着屏幕也能分清是谁铺的。 */
+  for(const f of fields){
+    const fade=clamp(f.t/f.maxT,0,1);
+    const left=f.t;const pulse=.5+.5*Math.sin(ST.time*4+f.x*.01);
+    ctx.save();
+    if(f.kind==='frost'){
+      ctx.globalAlpha=(.10+.05*pulse)*fade+.05;
+      ctx.fillStyle='#8ad8ff';
+      ctx.beginPath();ctx.arc(f.x,f.y,f.r,0,6.29);ctx.fill();
+      /* 三层旋转雪花弧，半径递减且反向转，读出"冷" */
+      ctx.globalAlpha=(.5+.2*pulse)*fade;
+      ctx.strokeStyle='#bfe8ff';ctx.lineWidth=2;
+      for(let k=0;k<3;k++){
+        const rr=f.r*(.45+.27*k),dir=k%2?1:-1;
+        ctx.beginPath();
+        ctx.arc(f.x,f.y,rr,ST.time*(1.2+k*.5)*dir,ST.time*(1.2+k*.5)*dir+2.1);
+        ctx.stroke();
+      }
+      /* 内圈缓慢收缩的亮环 = 伤害脉冲的视觉预告 */
+      const pr=f.r*(.2+.75*((ST.time*.9)%1));
+      ctx.globalAlpha=(.7-.5*((ST.time*.9)%1))*fade;
+      ctx.strokeStyle='#ffffff';ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.arc(f.x,f.y,pr,0,6.29);ctx.stroke();
+    }else if(f.kind==='poison'){
+      ctx.globalAlpha=(.13+.05*pulse)*fade+.06;
+      ctx.fillStyle='#5ad84a';
+      ctx.beginPath();ctx.arc(f.x,f.y,f.r,0,6.29);ctx.fill();
+      ctx.globalAlpha=.5*fade+.12;
+      ctx.strokeStyle='#8aff5a';ctx.lineWidth=2;ctx.setLineDash([9,7]);
+      ctx.lineDashOffset=-ST.time*18;
+      ctx.beginPath();ctx.arc(f.x,f.y,f.r,0,6.29);ctx.stroke();
+      ctx.setLineDash([]);
+      /* 毒泡：绕圈上浮的小绿点 */
+      for(let k=0;k<5;k++){
+        const a=ST.time*1.1+k*1.256;
+        const rr=f.r*(.25+.55*((k*.2+ST.time*.14)%1));
+        ctx.globalAlpha=.6*fade;
+        ctx.fillStyle='#8aff5a';
+        ctx.beginPath();ctx.arc(f.x+Math.cos(a)*rr,f.y+Math.sin(a)*rr*.7-6,2.4,0,6.29);ctx.fill();
+      }
+    }else{
+      /* 刀域/通用域：旋转弧段，方向感强 */
+      ctx.globalAlpha=(.10+.05*pulse)*fade+.05;
+      ctx.fillStyle=f.color;
+      ctx.beginPath();ctx.arc(f.x,f.y,f.r,0,6.29);ctx.fill();
+      ctx.globalAlpha=.62*fade;
+      ctx.strokeStyle=f.color;ctx.lineWidth=3;ctx.lineCap='round';
+      for(let k=0;k<3;k++){
+        ctx.beginPath();
+        ctx.arc(f.x,f.y,f.r*(.55+.22*k),ST.time*(4+k)*1.6,ST.time*(4+k)*1.6+1.1);
+        ctx.stroke();
+      }
+    }
+    /* 剩余时间条：玩家需要知道"这个领域还剩几秒"，
+       尤其冰咆哮只有 4 秒 —— 不给提示就会以为技能失效了 */
+    if(left<3){
+      ctx.globalAlpha=.85*fade;
+      ctx.fillStyle='rgba(10,8,6,.7)';
+      ctx.fillRect(f.x-f.r,f.y-f.r-9,f.r*2,4);
+      ctx.fillStyle=f.kind==='poison'?'#8aff5a':(f.kind==='frost'?'#bfe8ff':f.color);
+      ctx.fillRect(f.x-f.r,f.y-f.r-9,f.r*2*(left/3),4);
+    }
+    ctx.restore();
+    ctx.globalAlpha=1;
+  }
   const ents=[];
   for(const m of MAP.mobs)if(!m.dead)ents.push(m);
   if(pet&&!pet.dead)ents.push(pet);
@@ -7471,7 +7950,7 @@ function stepWorld(dt){
     for(const m of MAP.mobs)updateMonster(m,dt);
   }
   updateBots(dt);   // 人机玩家：敌意判定/自愈（移动与攻击复用 updateMonster）
-  updateProjectiles(dt);updateAoes(dt);updateZones(dt);updateDrops(dt);updateParticles(dt);
+  updateProjectiles(dt);updateAoes(dt);updateZones(dt);updateFields(dt);updateDrops(dt);updateParticles(dt);
   if(ST.tower)updateTower(dt);
   updateNPCBtn();
   updatePortal(dt);
@@ -7788,10 +8267,12 @@ function startGameInner(cls,save,slot,broken){
 function resetRuntime(){
   pet=null;petCarry={lvl:0,exp:0,stage:0};
   ST.tower=null;ST.buff=null;
-  projectiles=[];aoes=[];zones=[];particles=[];texts=[];slashes=[];
+  projectiles=[];aoes=[];zones=[];clearFields();particles=[];texts=[];slashes=[];
   player.dead=false;player.reviveT=0;player.target=null;player.buff=null;
   player.shieldT=0;player.flash=0;player.potT=0;player.regenT=0;player.lastHurt=0;
   player.atkT=0;player.castT=0;player.acted=false;
+  /* 请求 V：角色切换时清掉攻速窗口与中毒（否则会带着上一角色/上一局的临时态） */
+  player.buffSpdT=0;player.buffSpdPct=0;player.poisonT=0;player.burnT=0;
   /* 走位/撤离状态：不清会把上一局的"逃跑中"带进新角色 */
   player.retreating=false;player.retreatSide=undefined;
   player.sideT=0;player.sideDir=undefined;player.kiting=false;player.kiteSide=undefined;
@@ -7885,6 +8366,14 @@ function init(){
     get portalCd(){return portalCd;},
     setPortalCd(v){portalCd=v;},
     get portalArmed(){return _portalArmed;},
+    /* 技能系统重做（请求 V）：
+       fields 持续领域（冰咆哮/ 旋风斩 / 群体施毒的新载体）、
+       applyMobStatus/clearMobStatus/tickMobStatus 三件状态机制（减速 + 降防）、
+       calcDamage/atkSrc/defSrc 供测试直测伤害管线。 */
+    get fields(){return fields;},
+    addField,clearFields,updateFields,
+    applyMobStatus,clearMobStatus,tickMobStatus,
+    calcDamage,atkSrc,defSrc,castSkill,
     /* 装备穿戴等级（本轮）：tier → 等级门槛 */
     EQ_REQ_LV,eqReqLv,eqLvOk,
     /* 「添加到桌面」安装引导（请求 G） */
