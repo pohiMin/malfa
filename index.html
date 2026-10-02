@@ -548,6 +548,11 @@ function eqLvOk(def){
      但为防"出生点恰好在阵内"的地图设计，仍保留冷却兜底。 */
 const PORTAL_R=40;
 const PORTAL_CD=4;
+/* ★ 请求 U · 新手村安全区半径（仅 village 生效）。
+   300px ≈ 9.4 个瓦片，覆盖传送阵 + 村庄 NPC 聚集区。
+   取值的权衡：175 太小（跑两步就出区，玩家没安全感）；
+   450 太大（村庄大半张图无怪，地图失去意义）。 */
+const SAFE_R_VILLAGE=300;
 let portalCd=0;
 const CLASSES={
  warrior:{name:'战士',tag:'战',hp:58,hpG:30,mp:22,mpG:5,atk:14,atkG:3.0,matk:3,matkG:.4,datk:0,datkG:0,def:6,defG:1.3,mdef:2,mdefG:.85,
@@ -644,36 +649,36 @@ const EQUIPS=[
  {id:'wuji',n:'无极棍',slot:'weapon',cls:'t',tier:2,st:{datk:[8,20]},d:'道门无极之器'},
  {id:'longwen',n:'龙纹剑',slot:'weapon',cls:'t',tier:3,st:{datk:[12,30]},d:'剑身龙纹隐现'},
  {id:'xiaoyao',n:'逍遥扇',slot:'weapon',cls:'t',tier:4,st:{datk:[16,40]},d:'逍遥天地间的一柄折扇'},
- {id:'cloth',n:'布衣',slot:'armor',cls:'all',tier:1,st:{def:[2,5]},d:'粗布缝制'},
- {id:'light_armor',n:'轻型盔甲',slot:'armor',cls:'all',tier:1,st:{def:[3,7]},d:'皮甲轻便'},
- {id:'mid_armor',n:'中型盔甲',slot:'armor',cls:'all',tier:2,st:{def:[4,11],hp:[20,50]},d:'铁片缀成'},
- {id:'heavy_armor',n:'重盔甲',slot:'armor',cls:'all',tier:2,st:{def:[6,15],hp:[30,75]},d:'厚重的护身铁甲'},
- {id:'magic_robe',n:'魔法长袍',slot:'armor',cls:'m',tier:2,st:{def:[4,10],matk:[4,10]},d:'法师的长袍'},
- {id:'soul_robe',n:'灵魂战衣',slot:'armor',cls:'t',tier:2,st:{def:[4,11],datk:[3,7],hp:[15,37]},d:'绣满符文的道袍'},
- {id:'tianmo',n:'天魔神甲',slot:'armor',cls:'w',tier:4,st:{def:[10,25],hp:[75,187]},d:'1.76重装 · 战神甲胄'},
- {id:'fashen',n:'法神披风',slot:'armor',cls:'m',tier:4,st:{def:[6,16],matk:[8,19],hp:[45,112]},d:'1.76重装 · 法神之衣'},
- {id:'tianzun',n:'天尊道袍',slot:'armor',cls:'t',tier:4,st:{def:[7,17],datk:[6,15],hp:[55,137]},d:'1.76重装 · 天尊法衣'},
- {id:'cloth_hat',n:'布帽',slot:'helmet',cls:'all',tier:1,st:{def:[1,4]},d:'遮风挡雨'},
- {id:'skull_helm',n:'骷髅头盔',slot:'helmet',cls:'all',tier:1,st:{def:[2,6]},d:'以兽骨打磨'},
- {id:'black_iron',n:'黑铁头盔',slot:'helmet',cls:'all',tier:2,st:{def:[4,10]},d:'乌铁铸就'},
- {id:'prayer_helm',n:'祈祷头盔',slot:'helmet',cls:'all',tier:3,st:{def:[6,14],hp:[25,62]},d:'蕴含祈祷之力'},
+ {id:'cloth',n:'布衣',slot:'armor',cls:'all',tier:1,st:{def:[2,5],mdef:[1,3]},d:'粗布缝制'},
+ {id:'light_armor',n:'轻型盔甲',slot:'armor',cls:'all',tier:1,st:{def:[3,7],mdef:[2,4]},d:'皮甲轻便'},
+ {id:'mid_armor',n:'中型盔甲',slot:'armor',cls:'all',tier:2,st:{def:[4,11],hp:[20,50],mdef:[3,7]},d:'铁片缀成'},
+ {id:'heavy_armor',n:'重盔甲',slot:'armor',cls:'all',tier:2,st:{def:[6,15],hp:[30,75],mdef:[4,10]},d:'厚重的护身铁甲'},
+ {id:'magic_robe',n:'魔法长袍',slot:'armor',cls:'m',tier:2,st:{def:[4,10],matk:[4,10],mdef:[4,10]},d:'法师的长袍'},
+ {id:'soul_robe',n:'灵魂战衣',slot:'armor',cls:'t',tier:2,st:{def:[4,11],datk:[3,7],hp:[15,37],mdef:[4,10]},d:'绣满符文的道袍'},
+ {id:'tianmo',n:'天魔神甲',slot:'armor',cls:'w',tier:4,st:{def:[10,25],hp:[75,187],mdef:[6,16]},d:'1.76重装 · 战神甲胄'},
+ {id:'fashen',n:'法神披风',slot:'armor',cls:'m',tier:4,st:{def:[6,16],matk:[8,19],hp:[45,112],mdef:[6,15]},d:'1.76重装 · 法神之衣'},
+ {id:'tianzun',n:'天尊道袍',slot:'armor',cls:'t',tier:4,st:{def:[7,17],datk:[6,15],hp:[55,137],mdef:[6,16]},d:'1.76重装 · 天尊法衣'},
+ {id:'cloth_hat',n:'布帽',slot:'helmet',cls:'all',tier:1,st:{def:[1,4],mdef:[1,3]},d:'遮风挡雨'},
+ {id:'skull_helm',n:'骷髅头盔',slot:'helmet',cls:'all',tier:1,st:{def:[2,6],mdef:[2,4]},d:'以兽骨打磨'},
+ {id:'black_iron',n:'黑铁头盔',slot:'helmet',cls:'all',tier:2,st:{def:[4,10],mdef:[2,6]},d:'乌铁铸就'},
+ {id:'prayer_helm',n:'祈祷头盔',slot:'helmet',cls:'all',tier:3,st:{def:[6,14],hp:[25,62],mdef:[4,9]},d:'蕴含祈祷之力'},
  {id:'bamboo_flute',n:'竹笛项链',slot:'necklace',cls:'all',tier:1,st:{atk:[2,5]},d:'清脆悦耳'},
  {id:'blue_jade',n:'蓝翡翠项链',slot:'necklace',cls:'all',tier:1,st:{matk:[2,6],datk:[2,6]},d:'温润的蓝玉'},
- {id:'soul_neck',n:'灵魂项链',slot:'necklace',cls:'all',tier:2,st:{matk:[4,10],datk:[4,10],hp:[20,50]},d:'与灵魂共鸣'},
- {id:'tianzhu',n:'天珠项链',slot:'necklace',cls:'all',tier:3,st:{matk:[6,15],datk:[6,15]},d:'天珠蕴灵'},
+ {id:'soul_neck',n:'灵魂项链',slot:'necklace',cls:'all',tier:2,st:{matk:[4,10],datk:[4,10],hp:[20,50],mdef:[4,9]},d:'与灵魂共鸣'},
+ {id:'tianzhu',n:'天珠项链',slot:'necklace',cls:'all',tier:3,st:{matk:[6,15],datk:[6,15],mdef:[4,10]},d:'天珠蕴灵'},
  {id:'green_neck',n:'绿色项链',slot:'necklace',cls:'all',tier:3,st:{atk:[5,12],hp:[20,50]},d:'翠色欲滴'},
  {id:'leather_brace',n:'皮制手镯',slot:'bracelet',cls:'all',tier:1,st:{def:[1,4]},d:'耐磨耐用'},
- {id:'firm_brace',n:'坚固手镯',slot:'bracelet',cls:'all',tier:2,st:{def:[2,6]},d:'坚固可靠'},
+ {id:'firm_brace',n:'坚固手镯',slot:'bracelet',cls:'all',tier:2,st:{def:[2,6],mdef:[2,4]},d:'坚固可靠'},
  {id:'knight_brace',n:'骑士手镯',slot:'bracelet',cls:'all',tier:2,st:{atk:[4,9]},d:'骑士的荣耀'},
  {id:'dragon_brace',n:'龙之手镯',slot:'bracelet',cls:'all',tier:3,st:{matk:[4,11],datk:[4,11]},d:'龙鳞制成'},
  {id:'iron_ring',n:'铁戒指',slot:'ring',cls:'all',tier:1,st:{atk:[1,4]},d:'普通的指环'},
  {id:'coral_ring',n:'珊瑚戒指',slot:'ring',cls:'all',tier:1,st:{atk:[3,7]},d:'深海珊瑚'},
- {id:'exorcism_ring',n:'降妖除魔戒指',slot:'ring',cls:'all',tier:2,st:{matk:[4,9],datk:[4,9]},d:'专克妖魔'},
+ {id:'exorcism_ring',n:'降妖除魔戒指',slot:'ring',cls:'all',tier:2,st:{matk:[4,9],datk:[4,9],mdef:[3,8]},d:'专克妖魔'},
  {id:'zibiluo',n:'紫碧螺',slot:'ring',cls:'all',tier:2,st:{matk:[5,12],datk:[5,12],hp:[15,37]},d:'紫气东来'},
  {id:'power_ring',n:'力量戒指',slot:'ring',cls:'all',tier:3,st:{atk:[6,14]},d:'力量的象征'},
  {id:'shengzhan_ring',n:'圣战戒指',slot:'ring',cls:'all',tier:4,st:{atk:[7,17],hp:[30,75]},d:'1.76重装 · 圣战套装'},
- {id:'fashen_ring',n:'法神戒指',slot:'ring',cls:'all',tier:4,st:{matk:[7,17],mp:[40,100]},d:'1.76重装 · 法神套装'},
- {id:'tianzun_ring',n:'天尊戒指',slot:'ring',cls:'all',tier:4,st:{datk:[6,14],hp:[40,100]},d:'1.76重装 · 天尊套装'},
+ {id:'fashen_ring',n:'法神戒指',slot:'ring',cls:'all',tier:4,st:{matk:[7,17],mp:[40,100],mdef:[5,13]},d:'1.76重装 · 法神套装'},
+ {id:'tianzun_ring',n:'天尊戒指',slot:'ring',cls:'all',tier:4,st:{datk:[6,14],hp:[40,100],mdef:[5,12]},d:'1.76重装 · 天尊套装'},
  /* ===== tier5 魔龙系（终局装备，仅魔龙教主掉落）=====
    数值在 tier4 顶部（屠龙52 / 嗜血34 / 赤月三件套 / 圣法天三戒）之上约 +30%，
    穿戴门槛 42 级（EQ_REQ_LV）—— 40 级进图先打 tier4 过渡，42 级穿上毕业。
@@ -681,12 +686,12 @@ const EQUIPS=[
  {id:'molong_blade',n:'魔龙战刃',slot:'weapon',cls:'w',tier:5,st:{atk:[34,85]},d:'魔龙城终极重装 · 屠龙之上的传说'},
  {id:'molong_staff',n:'魔龙法杖',slot:'weapon',cls:'m',tier:5,st:{matk:[22,56]},d:'魔龙城终极重装 · 汇聚灭世魔力'},
  {id:'molong_fan',n:'魔龙宝扇',slot:'weapon',cls:'t',tier:5,st:{datk:[21,52]},d:'魔龙城终极重装 · 一扇定山河'},
- {id:'molong_w',n:'魔龙战甲',slot:'armor',cls:'w',tier:5,st:{def:[13,32],hp:[98,244]},d:'魔龙城终极重装 · 战神之甲'},
- {id:'molong_m',n:'魔龙法衣',slot:'armor',cls:'m',tier:5,st:{def:[8,21],matk:[10,25],hp:[58,146]},d:'魔龙城终极重装 · 法神之衣'},
- {id:'molong_t',n:'魔龙道袍',slot:'armor',cls:'t',tier:5,st:{def:[9,22],datk:[8,20],hp:[72,179]},d:'魔龙城终极重装 · 天尊法衣'},
+ {id:'molong_w',n:'魔龙战甲',slot:'armor',cls:'w',tier:5,st:{def:[13,32],hp:[98,244],mdef:[8,21]},d:'魔龙城终极重装 · 战神之甲'},
+ {id:'molong_m',n:'魔龙法衣',slot:'armor',cls:'m',tier:5,st:{def:[8,21],matk:[10,25],hp:[58,146],mdef:[8,20]},d:'魔龙城终极重装 · 法神之衣'},
+ {id:'molong_t',n:'魔龙道袍',slot:'armor',cls:'t',tier:5,st:{def:[9,22],datk:[8,20],hp:[72,179],mdef:[8,21]},d:'魔龙城终极重装 · 天尊法衣'},
  {id:'molong_wr',n:'魔龙战戒',slot:'ring',cls:'all',tier:5,st:{atk:[9,22],hp:[39,97]},d:'魔龙城终极重装 · 战戒'},
- {id:'molong_mg',n:'魔龙法戒',slot:'ring',cls:'all',tier:5,st:{matk:[9,22],mp:[52,130]},d:'魔龙城终极重装 · 法戒'},
- {id:'molong_dz',n:'魔龙道戒',slot:'ring',cls:'all',tier:5,st:{datk:[7,17],hp:[52,130]},d:'魔龙城终极重装 · 道戒'}
+ {id:'molong_mg',n:'魔龙法戒',slot:'ring',cls:'all',tier:5,st:{matk:[9,22],mp:[52,130],mdef:[6,15]},d:'魔龙城终极重装 · 法戒'},
+ {id:'molong_dz',n:'魔龙道戒',slot:'ring',cls:'all',tier:5,st:{datk:[7,17],hp:[52,130],mdef:[5,13]},d:'魔龙城终极重装 · 道戒'}
 ];
 const EQMAP={};EQUIPS.forEach(e=>EQMAP[e.id]=e);
 const TIER_NAME=['','普通','沃玛','祖玛','赤月','魔龙'];
@@ -956,21 +961,21 @@ const MONSTERS={
  black_maggot:{n:'黑色恶蛆',spr:'maggot',sc:1.1,hp:580,atk:31,def:9,mdef:6,exp:95,spd:85,aggr:1,atkR:28,atkCd:1.2,gold:[25,50],tier:2,tint:'#585868'},
  woma_soldier:{n:'沃玛战士',spr:'human',armed:1,sc:1.1,hp:860,atk:39,def:12,mdef:8,exp:135,spd:80,aggr:1,atkR:36,atkCd:1.4,gold:[30,60],tier:2,pal:'woma'},
  woma_hero:{n:'沃玛勇士',spr:'human',armed:1,sc:1.3,hp:1300,atk:50,def:15,mdef:10,exp:210,spd:85,aggr:1,atkR:38,atkCd:1.3,gold:[45,90],tier:2,pal:'womaH',elite:1},
- woma_lord:{n:'沃玛教主',spr:'human',armed:1,sc:2.0,hp:6200,atk:92,def:24,mdef:17,exp:3200,spd:70,aggr:1,atkR:46,atkCd:1.5,gold:[800,1600],tier:3,pal:'womaL',boss:1,
+ woma_lord:{n:'沃玛教主',spr:'human',armed:1,sc:2.0,hp:6200,atk:92,def:24,mdef:17,exp:3200,spd:70,aggr:1,atkR:46,atkCd:1.5,gold:[800,1600],atkType:'magic',tier:3,pal:'womaL',boss:1,
    skills:[{t:'volley',cd:7,n:5,gap:.24,spd:300,mult:1.05,color:'#ff8a2c',cry:'沃玛教主喷吐烈焰！'},
            {t:'heal',cd:14,pct:.10,cry:'沃玛教主汲取了祭坛之力！'},{t:'nova',cd:11,r:130,mult:1.4,color:'#ff6a2c',cry:'烈焰风暴！'}],
    drops:['lianyu','caijue','magic_robe','soul_robe','guyu','wuji','tianzhu','green_neck','prayer_helm','dragon_brace']},
  zuma_guard:{n:'祖玛卫士',spr:'human',armed:1,sc:1.15,hp:1080,atk:62,def:16,mdef:11,exp:310,spd:78,aggr:1,atkR:38,atkCd:1.4,gold:[50,100],tier:3,pal:'zuma'},
- zuma_archer:{n:'祖玛弓箭手',spr:'human',armed:1,sc:1.15,hp:940,atk:70,def:14,mdef:10,exp:330,spd:70,aggr:1,ranged:1,atkR:200,atkCd:2,gold:[55,110],tier:3,pal:'zuma'},
+ zuma_archer:{n:'祖玛弓箭手',spr:'human',armed:1,sc:1.15,hp:940,atk:70,def:14,mdef:10,exp:330,spd:70,aggr:1,ranged:1,atkR:200,atkCd:2,gold:[55,110],atkType:'magic',tier:3,pal:'zuma'},
  zuma_statue:{n:'祖玛雕像',spr:'human',armed:1,sc:1.4,hp:1650,atk:86,def:21,mdef:15,exp:470,spd:60,aggr:1,atkR:40,atkCd:1.6,gold:[70,140],tier:3,pal:'zumaS',elite:1},
- zuma_lord:{n:'祖玛教主',spr:'human',armed:1,sc:2.1,hp:15000,atk:140,def:30,mdef:21,exp:8500,spd:75,aggr:1,atkR:48,atkCd:1.4,gold:[2000,4000],tier:4,pal:'zumaL',boss:1,
+ zuma_lord:{n:'祖玛教主',spr:'human',armed:1,sc:2.1,hp:15000,atk:140,def:30,mdef:21,exp:8500,spd:75,aggr:1,atkR:48,atkCd:1.4,gold:[2000,4000],atkType:'magic',tier:4,pal:'zumaL',boss:1,
    skills:[{t:'volley',cd:6.5,n:7,gap:.19,spd:330,mult:1.0,color:'#ffd84a',cry:'祖玛图腾齐鸣！'},
            {t:'dash',cd:9,mult:1.7,cry:'祖玛教主冲锋而来！'},{t:'nova',cd:10,r:150,mult:1.6,color:'#ffca4a',cry:'祖玛神力爆发！'}],
    drops:['caijue','guyu','xiaoyao','longwen','fashen','tianzun','tianmo','magic_robe','soul_robe','tianzhu','green_neck','power_ring','zibiluo','shengzhan_ring','fashen_ring','tianzun_ring','bazhe','shixue']},
- crimson_worm:{n:'赤月蠕虫',spr:'maggot',sc:1.3,hp:1750,atk:82,def:19,mdef:13,exp:620,spd:75,aggr:1,atkR:30,atkCd:1.3,gold:[90,180],tier:3,tint:'#8a4048'},
- devil_spider:{n:'恶魔蜘蛛',spr:'spider',sc:1.2,hp:2100,atk:94,def:21,mdef:15,exp:700,spd:95,aggr:1,atkR:34,atkCd:1.4,gold:[100,200],tier:3},
+ crimson_worm:{n:'赤月蠕虫',spr:'maggot',sc:1.3,hp:1750,atk:82,def:19,mdef:13,exp:620,spd:75,aggr:1,atkR:30,atkCd:1.3,gold:[90,180],atkType:'magic',tier:3,tint:'#8a4048'},
+ devil_spider:{n:'恶魔蜘蛛',spr:'spider',sc:1.2,hp:2100,atk:94,def:21,mdef:15,exp:700,spd:95,aggr:1,atkR:34,atkCd:1.4,gold:[100,200],atkType:'magic',tier:3},
  gorilla:{n:'双头金刚',spr:'human',armed:1,sc:1.5,hp:2800,atk:108,def:24,mdef:17,exp:1100,spd:70,aggr:1,atkR:44,atkCd:1.6,gold:[150,300],tier:4,pal:'gori',elite:1},
- crimson_demon:{n:'赤月恶魔',spr:'demon',sc:2.3,hp:40000,atk:200,def:36,mdef:25,exp:20000,spd:80,aggr:1,atkR:50,atkCd:1.3,gold:[6000,12000],tier:4,pal:'demon',boss:1,
+ crimson_demon:{n:'赤月恶魔',spr:'demon',sc:2.3,hp:40000,atk:200,def:36,mdef:25,exp:20000,spd:80,aggr:1,atkR:50,atkCd:1.3,gold:[6000,12000],atkType:'magic',tier:4,pal:'demon',boss:1,
    skills:[{t:'burn',cd:8,r:80,dur:5,mult:.55,color:'#ff3c1c',cry:'赤月恶魔燃起了血焰！'},
            {t:'drain',cd:7,r:80,mult:1.6,cry:'赤月恶魔吞噬生命！'},{t:'nova',cd:12,r:150,mult:1.7,color:'#ff1c3c',cry:'血月降临！'}],
    rage:{at:.45,mult:1.3,spd:1.2},
@@ -980,9 +985,9 @@ const MONSTERS={
    魔龙教主是全作最强 BOSS：55000 血 + 三技能 + 40% 狂暴，
    drops 池放满 9 件 tier5 —— 全作唯一 tier5 产出点（75% 掉池内装备）。 */
  molong_soldier:{n:'魔龙刀兵',spr:'human',armed:1,sc:1.2,hp:2600,atk:112,def:26,mdef:18,exp:980,spd:78,aggr:1,atkR:38,atkCd:1.4,gold:[140,280],tier:4,pal:'molo'},
- molong_archer:{n:'魔龙射手',spr:'human',armed:1,sc:1.2,hp:2250,atk:124,def:22,mdef:15,exp:1020,spd:72,aggr:1,ranged:1,atkR:210,atkCd:2.1,gold:[150,300],tier:4,pal:'molo'},
+ molong_archer:{n:'魔龙射手',spr:'human',armed:1,sc:1.2,hp:2250,atk:124,def:22,mdef:15,exp:1020,spd:72,aggr:1,ranged:1,atkR:210,atkCd:2.1,gold:[150,300],atkType:'magic',tier:4,pal:'molo'},
  molong_brute:{n:'魔龙力士',spr:'human',armed:1,sc:1.6,hp:3900,atk:138,def:30,mdef:21,exp:1700,spd:66,aggr:1,atkR:44,atkCd:1.7,gold:[240,480],tier:5,pal:'moloE',elite:1},
- molong_lord:{n:'魔龙教主',spr:'demon',sc:2.4,hp:55000,atk:230,def:42,mdef:29,exp:32000,spd:82,aggr:1,atkR:52,atkCd:1.25,gold:[9000,18000],tier:5,pal:'moloL',boss:1,
+ molong_lord:{n:'魔龙教主',spr:'demon',sc:2.4,hp:55000,atk:230,def:42,mdef:29,exp:32000,spd:82,aggr:1,atkR:52,atkCd:1.25,gold:[9000,18000],atkType:'magic',tier:5,pal:'moloL',boss:1,
    skills:[{t:'volley',cd:6.5,n:7,gap:.2,spd:340,mult:1.0,color:'#ff6ad8',cry:'魔龙教主喷吐灭世龙息！'},
            {t:'dash',cd:9,mult:1.8,cry:'魔龙教主撕裂空间冲锋！'},
            {t:'nova',cd:10,r:150,mult:1.7,color:'#c88aff',cry:'魔龙灭世！'}],
@@ -1522,6 +1527,13 @@ function genMap(def){
   const Wpx=W*T,Hpx=H*T;
   const map={def,W,H,Wpx,Hpx,obs:[],deco:[],mobs:[],drops:[],respawns:[],
    portal:{x:Wpx/2,y:Hpx/2+140},mobsKilled:0};
+  /* ★ 请求 U · 新手村安全区：
+     仅玛法村生效，以传送阵为圆心半径 SAFE_R_VILLAGE。
+     三条规则（见 moveEntity / updateMonster / trySpawnRandomMob）：
+       ① 区内不刷怪  ② 怪物进不来  ③ 玩家进区怪物立刻脱战
+     其他地图 safeR=0 → 所有判定短路，零开销、零行为变化。 */
+  map.safeC={x:map.portal.x,y:map.portal.y};
+  map.safeR=(def.id==='village')?SAFE_R_VILLAGE:0;
   const c=document.createElement('canvas');c.width=Wpx;c.height=Hpx;
   const g=c.getContext('2d');
   // 地面底色+斑块
@@ -1539,7 +1551,11 @@ function genMap(def){
   // BOSS点：对角（需先确定，障碍生成时避开）
   map.bossPt={x:Wpx-rnd(180,320),y:rnd(160,320)};
   const obsKind=t=>t==='grass'?'tree':t==='cave'?'stalag':t==='grave'?pick(['grave','rock']):t==='lava'?'rock':t==='pillar'?'pillar':'rock';
-  const safeAt=(x,y)=>Math.hypot(x-map.portal.x,y-map.portal.y)>175&&Math.hypot(x-map.bossPt.x,y-map.bossPt.y)>170&&Math.hypot(x-Wpx/2,y-Hpx/2-110)>150;
+  /* ★ 请求 U：传送阵周边的"净空"半径从 175 提到安全区半径（村庄 300 / 其他图仍 175）。
+     这保证了 ① 区内不刷怪 ② 也不会在区内生成障碍物挡路。
+     其他地图 safeR=0，取 Math.max 后仍是 175 —— 行为与改动前完全一致。 */
+  const portalClear=Math.max(175,map.safeR||0);
+  const safeAt=(x,y)=>Math.hypot(x-map.portal.x,y-map.portal.y)>portalClear&&Math.hypot(x-map.bossPt.x,y-map.bossPt.y)>170&&Math.hypot(x-Wpx/2,y-Hpx/2-110)>150;
   const obsN=Math.floor(W*H/55);
   for(let i=0;i<obsN;i++){
     const kind=obsKind(def.pal.deco);
@@ -1576,10 +1592,40 @@ function mapObsAt(x,y,r){
 function moveEntity(e,dx,dy){
   // 逐轴移动+碰撞
   const r=10;
+  /* 备份移动前坐标：安全区屏障在"落点退化到圆心"时需要方向，
+     而那时 e.x/e.y 已不含方向信息，只能回溯到移动前的位置。 */
+  const oldX=e.x, oldY=e.y;
   let nx=clamp(e.x+dx,r,MAP.Wpx-r);
   if(!mapObsAt(nx,e.y,r))e.x=nx;
   let ny=clamp(e.y+dy,r,MAP.Hpx-r);
   if(!mapObsAt(e.x,ny,r))e.y=ny;
+  /* ★ 请求 U · 安全区屏障：怪物（含人机/召唤物）无法跨入安全区。
+     moveEntity 也被玩家调用，所以必须显式排除玩家与宠物 ——
+     否则玩家自己也被挡在村外，反而不让回城了。
+     做法：先按正常逻辑移动，再检测"落点是否在区内"，
+     若是则把坐标投影回圆环边界上（不硬拒，避免怪物卡在墙上抖）。
+     ⚠️ 判定用"落点是否在区内"，而不是两点连线 —— 后者在高速移动
+        （冲锋 dashT）时会一步跨过整个圆，漏判。
+     ⚠️ 落点恰好落在圆心时（dd≈0）方向信息已丢失，回到旧位置去取方向 ——
+        直接取 k=1 会把怪钉死在圆心（这是个真实踩过的坑）。 */
+  if(MAP&&MAP.safeR>0&&e!==player&&e!==pet&&!e.dead){
+    const cx=MAP.safeC.x,cy=MAP.safeC.y,R=MAP.safeR;
+    const dd=Math.hypot(e.x-cx,e.y-cy);
+    if(dd<R){
+      let ux=e.x-cx, uy=e.y-cy;
+      if(dd<0.001){
+        /* 方向退化：改从"上一帧位置"推方向（ox,oy 在逐轴移动前已记录） */
+        ux=oldX-cx; uy=oldY-cy;
+        const od=Math.hypot(ux,uy);
+        if(od<0.001){ux=1;uy=0;}          // 起点也在圆心：随便给个方向，至少别钉死
+        else{ux/=od;uy/=od;}
+      }else{
+        ux/=dd;uy/=dd;
+      }
+      e.x=cx+ux*R;
+      e.y=cy+uy*R;
+    }
+  }
 }
 /* 怪物生成 */
 function spawnMob(id,x,y){
@@ -1603,6 +1649,9 @@ function fillMobs(){
     while(cnt<2&&guard++<8){
       const x=rnd(100,MAP.Wpx-100),y=rnd(100,MAP.Hpx-100);
       if(mapObsAt(x,y,14)||Math.hypot(x-MAP.spawn.x,y-MAP.spawn.y)<280)continue;
+      /* 精英同样不能在安全区内（请求 U）—— 精英怪伤害高，生在村里更致命 */
+      if(MAP.safeR>0&&MAP.safeC&&
+         Math.hypot(x-MAP.safeC.x,y-MAP.safeC.y)<MAP.safeR+14)continue;
       spawnMob(pick(eliteIds),x,y);cnt++;
     }
   }
@@ -1830,7 +1879,7 @@ function bossCastSkill(m,sk){
       const dd=dist(m,t);if(dd>sk.r)return false;
       const dmg=Math.max(1,Math.floor(atk*sk.mult*rnd(.9,1.1)));
       const isPl=t===player;
-      if(isPl){hurtPlayer(dmg,m);
+      if(isPl){hurtPlayer(dmg,m,atkTypeOf(m));
         const kb=34/Math.max(1,dd);
         player.x+=(player.x-m.x)*kb;player.y+=(player.y-m.y)*kb;
         addText(player.x,player.y-58,'击退！','#ffca4a',11);}
@@ -1862,7 +1911,7 @@ function bossCastSkill(m,sk){
       const dd=dist(m,t);if(dd>sk.r)return false;
       const dmg=Math.max(1,Math.floor(atk*sk.mult*rnd(.9,1.1)));
       const isPl=t===player;
-      if(isPl)hurtPlayer(dmg,m);
+      if(isPl)hurtPlayer(dmg,m,atkTypeOf(m));
       else if(pet){pet.hp-=dmg;pet.flash=.15;addText(pet.x,pet.y-40,'-'+dmg,'#c88aff',12);if(pet.hp<=0)killPet();}
       const hv=Math.floor(dmg*.6);
       m.hp=Math.min(m.maxHp,m.hp+hv);
@@ -1878,7 +1927,7 @@ function updateZones(dt){
     if(z.t<=0){zones.splice(i,1);continue;}
     if(z.tickT<=0){z.tickT=z.tick;
       if(!player.dead&&Math.hypot(player.x-z.x,player.y-z.y)<=z.r){
-        hurtPlayer(z.dmg,null);addText(player.x,player.y-52,'灼烧','#ff8a5a',11);}
+        hurtPlayer(z.dmg,null,'magic');addText(player.x,player.y-52,'灼烧','#ff8a5a',11);}
       if(pet&&!pet.dead&&Math.hypot(pet.x-z.x,pet.y-z.y)<=z.r){
         pet.hp-=z.dmg;pet.flash=.15;if(pet.hp<=0)killPet();}
     }
@@ -1889,10 +1938,17 @@ function trySpawnRandomMob(){
   const tot=def.mobs.reduce((s,m)=>s+m.w,0);let r=Math.random()*tot;
   for(const mb of def.mobs){r-=mb.w;if(r<=0){id=mb.id;break;}}
   id=id||def.mobs[0].id;
+  /* ★ 请求 U：新手村安全区内的怪必须清空。
+     光靠 moveEntity 的屏障是不够的 —— 屏障只拦"走进去"，拦不住"生在里头"。
+     生在区内的怪会被永久困在圈里（进不去也出不来），玩家一进村就被围。
+     这里直接拒掉区内的候选点，和出生点保护（85px）是同一套写法。 */
+  const safeR=(MAP.safeR||0)+14;   // +14：连怪的碰撞半径一起算进去，别贴着环生
+  const safeC=MAP.safeC;
   for(let tries=0;tries<12;tries++){
     const x=rnd(60,MAP.Wpx-60),y=rnd(60,MAP.Hpx-60);
     if(mapObsAt(x,y,14))continue;
     if(Math.hypot(x-MAP.spawn.x,y-MAP.spawn.y)<85)continue;
+    if(safeR>0&&safeC&&Math.hypot(x-safeC.x,y-safeC.y)<safeR)continue;
     spawnMob(id,x,y);return;
   }
 }
@@ -2246,10 +2302,33 @@ function killMonster(m){
   /* 试炼塔：记录本层击杀进度 */
   if(ST.tower)ST.tower.killed=(ST.tower.killed||0)+1;
 }
-function hurtPlayer(dmg,from){
+/* 敌人攻击类型判定（请求 U · 法防体系）：
+   物理攻击吃 player.def，法术攻击吃 player.mdef。
+   ★ 此前 mdef 是**死属性** —— hurtPlayer 只扣 def，装备也从没有 mdef 词条，
+     面板那个「魔法防御 39」纯装饰。本次让两防各司其职。
+   缺省（undefined）视为物理，保证旧怪物定义/新加怪物向后兼容。 */
+function atkTypeOf(m){
+  if(!m)return 'phys';
+  const d=m.d||m;
+  return (d.atkType==='magic')?'magic':'phys';
+}
+/* 取当前玩家对某类攻击的有效防御 */
+function pdefAgainst(atkType){
+  return (atkType==='magic')?(player.mdef||0):(player.def||0);
+}
+function hurtPlayer(dmg,from,atkType){
   if(player.dead)return;
   /* 记录最后攻击来源（弹幕 projectile 需回溯到 src 怪物），用于死亡掉落归属判定 */
   player.killer=from?(from.isBot?from:(from.src&&from.src.isBot?from.src:null)):null;
+  /* ★ 请求 U：防御减伤在这里统一做（原先散在近战/远程两处调用点，各扣一次 def）。
+     上移的好处：近战/远程/技能/灼烧/中毒/召唤物全部自动走同一套判定，
+     不会再有"新加的伤害渠道忘了扣防"的漏洞。
+     · 物理减伤系数 .6 / 法术系数 .5 —— 法系伤害基数普遍更高，减伤略低以保持威胁。
+     · 缺省 atkType='phys'（向后兼容旧调用点）。 */
+  const at=atkType||'phys';
+  const pdef=pdefAgainst(at);
+  const k=(at==='magic')?.5:.6;
+  dmg=Math.max(1,Math.floor(dmg-pdef*k));
   /* 职业常驻减伤：战士 12% / 道士 6% —— 近战吃满伤害且被围殴，作为职业特性补偿 */
   const dr=CLASSES[player.cls].dr||0;
   if(dr>0)dmg*=(1-dr);
@@ -2705,7 +2784,7 @@ function updateMonster(m,dt){
     if(!m.dashHit){
       if(!player.dead&&dist(m,player)<34){
         m.dashHit=true;
-        hurtPlayer(Math.max(1,Math.floor(mobAtkVal(m)*(m.dashMult||1.5)*rnd(.9,1.1))),m);
+        hurtPlayer(Math.max(1,Math.floor(mobAtkVal(m)*(m.dashMult||1.5)*rnd(.9,1.1))),m,atkTypeOf(m));
         slashes.push({x:player.x,y:player.y-10,t:.2,color:'#ffca4a',big:1});SFX.boss();
       }else if(pet&&!pet.dead&&dist(m,pet)<30){
         m.dashHit=true;const pd=Math.floor(mobAtkVal(m)*(m.dashMult||1.5)*.8);pet.hp-=pd;pet.flash=.2;
@@ -2721,7 +2800,15 @@ function updateMonster(m,dt){
     if(m.poisonTick<=0){m.poisonTick=1;
       m.hp-=m.poison;addText(m.x,m.y-30,Math.floor(m.poison),'#8aff5a',11);
       if(m.hp<=0){killMonster(m);return;}}}
-  const h=player.dead?null:(m.d.aggr&&dist(m,player)<(m.d.boss?420:300)&&!player.dead?player:null);
+  /* ★ 请求 U · 新手村安全区脱战（决策 A：怪物会还击，但不追进区）
+     · 玩家站在安全区内 → **不建立新仇恨**（视野照面也不主动扑过来）
+     · 已有仇恨（此前被玩家打过 / 在区外结的仇）→ 保留仇恨，让怪能还手，
+       但 moveEntity 的屏障会挡住它，追到边界就停 —— 不会进区贴身。
+     · 玩家离开安全区 → 一切恢复正常。 */
+  const safeActive=MAP&&MAP.safeR>0;
+  const pInSafe=safeActive&&player&&!player.dead&&
+    Math.hypot(player.x-MAP.safeC.x,player.y-MAP.safeC.y)<MAP.safeR;
+  const h=(player.dead||pInSafe)?null:(m.d.aggr&&dist(m,player)<(m.d.boss?420:300)&&!player.dead?player:null);
   const hp=pet&&!pet.dead&&dist(m,pet)<300?pet:null;
   const tgt=h||hp;
   if(tgt)m.aggro=tgt;
@@ -2743,15 +2830,16 @@ function updateMonster(m,dt){
       const isPl=t===player;
       /* 昼夜影响怪物攻击力（夜间更强） */
       const phAtk=curPhase().mobAtk;
+      /* ★ 请求 U：防御减伤已上移到 hurtPlayer 内部（按 atkType 分派 def/mdef）。
+         这里只算**原始攻击力**，不要再扣 def —— 否则会与 hurtPlayer 里重复扣一次。 */
       if(m.d.ranged){
-        const pdmg=Math.max(1,Math.floor((mobAtkVal(m)*phAtk)-(isPl?player.def:5)));
+        const pdmg=Math.max(1,Math.floor(mobAtkVal(m)*phAtk*(isPl?1:0.6)));
         /* 人机法师/道士发射职业色法弹；其余怪物沿用斧头/黑斧 */
         if(m.isBot)projectiles.push({x:m.x,y:m.y-16,tgt:t,spd:340,kind:'mbolt',color:m.d.projColor,from:'m',dmg:pdmg,src:m});
         else projectiles.push({x:m.x,y:m.y-16,tgt:t,spd:340,kind:m.d.boss?'darkaxe':'axe',from:'m',dmg:pdmg,src:m});
       }else{
-        const def=isPl?player.def:(pet?10:0);
-        const dmg=Math.max(1,Math.floor(mobAtkVal(m)*phAtk*rnd(.85,1.15)-def*.6));
-        if(isPl)hurtPlayer(dmg,m);
+        const dmg=Math.max(1,Math.floor(mobAtkVal(m)*phAtk*rnd(.85,1.15)));
+        if(isPl)hurtPlayer(dmg,m,atkTypeOf(m));
         else if(pet){pet.hp-=dmg;pet.flash=.15;addText(pet.x,pet.y-40,'-'+dmg,'#ff8a70',12);
           if(pet.hp<=0)killPet();}
         slashes.push({x:t.x,y:t.y-10,t:.13,color:'#ff8a70'});
@@ -2917,7 +3005,7 @@ function updateProjectiles(dt){
       if(!player.dead&&Math.hypot(player.x-p.x,player.y-p.y)<17)hit=player;
       else if(pet&&!pet.dead&&Math.hypot(pet.x-p.x,pet.y-p.y)<15)hit=pet;
       if(hit){
-        if(hit===player)hurtPlayer(Math.max(1,Math.floor(p.dmg*rnd(.85,1.15))),p);
+        if(hit===player)hurtPlayer(Math.max(1,Math.floor(p.dmg*rnd(.85,1.15))),p,atkTypeOf(p.src));
         else{pet.hp-=p.dmg;pet.flash=.15;if(pet.hp<=0)killPet();}
         sparkBurst(p.x,p.y,p.color||'#ff8a2c',6);
         projectiles.splice(i,1);continue;
@@ -2939,7 +3027,7 @@ function updateProjectiles(dt){
         hurtMonster(t,r.d,p.kind==='ice'?'#8ad8ff':p.kind==='charm'?'#ffe95a':'#ff8a4c',r.crit);
         if(p.kind==='fireball'||p.kind==='thunder')SFX.fire();
       }else{
-        if(t===player)hurtPlayer(Math.max(1,Math.floor(p.dmg*rnd(.85,1.15))),p);
+        if(t===player)hurtPlayer(Math.max(1,Math.floor(p.dmg*rnd(.85,1.15))),p,atkTypeOf(p.src));
         else if(pet){pet.hp-=p.dmg;pet.flash=.15;if(pet.hp<=0)killPet();}
       }
       projectiles.splice(i,1);continue;
@@ -2957,7 +3045,7 @@ function updateAoes(dt){
     const a=aoes[i];a.t-=dt;
     if(a.t<=0){
       if(a.from==='m'){
-        if(!player.dead&&Math.hypot(player.x-a.x,player.y-a.y)<=a.r)hurtPlayer(a.dmg,null);
+        if(!player.dead&&Math.hypot(player.x-a.x,player.y-a.y)<=a.r)hurtPlayer(a.dmg,null,atkTypeOf(a.src));
         if(pet&&!pet.dead&&Math.hypot(pet.x-a.x,pet.y-a.y)<=a.r){pet.hp-=a.dmg;pet.flash=.2;if(pet.hp<=0)killPet();}
         boomFx(a.x,a.y,a.r);
         SFX.bolt();
@@ -6551,7 +6639,7 @@ function endTower(reason,reward,win){
 }
 
 /* ---------------- S12 地图切换/渲染 ---------------- */
-function switchMap(id){
+function switchMap(id,keepCd){
   if(id!=='tower'&&ST.tower)ST.tower=null;   // 离开试炼塔即结束本次挑战
   const def=MAPMAP[id];
   MAP=genMap(def);
@@ -6559,8 +6647,13 @@ function switchMap(id){
   player.x=MAP.spawn.x;player.y=MAP.spawn.y;
   /* 重置传送阵状态：armed 不清会让上一张图的「已触发」吞掉新图第一次踩踏；
      cd 不清会让玩家刚切图就踩阵时毫无反应（前一张图的 4 秒冷却还在倒计时）。
-     两处都要清 —— 每张图的传送阵都应是「新鲜可用」的。 */
-  _portalArmed=false;portalCd=0;
+     两处都要清 —— 每张图的传送阵都应是「新鲜可用」的。
+
+     ★ 请求 U 例外：由**传送阵自己**触发的切图（回村）必须保留冷却。
+       否则玩家被传回玛法村后正好落在村口阵心，_portalArmed 和 cd 双双被清，
+       下一帧就再次蓄力 3 秒又传送一次 —— 表现上是 banner 反复弹。
+       调用方（updatePortal 的普通图分支）显式传 keepCd=true。 */
+  _portalArmed=false;portalCd=keepCd?(PORTAL_CD||0):0;
   projectiles=[];aoes=[];zones=[];player.target=null;bossRef=null;
   fillMobs();
   $('mapName').textContent=def.n;
@@ -6672,6 +6765,8 @@ function render(){
     if(o.x<cam.x-80||o.x>cam.x+window.innerWidth/z+80||o.y<cam.y-80||o.y>cam.y+window.innerHeight/z+80)continue;
     ctx.drawImage(SPRITES[o.k].f[0],o.x,o.y);
   }
+  // 安全区地面标识（新手村专用，画在传送门下方避免遮挡）
+  drawSafeZone(ctx);
   // 传送门
   drawPortal(ctx,MAP.portal.x,MAP.portal.y);
   // NPC
@@ -7010,6 +7105,84 @@ function updateTopHud(){
     bb.querySelector('i').style.transform='scaleX('+clamp(bossRef.hp/bossRef.maxHp,0,1)+')';
   }else bb.style.display='none';
 }
+function drawSafeZone(ctx){
+  /* 新手村安全区地面标识（仅 MAP.safeR>0 的地图有）。
+     视觉三件套：
+       ① 淡青地面填充 —— 让区域"看得见边界"，但透明度压到 .06/.10，
+          不抢地面贴图（村口地面本来就有石板纹理，画太实会糊成一片）
+       ② 呼吸虚线描边 —— 半径外描一圈虚线，alpha 随 time 呼吸，
+          表达"这里是有规则在的活区域"，而不是一张静态贴纸
+       ③ 「安全区」文字标签 —— 挂在圆的顶部，让第一次进村的玩家
+          不用猜就知道踩进去意味着什么
+     绘制顺序上必须画在 drawPortal 之前（下方）—— 传送阵是交互焦点，
+     不能被半透明地面层盖住。 */
+  if(!MAP||!MAP.safeR||MAP.safeR<=0)return;
+  const cx=MAP.safeC.x,cy=MAP.safeC.y,R=MAP.safeR;
+  const bob=Math.sin(ST.time*1.6);
+  ctx.save();
+  ctx.translate(cx,cy);
+  /* ① 地面填充（椭圆，跟随俯视角压扁） */
+  ctx.globalAlpha=.06+.03*bob;
+  ctx.fillStyle='#5ad8c8';
+  ctx.beginPath();ctx.ellipse(0,0,R,R*.42,0,0,6.29);ctx.fill();
+  ctx.globalAlpha=1;
+  /* ② 虚线呼吸描边 */
+  ctx.setLineDash([12,10]);
+  ctx.lineDashOffset=-ST.time*22;
+  ctx.strokeStyle='#5ad8c8';
+  ctx.globalAlpha=.42+.16*bob;
+  ctx.lineWidth=2.5;
+  ctx.beginPath();ctx.ellipse(0,0,R,R*.42,0,0,6.29);ctx.stroke();
+  /* 内圈细线：强化"边界感"，两道比一道更像围栏 */
+  ctx.globalAlpha=.20+.08*bob;
+  ctx.lineWidth=1.2;
+  ctx.beginPath();ctx.ellipse(0,0,R-9,(R-9)*.42,0,0,6.29);ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.globalAlpha=1;
+  /* ③ 文字标签（带底板，防止压在浅色地面上看不清）
+     定位历史（两次都踩坑，记下来免得后人再试）：
+       ✗ 挂圆顶（cy - R*0.42）—— R=300 时圆顶距圆心 126px，
+          手机竖屏视野半高约 430px、相机常贴着玩家，算出为负 → 标签常在屏幕外。
+       ✗ 挂圆心正上方（屏幕坐标恒定）—— 相机贴玩家时圆心可能在屏幕外，
+          标签横向被裁一半；而且固定 y=76 会和顶部任务提示条打架（实测被盖住）。
+       ✓ 最终：钉在**玩家屏幕位置的正上方 120px**。
+          玩家走到哪，标签跟到哪 —— 天然在视野内、天然不裁切、
+          也天然避开顶部 HUD（玩家被顶到屏幕最上时，标签会被夹到 HUD 下方）。
+          代价是标签不严格贴圆 —— 但玩家本来就靠虚线圆判边界，
+          标签的作用是"我在安全区里"的确认，跟着人反而更直观。 */
+  const pDist=player?Math.hypot(player.x-cx,player.y-cy):1e9;
+  const inSafe=(pDist<R);
+  /* 离村口太远就不显示标签（否则跑到隔壁图边界还挂着"安全区"很怪） */
+  if(pDist>R*3.2){ctx.restore();return;}
+  const label=inSafe?'✦ 安全区 ✦':'✦ 玛法村 · 安全区 ✦';
+  /* 世界坐标 → 屏幕上沿：玩家位置上方，再夹进可视区（避开顶部 HUD ~140px） */
+  const px=(player&&!player.dead)?player.x:cx;
+  const py=(player&&!player.dead)?player.y:cy;
+  let ly=py-150;
+  const topLimit=cam.y+140/zoom()+8;        // 顶部 HUD 下方（世界坐标）
+  const botLimit=cam.y+window.innerHeight/zoom()-90;
+  if(ly<topLimit)ly=topLimit;
+  if(ly>botLimit)ly=botLimit;
+  ctx.font='bold 13px sans-serif';ctx.textAlign='center';
+  const tw=ctx.measureText(label).width;
+  const bw=tw/2+12,bh=19;
+  /* 用相对于 translate(cx,cy) 的坐标：0 是圆心 x，ly-cy 是纵向偏移 */
+  const relY=ly-cy;
+  ctx.fillStyle='rgba(14,42,40,.78)';
+  ctx.beginPath();
+  ctx.roundRect?ctx.roundRect(-bw,relY-bh+4,bw*2,bh,6):ctx.rect(-bw,relY-bh+4,bw*2,bh);
+  ctx.fill();
+  ctx.strokeStyle='rgba(90,216,200,.55)';ctx.lineWidth=1;ctx.stroke();
+  ctx.fillStyle='#8af0e0';
+  ctx.fillText(label,0,relY);
+  /* 副标：只在玩家站进去时提示，说明"确实生效了"而不是纯装饰 */
+  if(inSafe){
+    ctx.font='bold 11px sans-serif';
+    ctx.fillStyle='#8af0e0';
+    ctx.fillText('怪物无法进入 · 已脱离仇恨',0,relY+17);
+  }
+  ctx.restore();
+}
 function drawPortal(ctx,x,y){
   /* 靠近高亮：让玩家一眼看出「这个圈是可以踩的」。
      near 取 PORTAL_R*2.2 —— 视觉提示范围要比触发范围宽松，
@@ -7041,9 +7214,36 @@ function drawPortal(ctx,x,y){
   /* 交互指引：仅在靠近时出现，避免常驻刷屏 */
   if(near){
     const inZone=dist<PORTAL_R;
+    /* ---- 蓄力进度环（请求 U）：站定 3 秒才传送，必须让玩家"看见"在蓄力。
+       原来踩上去立刻弹面板，不需要进度反馈；现在改成延迟传送，
+       没有进度环玩家会以为"踩了没反应"，反复进出反而更糟。
+       环从 -90° 起画（12 点钟方向），顺时针增长。 ---- */
+    if(inZone&&!inTower&&_portalT>0){
+      const p=clamp(_portalT/PORTAL_DWELL,0,1);
+      const rr=PORTAL_R-3;
+      /* 底环：暗色，标出"还差多少"的完整行程 */
+      ctx.strokeStyle='rgba(20,40,70,.75)';ctx.lineWidth=5;
+      ctx.beginPath();ctx.ellipse(0,0,rr,rr*.42,0,0,6.29);ctx.stroke();
+      /* 进度弧：随蓄力从 0 长到满圈，颜色由黄转绿（越接近完成越"安全"） */
+      const col=p>.66?'#5aff8a':(p>.33?'#ffe070':'#ffb04a');
+      ctx.strokeStyle=col;ctx.lineWidth=5;ctx.lineCap='round';
+      ctx.beginPath();
+      ctx.ellipse(0,0,rr,rr*.42,0,-Math.PI/2,-Math.PI/2+6.2832*p);
+      ctx.stroke();
+      ctx.lineCap='butt';
+    }
     ctx.font='bold 11px sans-serif';
     ctx.fillStyle=inZone?'#5aff8a':'#ffe9b0';
-    ctx.fillText(inZone?'✦ 传送中…':(inTower?'站入阵中 · 继续 / 回村':'站入阵中 · 选择目的地'),0,-44);
+    /* 三态文案：未进阵 / 已进阵（塔内弹面板，普通图显示倒计时）/ 冷却中 */
+    let tip;
+    if(inZone){
+      if(inTower)tip='站入阵中 · 继续 / 回村';
+      else{
+        const left=Math.max(0,PORTAL_DWELL-_portalT);
+        tip=(left>0.05)?('✦ 传送中… '+left.toFixed(1)+'s'):'✦ 传送中…';
+      }
+    }else tip='站入阵中 · 停顿 '+PORTAL_DWELL.toFixed(0)+' 秒回玛法村';
+    ctx.fillText(tip,0,-44);
   }
   ctx.restore();
 }
@@ -7073,33 +7273,55 @@ function drawNPCs(ctx){
      ② 玩家到阵心距离 < PORTAL_R
      ③ 冷却已过（防"传送后仍站在阵内 → 立刻再次弹出"的死循环）
    两张分支：
-     · 普通地图 → 打开地图选择面板（传送到别的地图）
-     · 试炼塔内 → 打开「继续挑战 / 放弃回村」专用面板
-   塔内为什么单开一个面板：塔是连续挑战，直接把地图面板丢出来会让
-   玩家误触跳到别的地图，而 ST.tower 的挑战状态还挂着 —— 既没结算
-   又不在塔里，成了一个卡死态。给专用面板，两个出口都明确。
-   松开按钮（离开阵心）即可解除"待触发"状态，避免站在阵里反复弹面板。 */
+     · 普通地图 → **停顿 PORTAL_DWELL 秒后自动传送回玛法村**（请求 U 改版）
+     · 试炼塔内 → 打开「继续挑战 / 放弃回村」专用面板（保持不变）
+   塔内为什么仍然弹面板：塔是连续挑战，自动把人送出塔会让 ST.tower 的
+   挑战状态挂在半途 —— 既没结算又不在塔里，成了卡死态。给面板，两个出口都明确。
+
+   ★ 请求 U 改版说明（原实现是"踩上去立即弹出地图选择面板"）：
+     改成"站定 3 秒 → 自动回村"，理由：
+       ① 手机端摇杆容易误触阵心，立即弹面板会打断跑图；
+       ② 阵心本来就是"回城点"的语义，给地图面板反而让玩家以为必须选图；
+       ③ 加蓄力进度环后，「踩上去有反馈」比原来更明确。
+     中途走开即取消蓄力（_portalT 归零），不会"路过被传走"。 */
+const PORTAL_DWELL=3.0;   // 站定蓄力秒数（请求 U 决策：3 秒）
 let _portalArmed=false;
+let _portalT=0;           // 蓄力计时（秒）
 function updatePortal(dt){
   if(portalCd>0)portalCd=Math.max(0,portalCd-(dt||1/60));
-  if(ST.mode!=='game'||!MAP||player.dead)return;
+  if(ST.mode!=='game'||!MAP||player.dead){_portalT=0;_portalArmed=false;return;}
   const d=Math.hypot(player.x-MAP.portal.x,player.y-MAP.portal.y);
   const inside=d<PORTAL_R;
-  /* 进出检测：踩进去的那一帧触发（而不是站在里面每帧都触发） */
-  if(inside&&!_portalArmed&&portalCd<=0){
-    _portalArmed=true;
-    portalCd=PORTAL_CD;
-    SFX.click();
-    if(ST.tower){
+
+  /* ---- 塔内：保持原「弹出面板」逻辑，不走自动传送 ---- */
+  if(ST.tower){
+    if(inside&&!_portalArmed&&portalCd<=0){
+      _portalArmed=true;portalCd=PORTAL_CD;SFX.click();
       addLog('◈ 踏入传送阵 —— 继续挑战 或 放弃回村');
       openTowerPortalPanel();
-    }else{
-      addLog('◈ 踏入传送阵 —— 选择目的地');
-      openMapPanel();
     }
+    if(!inside)_portalArmed=false;
     return;
   }
-  if(!inside)_portalArmed=false;
+
+  /* ---- 普通地图：站定蓄力 → 自动回玛法村 ---- */
+  if(inside){
+    _portalT+=(dt||1/60);
+    if(_portalT>=PORTAL_DWELL){
+      _portalT=0;_portalArmed=true;portalCd=PORTAL_CD;
+      SFX.click();
+      /* keepCd=true：切图后立即把冷却锁住（switchMap 默认会清零，
+         不锁的话玩家落在村阵心会马上二次蓄力）。 */
+      switchMap('village',true);
+      banner('◈ 传送回玛法村','安全区已就绪 · 怪物无法进入');
+      addLog('◈ 传送阵生效 —— 已返回玛法村（安全区内怪物会脱战）');
+      return;
+    }
+    _portalArmed=true;
+  }else{
+    _portalT=0;          // 走开即取消蓄力
+    _portalArmed=false;
+  }
 }
 /* 塔内传送阵面板：两个出口都走既有流程，不新增状态机
      · 继续 → 关面板，回到当前层继续打（塔计时继续走，不额外惩罚）
@@ -7632,6 +7854,9 @@ function init(){
     /* 角色属性面板区间（请求 T）：自身+装备+套装 → [最低,最高]，
        powerRangeHtml 为战力区间（收窄口径：仅攻防浮动）。 */
     statRange,rangeHtml,powerRangeHtml,talentSummaryHtml,STAT_GROW,
+    /* 法防体系（请求 U）：atkTypeOf 判定怪物攻击类型（缺省 phys 向后兼容），
+       pdefAgainst 按类型取 物防/魔防，hurtPlayer 已改为按类型减伤。 */
+    atkTypeOf,pdefAgainst,
     eqRand,eqRandContribution,eqMeanContribution,
     maxCastOf,AUTO_ACQUIRE,
     /* 背包整理（请求 E）：排序键 + 主函数，供自动化断言 */
@@ -7651,6 +7876,12 @@ function init(){
     get bagSel(){return bagSel;},
     /* 传送阵交互（请求 G）：踩踏传送 + 参数，供自动化断言 */
     updatePortal,PORTAL_R,PORTAL_CD,openTowerPortalPanel,
+    /* 传送阵蓄力回村 + 新手村安全区（请求 U）：
+       PORTAL_DWELL 站定秒数、SAFE_R_VILLAGE 安全区半径；
+       atkTypeOf/pdefAgainst 为法防体系入口（法系怪走魔防、物理走物防）。 */
+    PORTAL_DWELL,SAFE_R_VILLAGE,drawSafeZone,moveEntity,updateMonster,
+    get portalDwell(){return _portalT;},
+    setPortalDwell(v){_portalT=v;},
     get portalCd(){return portalCd;},
     setPortalCd(v){portalCd=v;},
     get portalArmed(){return _portalArmed;},
