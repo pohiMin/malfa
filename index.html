@@ -544,7 +544,9 @@ const CLASSES={
     道士装备给 datk，法师装备给 matk，通用装备同时给两者时
     也只取本职业那一条（recalcStats 累加各自字段，互不干涉）。 */
  taoist:{name:'道士',tag:'道',hp:46,hpG:19.5,mp:30,mpG:9.5,atk:8,atkG:1.6,matk:0,matkG:0,datk:11.5,datkG:2.3,def:4,defG:1.0,mdef:4,mdefG:1.1,
-   spd:155,range:140,atkCd:.85,dr:.06,color:'#7ad0a0',desc:'召唤施毒能奶能打',skills:['charm','poison','summon','heal','holyshield','madness']}
+   spd:155,range:130,atkCd:.85,dr:.06,color:'#7ad0a0',desc:'召唤施毒能奶能打',skills:['charm','poison','summon','heal','holyshield','madness']}
+/* 射程梯度（请求 R）：战士近 < 道士中 < 法师远。
+   普攻 range：战 56 / 法 150 / 道 130；技能 cast 另见 SKILLS（战 80 / 道 120-130 / 法 150-170）。 */
 };
 /* 装备 cls 短键 → 职业完整键（player.cls 用完整键） */
 const CLS_FULL={w:'warrior',m:'mage',t:'taoist'};
@@ -554,14 +556,20 @@ const CLS_FULL={w:'warrior',m:'mage',t:'taoist'};
      战士 普攻 1.0/0.75s = 1.33   法师 .62/0.95s = .65   道士 .78/0.85s = .92
    AOE 技能不适用此判据 —— 其价值在命中多目标（实际收益 ×命中数），
    单目标秒倍率低于普攻属正常设计。
-   三职业「普攻+技能」理论总倍率统一锚定在 4.2，消除职业碾压。 */
+   三职业「普攻+技能」理论总倍率统一锚定在 4.2，消除职业碾压。
+
+   ★ cast 字段（请求 R）= 最大施放距离（相对玩家中心）：
+     战士近 < 道士中 < 法师远。未定义 = 无闸门（自身 AOE / 增益类）。
+     与 r 语义严格区分：cast 是"够不够得着"，r 是"打到了多大范围"。
+     aoe（半月/旋风/群毒）以自身为中心，无 cast；
+     aoeP（冰咆哮/流星）需要 cast 锁定落点 + r 决定爆炸范围。 */
 const SKILLS={
  /* —— 战士：技能=高伤一击，靠爆发而非频率 —— */
- flame:{name:'烈火剑法',ico:'烈',cd:3.2,mp:10,unlock:4,type:'m',mult:3.2,
+ flame:{name:'烈火剑法',ico:'烈',cd:3.2,mp:10,unlock:4,type:'m',mult:3.2,cast:80,
    desc:'凝聚烈焰之一击，造成320%物理伤害'},
  halfmoon:{name:'半月弯刀',ico:'月',cd:5,mp:15,unlock:8,type:'aoe',mult:1.5,r:126,
    desc:'剑气环绕，对周围敌人造成150%伤害'},
- charge:{name:'野蛮冲撞',ico:'撞',cd:7,mp:10,unlock:16,type:'charge',mult:1.9,stun:1.4,
+ charge:{name:'野蛮冲撞',ico:'撞',cd:7,mp:10,unlock:16,type:'charge',mult:1.9,stun:1.4,cast:120,
    desc:'撞向目标，造成190%伤害并眩晕1.4秒'},
  assault:{name:'攻杀剑术',ico:'攻',cd:0,mp:0,unlock:1,type:'passive',
    desc:'【被动】普通攻击15%几率造成160%伤害'},
@@ -570,22 +578,22 @@ const SKILLS={
  warcry:{name:'狂暴战意',ico:'怒',cd:45,mp:24,unlock:33,type:'buff',stat:'atk',pct:.35,dur:14,
    desc:'【增益】14秒内自身物理攻击提升35%'},
  /* —— 法师：多段高倍率魔法，AOE 为主要输出手段 —— */
- fireball:{name:'火球术',ico:'火',cd:1.05,mp:6,unlock:1,type:'p',mult:1.12,
+ fireball:{name:'火球术',ico:'火',cd:1.05,mp:6,unlock:1,type:'p',mult:1.12,cast:160,
    desc:'掷出火球，造成112%魔法伤害'},
- thunder:{name:'雷电术',ico:'雷',cd:2.8,mp:9,unlock:10,type:'m',mult:3.0,
+ thunder:{name:'雷电术',ico:'雷',cd:2.8,mp:9,unlock:10,type:'m',mult:3.0,cast:150,
    desc:'天雷落下，造成300%魔法伤害'},
- ice:{name:'冰咆哮',ico:'冰',cd:4.6,mp:17,unlock:16,type:'aoeP',mult:3.3,r:118,
+ ice:{name:'冰咆哮',ico:'冰',cd:4.6,mp:17,unlock:16,type:'aoeP',mult:3.3,r:118,cast:155,
    desc:'冰片风暴，范围造成330%魔法伤害'},
  shield:{name:'魔法盾',ico:'盾',cd:20,mp:20,unlock:22,type:'shield',dur:14,
    desc:'凝聚护盾，14秒内受到伤害降低35%'},
- meteor:{name:'流星火雨',ico:'星',cd:13,mp:26,unlock:30,type:'aoeP',mult:4.4,r:156,
+ meteor:{name:'流星火雨',ico:'星',cd:13,mp:26,unlock:30,type:'aoeP',mult:4.4,r:156,cast:170,
    desc:'召唤火雨，对目标周围造成440%魔法伤害（大范围爆发）'},
  icearmor:{name:'寒冰护甲',ico:'寒',cd:50,mp:22,unlock:36,type:'buff',stat:'mdef',pct:.6,dur:18,
    desc:'【增益】18秒内自身物理防御与魔法防御提升60%'},
  /* —— 道士：宠物承担约 40% 输出，本体技能倍率可略低于法师 —— */
- charm:{name:'灵魂火符',ico:'符',cd:1.0,mp:4,unlock:1,type:'p',mult:1.85,
+ charm:{name:'灵魂火符',ico:'符',cd:1.0,mp:4,unlock:1,type:'p',mult:1.85,cast:130,
    desc:'飞出火符，造成185%魔法伤害'},
- poison:{name:'施毒术',ico:'毒',cd:5.5,mp:8,unlock:10,type:'poison',mult:2.6,dur:8,
+ poison:{name:'施毒术',ico:'毒',cd:5.5,mp:8,unlock:10,type:'poison',mult:2.6,dur:8,cast:120,
    desc:'施毒使目标每秒受损并降低防御，持续8秒'},
  summon:{name:'召唤骷髅',ico:'召',cd:14,mp:16,unlock:12,type:'summon',
    desc:'召唤骷髅卫士协助作战（随道术成长）'},
@@ -593,8 +601,8 @@ const SKILLS={
    desc:'恢复自身26%生命+道术加成'},
  holyshield:{name:'神圣护盾',ico:'圣',cd:40,mp:20,unlock:28,type:'buff',stat:'def',pct:.5,dur:15,
    desc:'【增益】15秒内自身物理防御提升50%'},
- madness:{name:'群体施毒',ico:'狂',cd:14,mp:20,unlock:38,type:'maddness',mult:2.2,dur:10,r:146,
-   desc:'对周围146范围内所有怪物施毒，持续受损并降防，持续10秒'}
+ madness:{name:'群体施毒',ico:'狂',cd:14,mp:20,unlock:38,type:'maddness',mult:2.2,dur:10,r:118,
+   desc:'对周围118范围内所有怪物施毒，持续受损并降防，持续10秒'}
 };
 /* 装备 slot: weapon武器 armor衣服 helmet头盔 necklace项链 bracelet手镯 ring戒指 */
 const EQUIPS=[
@@ -2213,7 +2221,17 @@ function castSkill(idx){
   const T=Math.max(1,skillDmgMul(key)/(sk.mult||1));
   if(player.mp<mpCost){toast('魔法值不足');return;}
   const t=player.target;
-  if(['m','p','charge','poison'].includes(sk.type)&&(!t||t.dead)){toast('请先锁定一个目标');return;}
+  /* aoeP（冰咆哮/流星）以目标位置为落点，无目标时会在 case 内取 t.x 抛异常：
+     autoCast 有兜底跳过，手动点击则没有 —— 一并纳入目标校验。 */
+  if(['m','p','charge','poison','aoeP'].includes(sk.type)&&(!t||t.dead)){toast('请先锁定一个目标');return;}
+  /* ---- 施法距离闸门（请求 R）----
+     超距时给出可理解提示，且**不扣 MP、不进 CD**（因此必须放在 mp/cd 赋值之前）。
+     cast = 技能最大施放距离，未定义 = 无闸门（自身 AOE / 增益类技能）。
+     加这条之前：只要锁定了目标，隔着整个屏幕也能放技能，射程形同虚设。 */
+  if(sk.cast&&t&&!t.dead){
+    const d=dist(player,t);
+    if(d>sk.cast){toast('距离太远，「'+sk.name+'」需靠近到 '+sk.cast+' 码内');return;}
+  }
   player.mp-=mpCost;player.cd[key]=cdSet;player.castT=.2;player.acted=true;
   const melee=player.cls==='warrior';
   if(t&&t.x)player.face=t.x>=player.x?1:-1;
@@ -2391,10 +2409,25 @@ function updatePlayer(dt){
       player.mp=Math.min(player.maxMp,player.mp+(player.maxMp*.04+3)*rg);}
   }
 }
+/* 某职业技能表里的最大施放距离（无 cast 的技能不参与统计）。
+   用于收敛挂机索敌范围：战 120 / 法 170 / 道 130。 */
+function maxCastOf(cls){
+  let mx=0;
+  const c=CLASSES[cls];
+  if(c)for(const k of c.skills){const sk=SKILLS[k];if(sk&&sk.cast&&sk.cast>mx)mx=sk.cast;}
+  return mx;
+}
+/* 挂机索敌上限的兜底保险（即便职业技能 cast 被调得很大也不至于锁全图） */
+const AUTO_ACQUIRE=400;
 function acquireTarget(){
   const cur=player.target;
   if(cur&&!cur.dead&&dist(player,cur)<620)return;
-  player.target=nearestMob(player,ST.auto?Infinity:330,false); // 挂机遇 BOSS 也自动选中
+  /* 挂机索敌上限改为"本职业最远技能射程"：
+     旧写法用 Infinity，会锁定一个隔着半张图、永远够不着的怪，
+     玩家不开自动施法时就站在原地发愣（普攻/技能都超距）。
+     与 autoMove 自洽：技能 cast ≥ 普攻 range，走位进普攻圈时技能必然够得着。 */
+  const cap=ST.auto?Math.max(AUTO_ACQUIRE,maxCastOf(player.cls)):330;
+  player.target=nearestMob(player,cap,false);
 }
 function nearestMob(pt,range,excludeBoss){
   let best=null,bd=range===Infinity?Infinity:range;
@@ -2536,7 +2569,6 @@ function autoCast(){
     const hc=cfgOf('heal');
     if(player.hp<player.maxHp*(hc.hpPct/100)){castSkill(idxOf('heal'));return;}
   }
-  const cnt=monsters().filter(m=>!m.dead&&dist(m,player)<170).length;
   for(const key of order){
     const sk=SKILLS[key];
     if(sk.type==='passive'||sk.type==='summon'||sk.type==='heal')continue;
@@ -2548,10 +2580,25 @@ function autoCast(){
     const c=cfgOf(key);
     // 魔法保留：低于阈值时不再为普通输出消耗魔法（保命/召唤优先）
     if(c.mpKeep>0&&player.mp-player.mpKeep<need)continue;
-    // 群体技能需要足够敌人数
-    if((sk.type==='aoe'||sk.type==='aoeP'||sk.type==='maddness')&&cnt<c.cnt)continue;
-    // 单体技能需要锁定目标
-    if((sk.type==='m'||sk.type==='p'||sk.type==='charge'||sk.type==='poison')&&!player.target)continue;
+    /* 群体技能需要足够敌人数 —— 按**技能自身作用半径**统计（请求 R）。
+       旧写法用固定 170：半月的 126 与流星的 156 共用同一判据，
+       导致"半径 126 的技能按 170 的圈里数敌人"，边上的怪根本没进范围却被计数。 */
+    if(sk.type==='aoe'||sk.type==='aoeP'||sk.type==='maddness'){
+      if(sk.type==='aoeP'&&(!player.target||player.target.dead))continue;   // 落点需要目标
+      const R=(sk.r||120)*1.02;   // 放宽 2% 抵消边界抖动
+      const ox=(sk.type==='aoeP')?player.target.x:player.x;
+      const oy=(sk.type==='aoeP')?player.target.y:player.y;
+      const cnt=monsters().filter(m=>!m.dead&&Math.hypot(m.x-ox,m.y-oy)<R).length;
+      if(cnt<c.cnt)continue;
+    }
+    /* 单体/投射/施毒/冲锋类：需要锁定目标**且在射程内**（请求 R）。
+       超距则跳过本技能 —— 交给其他够得着的技能、普攻或走位，
+       否则会每帧空放一次（扣蓝 + 进 CD 却打不到人）。 */
+    if(sk.type==='m'||sk.type==='p'||sk.type==='charge'||sk.type==='poison'){
+      const t=player.target;
+      if(!t||t.dead)continue;
+      if(sk.cast&&dist(player,t)>sk.cast)continue;
+    }
     if(sk.type==='poison'&&player.target&&player.target.poisonT>0)continue;
     if(sk.type==='shield'&&player.shieldT>0)continue;
     // 增益技能：需要存在敌人且自身未处于增益中
@@ -4513,16 +4560,33 @@ const CMP_W={atk:2.0,matk:2.0,datk:2.0,def:1.2,mdef:1.0,hp:.15,mp:.10};
    标量则原样返回。instance 层用 statsOf() 读实值。 */
 function stMax(v){return Array.isArray(v)?v[1]:v;}
 function stMin(v){return Array.isArray(v)?v[0]:v;}
-/* 区间展示后缀：+4（区间 3-4）—— 让玩家一眼看出"这件是掷到下限还是上限"。
-   非区间（标量）返回空串，保持旧装备的展示不变。 */
-function rollTag(def,k,it,q,plus){
+/* ============ 装备数值区间渲染（请求 R）============
+   显示形如「+51-53-68」：区间两端 + 玩家实掷值（亮金高亮）。
+   ★ 旧版是「+53 (51-68)」—— 实值与范围并列，同一个数字出现两次，
+     玩家分不清"53 是这件装备的值"还是"53 是区间的一部分"。
+     现在实值直接落在区间里，位置一眼可见（掷到哪一目了然）。
+   ① 区间端点也乘品质×强化，与实值同口径 —— 否则 +5 强化时实值 93
+      会落在未乘算的 51-68 之外，显示自相矛盾（旧版的隐藏不一致）。
+   ② 掷到端点时不显示「51-51-68」这种丑形式，直接给两端上色。
+   ③ 无 roll（旧存档）/ 非区间（标量）→ 返回空串，调用方回退单值，
+      保证老装备的展示完全不变。 */
+function statRangeHtml(def,k,it,q,plus){
   const raw=def.st&&def.st[k];
   if(!Array.isArray(raw))return '';
-  const real=it&&it.roll?(it.roll[k]!==undefined?it.roll[k]:raw[1]):raw[1];
-  const atMax=(real>=raw[1]);
-  const c=atMax?'#8ad8ff':'#a89058';
-  return ' <span style="font-size:11px;color:'+c+'">('+raw[0]+'-'+raw[1]+')</span>';
+  const hasRoll=it&&it.roll&&it.roll[k]!==undefined;
+  if(!hasRoll)return '';
+  const mul=qmul({q:(q==null?1:q)})*plusMul({plus:plus||0});
+  const lo=Math.floor(raw[0]*mul), hi=Math.floor(raw[1]*mul);
+  const real=it.roll[k]*mul;
+  const sLo='<span style="color:#a89058">'+lo+'</span>';    // 下限：暗金
+  const sHi='<span style="color:#8ad8ff">'+hi+'</span>';    // 上限：青（与旧版"掷到上限"同色）
+  let body;
+  if(real<=raw[0]*mul||real>=raw[1]*mul)body=sLo+'-'+sHi;  // 掷到端点：两段式，端点自带颜色
+  else body=lo+'-<b style="color:#ffd84a">'+Math.floor(real)+'</b>-'+hi;  // 中间值：三段式，掷值亮金
+  return ' <span style="font-size:11px;white-space:nowrap">+'+body+'</span>';
 }
+/* 兼容旧调用点（MF176 仍导出 rollTag） */
+function rollTag(def,k,it,q,plus){return statRangeHtml(def,k,it,q,plus);}
 function statCompareRows(def,q,plus,it){
   /* 与当前已穿戴同部位装备对比（计入品质与强化系数）。
      ★ 双槽位（手镯/戒指）：取该部位已穿戴两件中"更强的那件"作为对比基准 ——
@@ -4554,8 +4618,11 @@ function statCompareRows(def,q,plus,it){
     }
     /* delta=0 时不给箭头：同数值标「▲+0」会让玩家误以为有提升 */
     const dTxt=!curDef?'':(delta>0?' <span class="up">▲+'+delta+'</span>':delta<0?' <span class="down">▼'+delta+'</span>':'');
-    const tag=(it&&Array.isArray(rawV))?rollTag(def,k,it,q,plus):'';
-    rows+='<div class="row"><span>'+STAT_NAMES[k]+'</span><b>+'+Math.floor(nv)+tag+dTxt+'</b></div>';
+    /* 数值主体：有区间的装备走「范围 + 掷值高亮」，否则回退单值（旧装备展示不变）。
+       注意 delta/箭头仍按实值算 —— 对比口径不变，只改展示形式。 */
+    const tag=(it&&Array.isArray(rawV))?statRangeHtml(def,k,it,q,plus):'';
+    const shown=tag?tag:('+'+Math.floor(nv));
+    rows+='<div class="row"><span>'+STAT_NAMES[k]+'</span><b>'+shown+dTxt+'</b></div>';
   }
   if(curDef){
     /* 优劣总评：加权总分 + 属性条目数共同决定结论 */
@@ -4750,9 +4817,10 @@ function showItemDetailOff(def,slot){
   /* 用 statsOf 读实值（含掉落区间 roll），与穿戴后的真实面板一致 */
   const realSt=statsOf(cur);
   if(def.st)for(const k in def.st){
-    const v=Math.floor(realSt[k]||0);
-    const tag=rollTag(def,k,cur,q,cur.plus||0);
-    stats+='<div class="row"><span>'+STAT_NAMES[k]+'</span><b>+'+v+tag+'</b></div>';
+    /* 有区间 → 「范围 + 掷值高亮」；无区间（标量）→ 回退实值单值 */
+    const tag=statRangeHtml(def,k,cur,q,cur.plus||0);
+    const shown=tag?tag:('+'+Math.floor(realSt[k]||0));
+    stats+='<div class="row"><span>'+STAT_NAMES[k]+'</span><b>'+shown+'</b></div>';
   }
   /* 强化区：与背包物品详情同一套面板（6 部位全可强化） */
   const forgeBtn=forgePanelHtml(cur,false);
@@ -7368,7 +7436,7 @@ function init(){
     recalcStats,gainExp,calcDamage,hurtMonster,hurtPlayer,castSkill,startGame,resetRuntime,
     setBonus,setCounts,getSetOf,getSetsOf,
     reforgeDo,showReforgePanel,REROLL_COST,rerollProb,
-    forgeCost,forgeRate,plusMul,countOre,forgeDo,autoCast,autoPotion,monsters,dist,
+    forgeCost,forgeRate,plusMul,countOre,forgeDo,autoCast,autoPotion,monsters,dist,acquireTarget,nearestMob,
     calcOffline,doOfflineSettle,offlineRate,showOfflinePanel,checkOffline,
     startTower,enterTowerFloor,towerFloorClear,failTower,endTower,towerScale,towerMobIds,towerMobCount,
     petEvolve,petStageOf,petNextStage,petCanEvolve,petEvolveProgress,petRecalc,petGainExp,killPet,
@@ -7386,7 +7454,8 @@ function init(){
     POT_P_DROP,EQ_P_NORMAL,EQ_P_ELITE,EQ_P_BOSS,
     /* 魔法/道术分离 + 装备数值区间（请求 Q）：
        statsOf 读实例实值、rollEqStat 掉落实测、atkSrc/defSrc 决定伤害用哪条属性 */
-    STAT_NAMES,CMP_W,stMax,stMin,EQ_STAT_CAP,rollEqStat,statsOf,atkSrc,defSrc,rollTag,
+    STAT_NAMES,CMP_W,stMax,stMin,EQ_STAT_CAP,rollEqStat,statsOf,atkSrc,defSrc,rollTag,statRangeHtml,
+    maxCastOf,AUTO_ACQUIRE,
     /* 背包整理（请求 E）：排序键 + 主函数，供自动化断言 */
     tidyBag,bagCatOf,bagItemLess,BAG_SLOT_ORDER,
     /* 新手攻略面板（请求 E） */
