@@ -250,10 +250,28 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges}
 .eqMid .eqAura{position:absolute;width:136px;height:136px;border-radius:50%;border:1.5px dashed #8a6a2055;top:82px}
 .eqMid .eqPed{width:112px;height:8px;border-radius:50%;background:radial-gradient(ellipse at center,#ffd84a55,#ffd84a00 70%);margin:1px 0 2px}
 .eqMid .eqSet{font-size:9px;color:#ffd84a;z-index:2;text-align:center;padding:0 4px;line-height:1.3}
-.eqStat{border-top:1px dashed #3a2e18;margin-top:10px;padding-top:7px;font-size:11.5px;line-height:1.85}
+.eqStat{border-top:1px dashed #3a2e18;margin-top:10px;padding-top:4px;font-size:11.5px}
 .eqStat>div{display:flex}
 .eqStat span{color:#a89058}
 .eqStat b{margin-left:auto;color:#ffd870}
+/* 请求 T · 属性区间行：左标签 —— 右数值（右对齐不换行），虚线分隔 */
+.eqStat .eqR{display:flex;align-items:baseline;padding:5px 0;border-bottom:1px dashed rgba(90,74,40,.5)}
+.eqStat .eqR:last-child{border-bottom:0}
+.eqStat .eqRL{color:#a89058;font-size:12.5px;flex:0 0 auto}
+.eqStat .eqRV{margin-left:auto;white-space:nowrap;text-align:right}
+.eqStat .eqRV b{margin-left:0}
+.eqStat .eqSep{color:#8a7a4a;margin:0 12px;font-size:12px}
+/* 请求 T · 天赋汇总行（属性区间不含天赋，天赋单独成行）
+   布局：标题 + 若干项（自动换行）+ 点数角标。
+   点数角标用 flex 自然落在末尾，不用 margin-left:auto —— 项多换行时
+   auto 会把角标顶到中间行，视觉上脱离。 */
+.talBox{margin-top:6px;padding-top:5px;border-top:1px dashed rgba(90,74,40,.5)}
+.talSum{display:flex;flex-wrap:wrap;align-items:center;gap:4px 9px;font-size:11px;line-height:1.6}
+.talSum .tsT{color:#c88aff;font-weight:900;flex:0 0 auto}
+.talSum .tsNone{color:#6a5a38;font-size:10.5px}
+.talSum .tsP{font-weight:700;white-space:nowrap}
+.talSum .tsLv{color:#8a7a4a;font-size:10px;border:1px solid #4a3e22;
+ border-radius:5px;padding:0 5px;line-height:1.5;flex:0 0 auto}
 /* ---- 背包筛选 chip ---- */
 .bagHead{display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:700;
  color:#ffd870;margin:10px 0 6px}
@@ -4331,6 +4349,96 @@ function bagCountOf(key){
 }
 /* 渲染单个背包装格（抽成函数，因为要重绘旧版/新版两种入口） */
 function bagCellHtml(){return '';}
+
+/* ============ 角色面板 · 属性区间（请求 T）============
+   把「自身基础值 + 装备区间 + 套装固定值」合成一个【最低 ~ 最高】区间。
+
+   口径（与 recalcStats 严格对齐，仅去掉天赋乘区与技能增益）：
+     ① 自身 = 职业基础 + 每级成长 × (等级-1)
+     ② 装备 = Σ(区间下限 × 品质 × 强化) ~ Σ(区间上限 × 品质 × 强化)
+     ③ 套装 = 固定值，两侧同加
+     ④ 天赋乘区 **不计入** —— talentBonus 的 7 个 Pct 字段当前恒为 0
+        （天赋实际只加 basicPct/critAdd/dmgPct，不进面板），
+        天赋单独在面板底部列一行，不与属性区间混算。
+
+   ⚠️ 这里必须复刻 statsOf/eqRand 的乘区顺序（先乘品质与强化，不套 CAP），
+      但**不套 EQ_STAT_CAP** —— CAP 是单件 6 倍上限，面板是全体汇总，
+      套 CAP 会让多件低阶装备的合计被错误截断。战斗侧 eqRand 单件结算时才套。 */
+const STAT_GROW={atk:'atkG',matk:'matkG',datk:'datkG',def:'defG',mdef:'mdefG',hp:'hpG',mp:'mpG'};
+function statRange(k){
+  const c=CLASSES[player.cls];
+  const lv=Math.max(0,(player.level||1)-1);
+  /* ① 自身 */
+  const self=(c[k]||0)+(c[STAT_GROW[k]]||0)*lv;
+  /* ② 装备区间 */
+  let lo=0,hi=0;
+  for(const s in equip){
+    const e=equip[s];if(!e)continue;
+    const d=EQMAP[e.id];if(!d||!d.st)continue;
+    const raw=d.st[k];if(raw===undefined)continue;
+    const a=Array.isArray(raw)?raw[0]:raw;
+    const b=Array.isArray(raw)?raw[1]:raw;
+    const mul=qmul(e)*plusMul(e);
+    lo+=a*mul;hi+=b*mul;
+  }
+  /* ③ 套装固定值 */
+  const setv=(setBonus().st||{})[k]||0;
+  return {lo:Math.floor(self+setv+lo),hi:Math.floor(self+setv+hi),
+          hasEq:(lo>0||hi>0),self:Math.floor(self),setv:setv};
+}
+/* 渲染区间 HTML：退化区间（lo===hi）自动收成单值，避免「14~14」这种丑格式。
+   请求 T：**不带 + 号**。 */
+function rangeHtml(r,big){
+  const fs=big?'14px':'13px';
+  const col=big?'#ffd870':'#e8c860';
+  if(r.lo===r.hi)return '<b style="font-size:'+fs+';color:'+col+'">'+r.lo+'</b>';
+  return '<b style="font-size:'+fs+';color:'+col+'">'+r.lo+'</b>'+
+         '<span style="color:#8a7a4a;font-weight:900;margin:0 3px">~</span>'+
+         '<b style="font-size:'+fs+';color:'+col+'">'+r.hi+'</b>';
+}
+/* 天赋汇总行（请求 T · 决策②）：属性行保持干净，天赋在面板底部单独成行。
+   只列**真实生效**的项 —— talentBonus 的 Pct 字段恒为 0 不作为展示依据。 */
+function talentSummaryHtml(){
+  const tb=talentBonus();
+  const parts=[];
+  if(tb.basicPct>0)parts.push(['普攻伤害','+'+Math.round(tb.basicPct*100)+'%','#ff9a6a']);
+  if(tb.critAdd>0) parts.push(['暴击率','+'+Math.round(tb.critAdd*100)+'%','#ffd870']);
+  if(tb.dmgPct>0)  parts.push(['技能伤害','+'+Math.round(tb.dmgPct*100)+'%','#c88aff']);
+  if(tb.healPct>0) parts.push(['治疗量','+'+Math.round(tb.healPct*100)+'%','#7ce07c']);
+  if(tb.summonPct>0)parts.push(['召唤强度','+'+Math.round(tb.summonPct*100)+'%','#6ab0ff']);
+  if(tb.cdCut>0)   parts.push(['冷却缩减',Math.round(tb.cdCut*100)+'%','#8ad8ff']);
+  if(tb.mpCut>0)   parts.push(['耗蓝降低',Math.round(tb.mpCut*100)+'%','#8ad8ff']);
+  const spent=talentSpent();
+  if(!parts.length)
+    return '<div class="talSum"><span class="tsT">✦ 天赋加成</span>'+
+      '<span class="tsNone">未加点 · 点击进入天赋面板</span></div>';
+  return '<div class="talSum"><span class="tsT">✦ 天赋加成</span>'+
+    parts.map(p=>'<span class="tsP" style="color:'+p[2]+'">'+p[0]+' '+p[1]+'</span>').join('')+
+    '<span class="tsLv">'+spent+' 点</span></div>';
+}
+
+/* 战力区间（请求 T）：与属性区间同步范围化。
+   ★ 收窄口径：**只有攻/防类参与浮动**，生命/魔法取区间均值后当定值加。
+     原因：hp 权重 0.15 虽小，但 hp 区间绝对值大（1876~2291），
+     参与浮动会让战力区间张开 ~30%，玩家看到「1120~1386」只会困惑。
+     攻防浮动是玩家能直接感知的（每刀伤害在变），保留即可。 */
+function powerRangeHtml(){
+  let lo=0,hi=0;
+  for(const k in CMP_W){
+    const r=statRange(k);
+    const w=CMP_W[k];
+    if(k==='hp'||k==='mp'){
+      const m=(r.lo+r.hi)/2;          // 生命/魔法取均值 →
+      lo+=m*w;hi+=m*w;                // 区间不贡献宽度
+    }else{
+      lo+=r.lo*w;hi+=r.hi*w;
+    }
+  }
+  const a=Math.floor(lo),b=Math.floor(hi);
+  if(a===b)return ''+a;
+  return a+'<span style="color:#8a7a4a;font-weight:900;margin:0 2px">~</span>'+b;
+}
+
 function openBag(){
   const c=CLASSES[player.cls];
   const g=$('bagGrid');   /* 旧变量名复用只为保持函数内引用清晰 */
@@ -4359,23 +4467,39 @@ function openBag(){
       '<div class="eqSub">'+c.name+' · Lv.'+player.level+'</div>'+
       '<canvas id="eqAv"></canvas>'+
       '<div class="eqPed"></div>'+
-      '<div class="eqSet">'+((setBonus().list.length)?('✦ 套装 '+setBonus().list.map(x=>x.count).join('/')+' 件生效'):('战力 '+Math.floor((player.atk+player.matk+player.datk)*2+player.def*1.2+player.mdef+player.maxHp*.15)))+'</div>'+
+      '<div class="eqSet">'+((setBonus().list.length)?('✦ 套装 '+setBonus().list.map(x=>x.count).join('/')+' 件生效'):('战力 '+powerRangeHtml()))+'</div>'+
     '</div>'+
     '<div class="eqCol">'+rightSlots.map(([k,n])=>slotHtml(k,n,66)).join('')+'</div>'+
     '</div>';
 
-  /* ---------- ② 属性（压缩 3 行，给背包让出竖向空间） ---------- */
+  /* ---------- ② 属性（请求 T：自身+装备 → 区间呈现，不带 + 号） ---------- */
   const setH=genSetHtml();
   /* 第二行随职业变：战士显示物攻、法师显示魔法、道士显示道术
      —— matk 与 datk 已完全独立，把另一职业的属性摆出来只会造成误导。 */
-  const atkLine=(player.cls==='mage')?('<span>魔法</span><b>'+player.matk+'</b>')
-    :(player.cls==='taoist')?('<span>道术</span><b>'+player.datk+'</b>')
-    :('<span>物理攻击</span><b>'+player.atk+'</b>');
+  const atkKey=(player.cls==='mage')?'matk':(player.cls==='taoist'?'datk':'atk');
+  const atkName=(player.cls==='mage')?'魔法':(player.cls==='taoist')?'道术':'物理攻击';
+  const rA=statRange(atkKey), rD=statRange('def'), rMD=statRange('mdef');
+  const rHP=statRange('hp'), rMP=statRange('mp');
+  /* 单行：左标签 —— 右数值（数值右对齐、不换行） */
+  const eqRow=(label,val)=>
+    '<div class="eqR"><span class="eqRL">'+label+'</span>'+
+    '<span class="eqRV">'+val+'</span></div>';
+  const SL='<span style="color:#9a8a58;margin:0 4px">/</span>';
+  const curV=(v,col)=>'<b style="font-size:13px;color:'+col+'">'+v+'</b>';
   const statRow='<div class="eqStat">'+
-    '<div><span>生命 / 魔法</span><b>'+Math.floor(player.hp)+' / '+Math.floor(player.mp)+'</b></div>'+
-    '<div>'+atkLine+'</div>'+
-    '<div><span>防御 / 魔防</span><b>'+player.def+' / '+player.mdef+'</b></div>'+
-    '</div><div id="eqSetBox" class="hidden">'+setH+'</div>';
+    /* 生命/魔法：当前值(绿/蓝) / 上限区间(金)
+       ⚠️ 蓝量行标签随职业变：法师的第二行也叫「魔法」(matk=魔法攻击)，
+          若这里固定写「魔法」会出现**两行同名**，玩家无法区分蓝量与法伤。
+          故法师显示「魔法值」，战士/道士显示「魔法」。 */
+    eqRow('生命',curV(Math.floor(player.hp),'#7ce07c')+SL+rangeHtml(rHP))+
+    eqRow((player.cls==='mage')?'魔法值':'魔法',curV(Math.floor(player.mp),'#6ab0ff')+SL+rangeHtml(rMP))+
+    eqRow(atkName,rangeHtml(rA,true))+
+    eqRow('防御 / 魔防',
+      rangeHtml(rD)+'<span class="eqSep">｜</span><span style="color:#8a9ab8">魔防 </span>'+rangeHtml(rMD))+
+    '</div>'+
+    /* 天赋汇总（请求 T · 决策②）：独立一行，不混进属性区间 */
+    '<div class="talBox">'+talentSummaryHtml()+'</div>'+
+    '<div id="eqSetBox" class="hidden">'+setH+'</div>';
 
   /* ---------- ③ 背包工具条 ---------- */
   const chips=BAG_FILTERS.map(([k,n])=>{
@@ -4607,10 +4731,12 @@ const CMP_W={atk:2.0,matk:2.0,datk:2.0,def:1.2,mdef:1.0,hp:.15,mp:.10};
 function stMax(v){return Array.isArray(v)?v[1]:v;}
 function stMin(v){return Array.isArray(v)?v[0]:v;}
 /* ============ 装备数值区间渲染（请求 S · 纯区间）============
-   显示形如「+4~11」：区间两端，**不再有亮金掷值**。
+   显示形如「4~11」：区间两端，**不再有亮金掷值**。
    ★ 请求 R 曾显示「+4-7-11」（两端 + 一件装备的固定掷定值）。
      请求 S 决策 C1 改为「每刀在区间内随机」后，单件装备不再有固定值，
      那个中间数字失去意义 → 直接去掉，区间就是区间。
+   ★ 请求 T：**取消前面的「+」号** —— 面板与详情页都是「这件装备的属性
+     范围是多少」，而不是「额外加多少」，`+` 号语义错位且与区间符号打架。
    ① 区间端点乘品质×强化，与战斗结算同口径（eqRand 也是先随机后乘）。
    ② 非区间（标量）→ 返回空串，调用方回退单值，兼容旧格式。 */
 function statRangeHtml(def,k,it,q,plus){
@@ -4621,7 +4747,7 @@ function statRangeHtml(def,k,it,q,plus){
   const body='<span style="color:#a89058">'+lo+'</span>'+
              '<span style="color:#6a5a38">~</span>'+
              '<span style="color:#8ad8ff">'+hi+'</span>';
-  return ' <span style="font-size:11px;white-space:nowrap">+'+body+'</span>';
+  return ' <span style="font-size:11px;white-space:nowrap">'+body+'</span>';
 }
 /* 兼容旧调用点（MF176 仍导出 rollTag） */
 function rollTag(def,k,it,q,plus){return statRangeHtml(def,k,it,q,plus);}
@@ -4658,9 +4784,12 @@ function statCompareRows(def,q,plus,it){
     /* delta=0 时不给箭头：同数值标「▲+0」会让玩家误以为有提升 */
     const dTxt=!curDef?'':(delta>0?' <span class="up">▲+'+delta+'</span>':delta<0?' <span class="down">▼'+delta+'</span>':'');
     /* 数值主体：区间装备走「纯区间」，否则回退单值。
-       delta/箭头同样按区间均值算 —— 三处口径统一（展示 = 对比 = 战力分）。 */
+       delta/箭头同样按区间均值算 —— 三处口径统一（展示 = 对比 = 战力分）。
+       ★ 请求 T：单值也去掉「+」号，与区间口径统一（`2` 而非 `+2`）。
+         ⚠️ 但 dTxt 的「▲+12」**保留 + 号** —— 那是「增量提示」，
+            语义是「比当前装备多 12」，去掉 + 会看不懂方向。 */
     const tag=(it&&Array.isArray(rawV))?statRangeHtml(def,k,it,q,plus):'';
-    const shown=tag?tag:('+'+Math.floor(nv));
+    const shown=tag?tag:(''+Math.floor(nv));
     rows+='<div class="row"><span>'+STAT_NAMES[k]+'</span><b>'+shown+dTxt+'</b></div>';
   }
   if(curDef){
@@ -4856,9 +4985,10 @@ function showItemDetailOff(def,slot){
   /* 用 statsOf 读区间均值，与穿戴后的面板口径一致（请求 S） */
   const realSt=statsOf(cur);
   if(def.st)for(const k in def.st){
-    /* 有区间 → 纯区间「+4~11」；无区间（标量）→ 回退单值 */
+    /* 有区间 → 纯区间「4~11」；无区间（标量）→ 回退单值。
+       ★ 请求 T：单值同样去掉「+」号，与区间口径统一。 */
     const tag=statRangeHtml(def,k,cur,q,cur.plus||0);
-    const shown=tag?tag:('+'+Math.floor(realSt[k]||0));
+    const shown=tag?tag:(''+Math.floor(realSt[k]||0));
     stats+='<div class="row"><span>'+STAT_NAMES[k]+'</span><b>'+shown+'</b></div>';
   }
   /* 强化区：与背包物品详情同一套面板（6 部位全可强化） */
@@ -7499,6 +7629,9 @@ function init(){
        atkSrc/defSrc 决定伤害用哪条属性。
        rollEqStat 为兼容占位，已废弃恒返回 null（决策 D3）。 */
     STAT_NAMES,CMP_W,stMax,stMin,EQ_STAT_CAP,rollEqStat,statsOf,atkSrc,defSrc,rollTag,statRangeHtml,
+    /* 角色属性面板区间（请求 T）：自身+装备+套装 → [最低,最高]，
+       powerRangeHtml 为战力区间（收窄口径：仅攻防浮动）。 */
+    statRange,rangeHtml,powerRangeHtml,talentSummaryHtml,STAT_GROW,
     eqRand,eqRandContribution,eqMeanContribution,
     maxCastOf,AUTO_ACQUIRE,
     /* 背包整理（请求 E）：排序键 + 主函数，供自动化断言 */
