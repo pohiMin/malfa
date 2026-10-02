@@ -231,14 +231,18 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges}
 .eqCol{width:100px;flex:none;display:flex;flex-direction:column;gap:7px}
 .eqSlot{border-radius:8px;background:linear-gradient(180deg,#241a0c,#0e0904);display:flex;flex-direction:column;
  align-items:center;justify-content:center;position:relative;cursor:pointer;overflow:hidden;flex:none}
-.eqSlot .esn{font-size:8.5px;color:#7a6534;line-height:1;letter-spacing:.4px}
-.eqSlot .esv{font-size:10.5px;font-weight:700;margin-top:3px;line-height:1.15;text-align:center;padding:0 2px}
+/* 槽位只显示装备实物图标（决策 C）：不写部位名、不写装备名。
+   图标按槽位尺寸自适应，保持 1:1 不变形。 */
+.eqSlot .eqIc{width:100%;height:100%;object-fit:contain;image-rendering:auto;display:block}
+/* 空槽剪影：极暗，保留轮廓识别但不与已装备图标抢注意力 */
+.eqSlot .eqIc.ghost{opacity:.5}
 .eqSlot .epl{position:absolute;right:3px;bottom:2px;font-size:9px;font-weight:700;color:#ffd84a;text-shadow:0 1px 2px #000}
-.eqSlot .eq2{position:absolute;left:2px;top:2px;font-size:8px;padding:1px 3px;border-radius:3px;background:#ffca4a;color:#2a1c00;font-weight:700}
-.eqSlot .eq0{position:absolute;left:2px;top:2px;font-size:8px;padding:1px 3px;border-radius:3px;background:#3a3a36;color:#d8d8d0}
-/* 空槽：虚线 + 只留部位名，明确"这里还能放" */
+/* 品质点：小极品=金星，劣质=灰点（替代原「极」「劣」汉字，槽位内不出现文字） */
+.eqSlot .eqQd{position:absolute;left:3px;top:3px;width:6px;height:6px;border-radius:50%}
+.eqSlot .eqQd.q2{background:#ffca4a;box-shadow:0 0 5px #ffca4a,0 0 0 1.5px #2a1c00}
+.eqSlot .eqQd.q0{background:#6a6a64;box-shadow:0 0 0 1.5px #1a1a18}
+/* 空槽：虚线 + 暗色剪影（不再显示 .esn 部位文字，剪影由 .eqIc.ghost 承担） */
 .eqSlot.empty{border:1.4px dashed #4a3e22;background:#120c06}
-.eqSlot.empty .esn{color:#5a4a28;font-size:9px}
 .eqSlot:active{filter:brightness(1.3)}
 /* 中间人物：径向渐变营造"站在光里"的舞台感，避免大块死黑 */
 .eqMid{flex:1;min-width:0;border-radius:10px;border:1.5px solid #8a6a20;position:relative;overflow:hidden;
@@ -2092,10 +2096,24 @@ const inv=[]; // {id,n} 药水堆叠 / 装备单件
 const equip={weapon:null,helmet:null,armor:null,necklace:null,
              bracelet:null,bracelet2:null,ring:null,ring2:null};
 /* 槽位顺序与中文名：面板渲染、卸下逻辑、套装计数都以此为唯一来源。
-   排列原则：越常换的越靠上、越靠外（武器/衣服优先），饰品在下方。 */
+   ★ 排列原则（角色面板左右两列配对，见 EQ_COLS）：
+     左列 = 武器 / 项链 / 手镯① / 手镯②   —— 攻击与施法饰品
+     右列 = 头盔 / 衣服 / 戒指① / 戒指②   —— 防御与血量饰品
+     双槽位（手镯/戒指）的「第二个」紧跟第一个**竖排**，
+     双手镯在左手边、双戒指在右手边，符合人体直觉。
+   ★ 本数组是**一维扁平列表**，遍历逻辑（recalcStats / setCounts / 强化回收校验等）
+     全部走 for(const k in equip)，本数组只服务面板渲染与测试断言。 */
 const EQ_SLOTS=[
-  ['weapon','武器'],['armor','衣服'],['helmet','头盔'],['ring','戒指①'],
-  ['necklace','项链'],['bracelet','手镯①'],['bracelet2','手镯②'],['ring2','戒指②']
+  ['weapon','武器'],['necklace','项链'],['bracelet','手镯①'],['bracelet2','手镯②'],
+  ['helmet','头盔'],['armor','衣服'],['ring','戒指①'],['ring2','戒指②']
+];
+/* 角色面板的左右两列定义（每列 4 格，顺序 = 从上到下）。
+   ★ 显式两列而不是 EQ_SLOTS.slice(0,4)/slice(4)：
+     改 EQ_SLOTS 顺序时本表必须同步，否则左右会串位。
+     双槽位的「第二个」永远紧跟第一个竖排，手镯在左、戒指在右。 */
+const EQ_COLS=[
+  [['weapon','武器'],['necklace','项链'],['bracelet','手镯①'],['bracelet2','手镯②']],
+  [['helmet','头盔'],['armor','衣服'],['ring','戒指①'],['ring2','戒指②']]
 ];
 const EQ_SLOT_NAME={weapon:'武器',armor:'衣服',helmet:'头盔',necklace:'项链',
   bracelet:'手镯①',bracelet2:'手镯②',ring:'戒指①',ring2:'戒指②'};
@@ -3807,18 +3825,34 @@ function useInvItem(idx,silent){
     if(e.cls!=='all'&&CLS_FULL[e.cls]!==player.cls){toast('「'+e.n+'」是'+({w:'战士',m:'法师',t:'道士'})[e.cls]+'专属装备，无法穿戴');return;}
     /* 穿戴等级门槛：由 tier 推导（见 EQ_REQ_LV） */
     if(!eqLvOk(e)){toast('等级不足，需 Lv'+eqReqLv(e)+' 才能穿戴「'+e.n+'」（当前 Lv'+player.level+'）');return;}
-    /* 双槽位（手镯/戒指）穿戴规则：优先填第一个空槽；两个都满了就替换①。
-       不替换②是刻意的——①是玩家更早带上的那件，替换它是"换新"的自然预期；
-       若替换②，玩家会觉得"我明明换的是右边那个，怎么左边的变了"。 */
+    /* 双槽位（手镯/戒指）穿戴规则：
+         1) 有空槽 → 填空的
+         2) 两个都满了 → 替换**战力分较低**的那一件
+       ★ 决策变更（旧逻辑固定替换①）：玩家从背包换装备时，
+         替换"更弱的那件"才是收益最大化的直觉行为。
+         旧写法固定替换①会出现"我明明换的是右边这个，怎么左边突然变差了"，
+         双槽位同屏显示时尤其明显（决策：优先更换战力低的那一个）。 */
     const cand=eqSlotsOf(e.slot);
-    let slot=cand.find(k=>!equip[k])||cand[0];
-    const old=equip[slot];
+    let slot;
+    if(cand.some(k=>!equip[k])){
+      slot=cand.find(k=>!equip[k]);
+    }else{
+      /* 两格都满：挑 eqScore 最低的那格替换。
+         分数相同（两件完全一样）时取 cand[0]，保持行为可预测。 */
+      slot=cand.reduce((lo,k)=>(eqScore(equip[k])<eqScore(equip[lo])?k:lo),cand[0]);
+    }
+    const replaced=equip[slot];
+    const oldScore=replaced?eqScore(replaced):0;
     equip[slot]=it;
     inv.splice(idx,1);
-    if(old)inv.push(old);
+    if(replaced)inv.push(replaced);
     recalcStats();SFX.pickup();
-    /* 日志带上具体槽位，双戒指/双手镯时玩家能分辨装到了哪一格 */
-    const extra=cand.length>1?(' → '+EQ_SLOT_NAME[slot]):'';
+    /* 日志带上槽位与「替换了较弱的那件」，双戒指/双手镯时玩家能分辨装到了哪一格 */
+    let extra='';
+    if(cand.length>1){
+      extra=' → '+EQ_SLOT_NAME[slot];
+      if(replaced)extra+='（已替换战力较低的那件 '+Math.round(oldScore)+' → '+Math.round(eqScore(it))+'）';
+    }
     addLog('装备了 『'+eqName(it)+'』'+extra);
     questNotifyCheck();
     openBag();
@@ -4618,8 +4652,7 @@ function iconURL(def){
     g.fillStyle='#241a0c';g.fillRect(0,0,40,40);
     g.strokeStyle=col;g.lineWidth=2;g.strokeRect(3,3,34,34);
     drawEqIcon(g,iconShapeOf(def),def.tier||1,40);
-  }else if(def.dan){
-    // Boss 内丹：暗紫丹丸 + 金色纹路 + 高光，与药水（蓝/红十字瓶）明显区分
+  }else if(def.dan){    // Boss 内丹：暗紫丹丸 + 金色纹路 + 高光，与药水（蓝/红十字瓶）明显区分
     const grd=g.createRadialGradient(16,16,2,20,20,15);
     grd.addColorStop(0,'#f0d0ff');grd.addColorStop(.35,'#a24bd8');
     grd.addColorStop(.75,'#5e1f8a');grd.addColorStop(1,'#2a0a40');
@@ -4653,6 +4686,28 @@ function itemIconImg(def){
   // 供 canvas drawImage 使用（缓存 Image 对象）
   if(!_iconImg[def.id]){_iconImg[def.id]=new Image();_iconImg[def.id].src=iconURL(def);}
   return _iconImg[def.id];
+}
+/* ============ 空装备槽剪影（角色面板）============
+   空槽用「暗色剪影 + 部位轮廓」表示，而不是留一块空白或写"戒指②"这类文字：
+     · 玩家一眼能看出这格该放什么，不必去记槽位对应关系
+     · 剪影只画轮廓（不画品质色与宝石），视觉上明显退到背景，
+       不会和已装备的实物图标抢注意力
+   形状复用 drawEqIcon 的同一套分形，槽位→形状的映射与 iconShapeOf 一致。 */
+const _ghostURL={};
+const SLOT_SHAPE={weapon:'sword',helmet:'helm',armor:'armor',
+  necklace:'necklace',bracelet:'bracelet',ring:'ring'};
+function ghostIconURL(slotKey){
+  if(_ghostURL[slotKey])return _ghostURL[slotKey];
+  const shape=SLOT_SHAPE[baseSlotOf(slotKey)]||'sword';
+  const c=document.createElement('canvas');c.width=40;c.height=40;
+  const g=c.getContext('2d');
+  g.clearRect(0,0,40,40);
+  /* 剪影：先画一层近黑，再用极暗的棕色描边 —— 保留轮廓识别度但完全退到背景 */
+  g.globalAlpha=.22;
+  drawEqIcon(g,shape,1,40);
+  g.globalAlpha=1;
+  _ghostURL[slotKey]=c.toDataURL();
+  return _ghostURL[slotKey];
 }
 /* ============ 背包整理 ============
    排序哲学：「打开背包时脑子里的问题是『我要换件装备』，不是『这件值多少钱』」。
@@ -4933,22 +4988,32 @@ function openBag(){
   const g=$('bagGrid');   /* 旧变量名复用只为保持函数内引用清晰 */
 
   /* ---------- ① 装备区 ---------- */
-  const leftSlots=EQ_SLOTS.slice(0,4), rightSlots=EQ_SLOTS.slice(4);
-  const slotHtml=(k,n,h)=>{
+  /* ★ 布局：左列 武器/项链/手镯①/手镯②，右列 头盔/衣服/戒指①/戒指②（见 EQ_COLS）。
+     ★ 槽位**只显示装备实物图标**，不写部位名、不写装备名（决策 C）：
+       部位信息由「图标形状 + 位置」表达，装备名与属性在点击后的详情面板里看。
+       保留的视觉线索全部非文字：
+         · 边框色 = 装备档次色（TIER_COLOR）
+         · 左上角品质点 = 小极品（金）／劣质（灰），替代原来的「极」「劣」汉字
+         · 右下角 +N = 强化等级（按决策 A 保留数字，不改点阵）
+     空槽显示暗色剪影（ghostIconURL），玩家能看出这格该放什么。 */
+  const slotHtml=(k,h)=>{
     const e=equip[k];
-    if(!e)return '<div class="eqSlot empty" style="height:'+h+'px" data-slot="'+k+'">'+
-      '<span class="esn">'+n+'</span></div>';
+    if(!e)return '<div class="eqSlot empty" style="height:'+h+'px" data-slot="'+k+'" title="'+EQ_SLOT_NAME[k]+'（空）">'+
+      '<img class="eqIc ghost" src="'+ghostIconURL(k)+'" alt=""></div>';
     const def=EQMAP[e.id]||{};
-    const q=Math.max(0,Math.min(EQQ.length-1,(e.q|0)||1));
-    return '<div class="eqSlot q'+((def.tier||1))+'" style="height:'+h+'px;border:2px solid '+TIER_COLOR[def.tier||1]+'" data-slot="'+k+'">'+
-      '<span class="esn">'+n+'</span>'+
-      '<span class="esv" style="color:'+(q===2?'#ffca4a':TIER_COLOR[def.tier||1])+'">'+eqName(e)+'</span>'+
+    /* ★ 用 qOf 而不是 (e.q|0)||1：后者在 q=0（劣质）时会被 || 短路成 1，
+       导致劣质装备被当成普通装备、品质点不显示。qOf 只在 q 缺失时才回落 1。 */
+    const q=Math.max(0,Math.min(EQQ.length-1,qOf(e)));
+    /* 品质点：小极品=金色实心星，劣质=灰色小点，普通=不画（避免满屏标记） */
+    const qd=q===2?'<span class="eqQd q2"></span>':(q===0?'<span class="eqQd q0"></span>':'');
+    return '<div class="eqSlot q'+((def.tier||1))+'" style="height:'+h+'px;border:2px solid '+TIER_COLOR[def.tier||1]+'" data-slot="'+k+'" title="'+EQ_SLOT_NAME[k]+'：'+eqName(e)+'">'+
+      '<img class="eqIc" src="'+iconURL(def)+'" alt="">'+
+      qd+
       (e.plus?'<span class="epl">+'+e.plus+'</span>':'')+
-      (q===2?'<span class="eq2">极</span>':(q===0?'<span class="eq0">劣</span>':''))+
       '</div>';
   };
   let slots='<div class="eqWrap">'+
-    '<div class="eqCol">'+leftSlots.map(([k,n],i)=>slotHtml(k,n,i===0?72:66)).join('')+'</div>'+
+    '<div class="eqCol">'+EQ_COLS[0].map(([k,n],i)=>slotHtml(k,i===0?72:66)).join('')+'</div>'+
     /* 中间人物：立绘用真实职业精灵（与左上角头像同源），下面叠光武光效与台座 */
     '<div class="eqMid">'+
       '<div class="eqAura"></div>'+
@@ -4958,7 +5023,7 @@ function openBag(){
       '<div class="eqPed"></div>'+
       '<div class="eqSet">'+((setBonus().list.length)?('✦ 套装 '+setBonus().list.map(x=>x.count).join('/')+' 件生效'):('战力 '+powerRangeHtml()))+'</div>'+
     '</div>'+
-    '<div class="eqCol">'+rightSlots.map(([k,n])=>slotHtml(k,n,66)).join('')+'</div>'+
+    '<div class="eqCol">'+EQ_COLS[1].map(([k,n])=>slotHtml(k,66)).join('')+'</div>'+
     '</div>';
 
   /* ---------- ② 属性（请求 T：自身+装备 → 区间呈现，不带 + 号） ---------- */
@@ -5315,7 +5380,7 @@ function showItemDetail(def,idx){
   const it=idx>=0?inv[idx]:null;
   /* 品质越界保护：正常掉落只会产生 0/1/2，但损坏的存档可能带出非法值，
      直接索引 EQQ[q] 会令整个详情面板崩溃 */
-  const q=it&&!it.pid?Math.max(0,Math.min(EQQ.length-1,(it.q|0)||1)):1;
+  const q=it&&!it.pid?Math.max(0,Math.min(EQQ.length-1,qOf(it))):1;
   const plus=it&&!it.pid?(it.plus||0):0;
   let stats='';
   if(def.pid){
@@ -5334,7 +5399,11 @@ function showItemDetail(def,idx){
   if(def.slot){
     /* 双槽位（手镯/戒指）：同 id 且品质/强化等级完全一致、且已在**任一**格上，
        才算"已装备"（避免玩家把左手那只再装到右手上，白占一格）。
-       有空槽时按钮文案用「装备到 手镯②」，让玩家知道会进哪一格。 */
+       双槽位有空槽时按钮文案用「装备到 手镯②」，让玩家知道会进哪一格；
+       两格都满时提示将替换战力较低的那件（与 useInvItem 的实际规则保持一致）。
+       ★ 单槽位（武器/头盔/衣服/项链）保持历史文案「更换」——
+         只有一格可换，写「装备到 武器」是废话，写「替换 武器」更会让玩家
+         以为自己还有个「备用的武器格」，反而困惑。 */
     const slots=eqSlotsOf(def.slot);
     const wornK=slots.find(k=>{const e=equip[k];
       return e&&e.id===def.id&&qOf(e)===q&&(e.plus||0)===plus;});
@@ -5343,9 +5412,17 @@ function showItemDetail(def,idx){
     const reqLv=eqReqLv(def);
     if(!wornK){
       if(lvOk){
-        const txt=freeK?('装备到 '+EQ_SLOT_NAME[freeK]):'更换';
+        let txt;
+        if(slots.length===1)txt='更换';
+        else if(freeK)txt='装备到 '+EQ_SLOT_NAME[freeK];
+        else{
+          /* 两格都满：与 useInvItem 同规则挑战力最低的那格 */
+          const weakest=slots.reduce((lo,k)=>(eqScore(equip[k])<eqScore(equip[lo])?k:lo),slots[0]);
+          txt='更换（替换 '+EQ_SLOT_NAME[weakest]+'）';
+        }
         extra='<button class="goldbtn" style="margin:10px 4px 0 0" id="dtUse">'+txt+'</button>';
-        if(freeK&&slots.length>1)extra+='<span style="font-size:11px;color:#8a7a50;margin-left:6px">同名装备可双持</span>';
+        if(!freeK&&slots.length>1)extra+='<span style="font-size:11px;color:#8a7a50;margin-left:6px">两格已满，将替换战力较低的那件</span>';
+        else if(freeK&&slots.length>1)extra+='<span style="font-size:11px;color:#8a7a50;margin-left:6px">同名装备可双持</span>';
       }else{
         /* 未达等级：不给按钮，改成明确的红字说明 ——
            给个禁用的灰按钮不如直接说清「差几级」，玩家知道该去练级而不是以为卡 bug */
@@ -8349,7 +8426,7 @@ function init(){
     /* 「角色 · 背包」合并面板（请求 N）：8 槽位 + 智能整理 + 批量操作，
        全部暴露供自动化断言 —— 双槽位/可装角标/就地强化 都是易错点，
        没有钩子就只能靠肉眼看截图，回归价值为零。 */
-    EQ_SLOTS,EQ_SLOT_NAME,baseSlotOf,eqSlotsOf,eqWornSlot,
+    EQ_SLOTS,EQ_COLS,EQ_SLOT_NAME,baseSlotOf,eqSlotsOf,eqWornSlot,ghostIconURL,SLOT_SHAPE,
     eqScore,canEquipUpgrade,bagSmartLess,smartRank,bagPass,bagCountOf,BAG_FILTERS,
     batchSell,batchDrop,sellValueOf,LV_MAX,TOWER_COST,towerScale,showSellDialog,
     get bagFilter(){return bagFilter;},set bagFilter(v){bagFilter=v;},
