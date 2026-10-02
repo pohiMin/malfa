@@ -6968,7 +6968,7 @@ function startTower(){
   ST.gold-=TOWER_COST;
   ST.stat.towerCost=(ST.stat.towerCost||0)+TOWER_COST;   // 生涯统计：累计入场费（金币去向可查）
   addLog('⚔ 支付试炼塔入场费 '+TOWER_COST+' 金币');
-  ST.tower={floor:1,killed:0,t:TOWER_TIME,alive:0,runBest:0,reward:{dan:0,eq:0}};
+  ST.tower={floor:1,killed:0,t:TOWER_TIME,alive:0,runBest:0,cleared:false,reward:{dan:0,eq:0}};
   ST.towerRuns=(ST.towerRuns||0)+1;ST.stat.towerRuns=(ST.stat.towerRuns||0)+1;
   enterTowerFloor(1);
   return true;
@@ -6977,6 +6977,7 @@ function startTower(){
 function enterTowerFloor(floor){
   const t=ST.tower;if(!t)return;
   t.floor=floor;t.t=TOWER_TIME;t.killed=0;
+  t.cleared=false;        /* 新的一层重置「已结算」标记（见 updateTower 的防重入说明） */
   const scale=towerScale(floor);
   const arena={id:'tower',n:'试炼塔 · 第 '+floor+' 层',lv:[1,99],w:30,h:30,
     pal:{g:'#2a2438',g2:'#241e30',g3:'#322a42',deco:'pillar'},mobs:[],max:0};
@@ -7018,6 +7019,16 @@ function updateTower(dt){
   const p=$('panel');
   if(p&&!p.classList.contains('hidden'))return;
   t.t-=dt;
+  /* ★ 防重入：t.cleared 标记本层是否已结算过。
+     坑：第 N 层杀光怪后，enterTowerFloor(N+1) 要等 setTimeout 900ms 才执行，
+     这 900ms 里主循环仍在每帧跑 updateTower，而 t.alive 读到的是**上一层的
+     残留值 0**（MAP 已经切走，mobs 数组被重建但 t.alive 没被同步），
+     于是 towerFloorClear() 会被连调 4~6 次 —— 实测玩家反馈"第一层结束瞬间
+     爆了好几件装备"，根因就是这里：每次重入都独立摇一次 towerFloorReward，
+     4% 的骰子摇了 6 次，出货率被放大到约 22%。
+     修法：结算后立刻置 t.cleared=true，updateTower 里见到就跳过。
+     enterTowerFloor 里显式重置为 false（新的一层必须能再结算）。 */
+  if(t.cleared)return;
   t.alive=MAP.mobs.filter(m=>!m.dead).length;
   if(t.alive<=0){towerFloorClear();return;}
   if(t.t<=0){failTower('时间耗尽，止步第 '+t.floor+' 层');return;}
@@ -7025,7 +7036,7 @@ function updateTower(dt){
 /* 试炼塔楼层奖励（产品决策：不产经验 / 不产金币）
    奖励结构：
      · 每 5 层（5 / 10 / 15）→ 必得 1 颗 Boss内丹（= 1 技能点）——确定性的成长回报
-     · 其他层 → 极小概率（6%）掉落一件 +9 强化的小极品装备 —— 搏上限
+     · 其他层 → 极小概率（4%）掉落一件 +9 强化的小极品装备 —— 搏上限
    为什么内丹放 5 的倍数：技能点是本作最稀缺资源，玩家需要一个「可规划
    的稳定来源」。每 5 层给 1 颗，玩家能自己算出「再爬 2 层就有技能点了」，
    这种可预期性比随机爆更让人愿意再来一次。
@@ -7048,6 +7059,10 @@ function towerFloorReward(floor){
 }
 function towerFloorClear(){
   const t=ST.tower;if(!t)return;
+  /* ★ 第二道防重入保险：即便将来新增了别的调用路径（如成就/任务触发结算），
+     同一层的奖励也只会被摇一次骰子。 */
+  if(t.cleared)return;
+  t.cleared=true;
   const floor=t.floor;
   const rw=towerFloorReward(floor);
   const got=[];
