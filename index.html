@@ -606,69 +606,69 @@ const SKILLS={
 };
 /* 装备 slot: weapon武器 armor衣服 helmet头盔 necklace项链 bracelet手镯 ring戒指 */
 const EQUIPS=[
- {id:'wood_sword',n:'木剑',slot:'weapon',cls:'w',tier:1,st:{atk:[1,2]},d:'初入玛法的证明'},
- {id:'dagger',n:'匕首',slot:'weapon',cls:'w',tier:1,st:{atk:[3,4]},d:'轻巧而锋利'},
- {id:'ebony',n:'乌木剑',slot:'weapon',cls:'w',tier:1,st:{atk:[5,7]},d:'沉甸甸的黑木剑'},
- {id:'bronze_axe',n:'青铜斧',slot:'weapon',cls:'w',tier:1,st:{atk:[7,10]},d:'矿工惯用的利斧'},
- {id:'halfmoon_blade',n:'半月',slot:'weapon',cls:'w',tier:2,st:{atk:[9,13]},d:'弯如新月的利刃'},
- {id:'jingzhongyue',n:'井中月',slot:'weapon',cls:'w',tier:2,st:{atk:[12,16]},d:'传说沉于古井之名刃'},
- {id:'lianyu',n:'炼狱',slot:'weapon',cls:'w',tier:3,st:{atk:[15,21]},d:'沃玛深处的凶器'},
- {id:'caijue',n:'裁决之杖',slot:'weapon',cls:'w',tier:3,st:{atk:[21,29]},d:'战士梦寐以求的神兵'},
- {id:'bazhe',n:'霸者之刃',slot:'weapon',cls:'w',tier:4,st:{atk:[27,36]},d:'赤月峡谷的霸者遗物'},
- {id:'tulong',n:'屠龙',slot:'weapon',cls:'w',tier:4,st:{atk:[39,52]},d:'宝刀屠龙，号令玛法！'},
- {id:'wood_staff',n:'木杖',slot:'weapon',cls:'m',tier:1,st:{matk:[3,5],datk:[3,5]},d:'学徒的魔杖'},
- {id:'magic_staff',n:'魔杖',slot:'weapon',cls:'m',tier:1,st:{matk:[7,10],datk:[7,10]},d:'凝聚魔力之杖'},
- {id:'haihun',n:'海魂',slot:'weapon',cls:'m',tier:2,st:{matk:[10,14]},d:'蕴藏大海之魂'},
- {id:'shihun',n:'嗜魂法杖',slot:'weapon',cls:'m',tier:2,st:{matk:[15,20]},d:'摄人魂魄的法器'},
- {id:'guyu',n:'骨玉权杖',slot:'weapon',cls:'m',tier:3,st:{matk:[21,28]},d:'祖玛祭司的权杖'},
- {id:'shixue',n:'嗜血魔杖',slot:'weapon',cls:'m',tier:4,st:{matk:[25,34]},d:'饮血愈多的禁忌魔杖'},
- {id:'yinshe',n:'银蛇剑',slot:'weapon',cls:'t',tier:1,st:{datk:[6,8]},d:'剑走轻灵如银蛇'},
- {id:'wuji',n:'无极棍',slot:'weapon',cls:'t',tier:2,st:{datk:[12,16]},d:'道门无极之器'},
- {id:'longwen',n:'龙纹剑',slot:'weapon',cls:'t',tier:3,st:{datk:[18,24]},d:'剑身龙纹隐现'},
- {id:'xiaoyao',n:'逍遥扇',slot:'weapon',cls:'t',tier:4,st:{datk:[24,32]},d:'逍遥天地间的一柄折扇'},
- {id:'cloth',n:'布衣',slot:'armor',cls:'all',tier:1,st:{def:[2,3]},d:'粗布缝制'},
- {id:'light_armor',n:'轻型盔甲',slot:'armor',cls:'all',tier:1,st:{def:[4,6]},d:'皮甲轻便'},
- {id:'mid_armor',n:'中型盔甲',slot:'armor',cls:'all',tier:2,st:{def:[6,9],hp:[30,40]},d:'铁片缀成'},
- {id:'heavy_armor',n:'重盔甲',slot:'armor',cls:'all',tier:2,st:{def:[9,12],hp:[45,60]},d:'厚重的护身铁甲'},
- {id:'magic_robe',n:'魔法长袍',slot:'armor',cls:'m',tier:2,st:{def:[6,8],matk:[6,8]},d:'法师的长袍'},
- {id:'soul_robe',n:'灵魂战衣',slot:'armor',cls:'t',tier:2,st:{def:[6,9],datk:[4,6],hp:[22,30]},d:'绣满符文的道袍'},
- {id:'tianmo',n:'天魔神甲',slot:'armor',cls:'w',tier:4,st:{def:[15,20],hp:[112,150]},d:'1.76重装 · 战神甲胄'},
- {id:'fashen',n:'法神披风',slot:'armor',cls:'m',tier:4,st:{def:[9,13],matk:[11,15],hp:[67,90]},d:'1.76重装 · 法神之衣'},
- {id:'tianzun',n:'天尊道袍',slot:'armor',cls:'t',tier:4,st:{def:[10,14],datk:[9,12],hp:[82,110]},d:'1.76重装 · 天尊法衣'},
- {id:'cloth_hat',n:'布帽',slot:'helmet',cls:'all',tier:1,st:{def:[1,2]},d:'遮风挡雨'},
- {id:'skull_helm',n:'骷髅头盔',slot:'helmet',cls:'all',tier:1,st:{def:[3,5]},d:'以兽骨打磨'},
- {id:'black_iron',n:'黑铁头盔',slot:'helmet',cls:'all',tier:2,st:{def:[6,8]},d:'乌铁铸就'},
- {id:'prayer_helm',n:'祈祷头盔',slot:'helmet',cls:'all',tier:3,st:{def:[8,11],hp:[37,50]},d:'蕴含祈祷之力'},
- {id:'bamboo_flute',n:'竹笛项链',slot:'necklace',cls:'all',tier:1,st:{atk:[2,3]},d:'清脆悦耳'},
- {id:'blue_jade',n:'蓝翡翠项链',slot:'necklace',cls:'all',tier:1,st:{matk:[3,5],datk:[3,5]},d:'温润的蓝玉'},
- {id:'soul_neck',n:'灵魂项链',slot:'necklace',cls:'all',tier:2,st:{matk:[6,8],datk:[6,8],hp:[30,40]},d:'与灵魂共鸣'},
- {id:'tianzhu',n:'天珠项链',slot:'necklace',cls:'all',tier:3,st:{matk:[9,12],datk:[9,12]},d:'天珠蕴灵'},
- {id:'green_neck',n:'绿色项链',slot:'necklace',cls:'all',tier:3,st:{atk:[7,10],hp:[30,40]},d:'翠色欲滴'},
- {id:'leather_brace',n:'皮制手镯',slot:'bracelet',cls:'all',tier:1,st:{def:[1,2]},d:'耐磨耐用'},
- {id:'firm_brace',n:'坚固手镯',slot:'bracelet',cls:'all',tier:2,st:{def:[3,5]},d:'坚固可靠'},
- {id:'knight_brace',n:'骑士手镯',slot:'bracelet',cls:'all',tier:2,st:{atk:[5,7]},d:'骑士的荣耀'},
- {id:'dragon_brace',n:'龙之手镯',slot:'bracelet',cls:'all',tier:3,st:{matk:[6,9],datk:[6,9]},d:'龙鳞制成'},
- {id:'iron_ring',n:'铁戒指',slot:'ring',cls:'all',tier:1,st:{atk:[1,2]},d:'普通的指环'},
- {id:'coral_ring',n:'珊瑚戒指',slot:'ring',cls:'all',tier:1,st:{atk:[4,6]},d:'深海珊瑚'},
- {id:'exorcism_ring',n:'降妖除魔戒指',slot:'ring',cls:'all',tier:2,st:{matk:[5,7],datk:[5,7]},d:'专克妖魔'},
- {id:'zibiluo',n:'紫碧螺',slot:'ring',cls:'all',tier:2,st:{matk:[7,10],datk:[7,10],hp:[22,30]},d:'紫气东来'},
- {id:'power_ring',n:'力量戒指',slot:'ring',cls:'all',tier:3,st:{atk:[8,11]},d:'力量的象征'},
- {id:'shengzhan_ring',n:'圣战戒指',slot:'ring',cls:'all',tier:4,st:{atk:[10,14],hp:[45,60]},d:'1.76重装 · 圣战套装'},
- {id:'fashen_ring',n:'法神戒指',slot:'ring',cls:'all',tier:4,st:{matk:[10,14],mp:[60,80]},d:'1.76重装 · 法神套装'},
- {id:'tianzun_ring',n:'天尊戒指',slot:'ring',cls:'all',tier:4,st:{datk:[8,11],hp:[60,80]},d:'1.76重装 · 天尊套装'},
+ {id:'wood_sword',n:'木剑',slot:'weapon',cls:'w',tier:1,st:{atk:[1,4]},d:'初入玛法的证明'},
+ {id:'dagger',n:'匕首',slot:'weapon',cls:'w',tier:1,st:{atk:[2,5]},d:'轻巧而锋利'},
+ {id:'ebony',n:'乌木剑',slot:'weapon',cls:'w',tier:1,st:{atk:[4,9]},d:'沉甸甸的黑木剑'},
+ {id:'bronze_axe',n:'青铜斧',slot:'weapon',cls:'w',tier:1,st:{atk:[5,12]},d:'矿工惯用的利斧'},
+ {id:'halfmoon_blade',n:'半月',slot:'weapon',cls:'w',tier:2,st:{atk:[6,16]},d:'弯如新月的利刃'},
+ {id:'jingzhongyue',n:'井中月',slot:'weapon',cls:'w',tier:2,st:{atk:[8,20]},d:'传说沉于古井之名刃'},
+ {id:'lianyu',n:'炼狱',slot:'weapon',cls:'w',tier:3,st:{atk:[10,26]},d:'沃玛深处的凶器'},
+ {id:'caijue',n:'裁决之杖',slot:'weapon',cls:'w',tier:3,st:{atk:[14,36]},d:'战士梦寐以求的神兵'},
+ {id:'bazhe',n:'霸者之刃',slot:'weapon',cls:'w',tier:4,st:{atk:[18,45]},d:'赤月峡谷的霸者遗物'},
+ {id:'tulong',n:'屠龙',slot:'weapon',cls:'w',tier:4,st:{atk:[26,65]},d:'宝刀屠龙，号令玛法！'},
+ {id:'wood_staff',n:'木杖',slot:'weapon',cls:'m',tier:1,st:{matk:[2,6],datk:[2,6]},d:'学徒的魔杖'},
+ {id:'magic_staff',n:'魔杖',slot:'weapon',cls:'m',tier:1,st:{matk:[5,12],datk:[5,12]},d:'凝聚魔力之杖'},
+ {id:'haihun',n:'海魂',slot:'weapon',cls:'m',tier:2,st:{matk:[7,17]},d:'蕴藏大海之魂'},
+ {id:'shihun',n:'嗜魂法杖',slot:'weapon',cls:'m',tier:2,st:{matk:[10,25]},d:'摄人魂魄的法器'},
+ {id:'guyu',n:'骨玉权杖',slot:'weapon',cls:'m',tier:3,st:{matk:[14,35]},d:'祖玛祭司的权杖'},
+ {id:'shixue',n:'嗜血魔杖',slot:'weapon',cls:'m',tier:4,st:{matk:[17,42]},d:'饮血愈多的禁忌魔杖'},
+ {id:'yinshe',n:'银蛇剑',slot:'weapon',cls:'t',tier:1,st:{datk:[4,10]},d:'剑走轻灵如银蛇'},
+ {id:'wuji',n:'无极棍',slot:'weapon',cls:'t',tier:2,st:{datk:[8,20]},d:'道门无极之器'},
+ {id:'longwen',n:'龙纹剑',slot:'weapon',cls:'t',tier:3,st:{datk:[12,30]},d:'剑身龙纹隐现'},
+ {id:'xiaoyao',n:'逍遥扇',slot:'weapon',cls:'t',tier:4,st:{datk:[16,40]},d:'逍遥天地间的一柄折扇'},
+ {id:'cloth',n:'布衣',slot:'armor',cls:'all',tier:1,st:{def:[2,5]},d:'粗布缝制'},
+ {id:'light_armor',n:'轻型盔甲',slot:'armor',cls:'all',tier:1,st:{def:[3,7]},d:'皮甲轻便'},
+ {id:'mid_armor',n:'中型盔甲',slot:'armor',cls:'all',tier:2,st:{def:[4,11],hp:[20,50]},d:'铁片缀成'},
+ {id:'heavy_armor',n:'重盔甲',slot:'armor',cls:'all',tier:2,st:{def:[6,15],hp:[30,75]},d:'厚重的护身铁甲'},
+ {id:'magic_robe',n:'魔法长袍',slot:'armor',cls:'m',tier:2,st:{def:[4,10],matk:[4,10]},d:'法师的长袍'},
+ {id:'soul_robe',n:'灵魂战衣',slot:'armor',cls:'t',tier:2,st:{def:[4,11],datk:[3,7],hp:[15,37]},d:'绣满符文的道袍'},
+ {id:'tianmo',n:'天魔神甲',slot:'armor',cls:'w',tier:4,st:{def:[10,25],hp:[75,187]},d:'1.76重装 · 战神甲胄'},
+ {id:'fashen',n:'法神披风',slot:'armor',cls:'m',tier:4,st:{def:[6,16],matk:[8,19],hp:[45,112]},d:'1.76重装 · 法神之衣'},
+ {id:'tianzun',n:'天尊道袍',slot:'armor',cls:'t',tier:4,st:{def:[7,17],datk:[6,15],hp:[55,137]},d:'1.76重装 · 天尊法衣'},
+ {id:'cloth_hat',n:'布帽',slot:'helmet',cls:'all',tier:1,st:{def:[1,4]},d:'遮风挡雨'},
+ {id:'skull_helm',n:'骷髅头盔',slot:'helmet',cls:'all',tier:1,st:{def:[2,6]},d:'以兽骨打磨'},
+ {id:'black_iron',n:'黑铁头盔',slot:'helmet',cls:'all',tier:2,st:{def:[4,10]},d:'乌铁铸就'},
+ {id:'prayer_helm',n:'祈祷头盔',slot:'helmet',cls:'all',tier:3,st:{def:[6,14],hp:[25,62]},d:'蕴含祈祷之力'},
+ {id:'bamboo_flute',n:'竹笛项链',slot:'necklace',cls:'all',tier:1,st:{atk:[2,5]},d:'清脆悦耳'},
+ {id:'blue_jade',n:'蓝翡翠项链',slot:'necklace',cls:'all',tier:1,st:{matk:[2,6],datk:[2,6]},d:'温润的蓝玉'},
+ {id:'soul_neck',n:'灵魂项链',slot:'necklace',cls:'all',tier:2,st:{matk:[4,10],datk:[4,10],hp:[20,50]},d:'与灵魂共鸣'},
+ {id:'tianzhu',n:'天珠项链',slot:'necklace',cls:'all',tier:3,st:{matk:[6,15],datk:[6,15]},d:'天珠蕴灵'},
+ {id:'green_neck',n:'绿色项链',slot:'necklace',cls:'all',tier:3,st:{atk:[5,12],hp:[20,50]},d:'翠色欲滴'},
+ {id:'leather_brace',n:'皮制手镯',slot:'bracelet',cls:'all',tier:1,st:{def:[1,4]},d:'耐磨耐用'},
+ {id:'firm_brace',n:'坚固手镯',slot:'bracelet',cls:'all',tier:2,st:{def:[2,6]},d:'坚固可靠'},
+ {id:'knight_brace',n:'骑士手镯',slot:'bracelet',cls:'all',tier:2,st:{atk:[4,9]},d:'骑士的荣耀'},
+ {id:'dragon_brace',n:'龙之手镯',slot:'bracelet',cls:'all',tier:3,st:{matk:[4,11],datk:[4,11]},d:'龙鳞制成'},
+ {id:'iron_ring',n:'铁戒指',slot:'ring',cls:'all',tier:1,st:{atk:[1,4]},d:'普通的指环'},
+ {id:'coral_ring',n:'珊瑚戒指',slot:'ring',cls:'all',tier:1,st:{atk:[3,7]},d:'深海珊瑚'},
+ {id:'exorcism_ring',n:'降妖除魔戒指',slot:'ring',cls:'all',tier:2,st:{matk:[4,9],datk:[4,9]},d:'专克妖魔'},
+ {id:'zibiluo',n:'紫碧螺',slot:'ring',cls:'all',tier:2,st:{matk:[5,12],datk:[5,12],hp:[15,37]},d:'紫气东来'},
+ {id:'power_ring',n:'力量戒指',slot:'ring',cls:'all',tier:3,st:{atk:[6,14]},d:'力量的象征'},
+ {id:'shengzhan_ring',n:'圣战戒指',slot:'ring',cls:'all',tier:4,st:{atk:[7,17],hp:[30,75]},d:'1.76重装 · 圣战套装'},
+ {id:'fashen_ring',n:'法神戒指',slot:'ring',cls:'all',tier:4,st:{matk:[7,17],mp:[40,100]},d:'1.76重装 · 法神套装'},
+ {id:'tianzun_ring',n:'天尊戒指',slot:'ring',cls:'all',tier:4,st:{datk:[6,14],hp:[40,100]},d:'1.76重装 · 天尊套装'},
  /* ===== tier5 魔龙系（终局装备，仅魔龙教主掉落）=====
    数值在 tier4 顶部（屠龙52 / 嗜血34 / 赤月三件套 / 圣法天三戒）之上约 +30%，
    穿戴门槛 42 级（EQ_REQ_LV）—— 40 级进图先打 tier4 过渡，42 级穿上毕业。
    白板卖价 base 3000（eqPrice）：与塔入场费 1 万的经济体量衔接。 */
- {id:'molong_blade',n:'魔龙战刃',slot:'weapon',cls:'w',tier:5,st:{atk:[51,68]},d:'魔龙城终极重装 · 屠龙之上的传说'},
- {id:'molong_staff',n:'魔龙法杖',slot:'weapon',cls:'m',tier:5,st:{matk:[33,45]},d:'魔龙城终极重装 · 汇聚灭世魔力'},
- {id:'molong_fan',n:'魔龙宝扇',slot:'weapon',cls:'t',tier:5,st:{datk:[31,42]},d:'魔龙城终极重装 · 一扇定山河'},
- {id:'molong_w',n:'魔龙战甲',slot:'armor',cls:'w',tier:5,st:{def:[19,26],hp:[146,195]},d:'魔龙城终极重装 · 战神之甲'},
- {id:'molong_m',n:'魔龙法衣',slot:'armor',cls:'m',tier:5,st:{def:[12,17],matk:[15,20],hp:[87,117]},d:'魔龙城终极重装 · 法神之衣'},
- {id:'molong_t',n:'魔龙道袍',slot:'armor',cls:'t',tier:5,st:{def:[13,18],datk:[12,16],hp:[107,143]},d:'魔龙城终极重装 · 天尊法衣'},
- {id:'molong_wr',n:'魔龙战戒',slot:'ring',cls:'all',tier:5,st:{atk:[13,18],hp:[58,78]},d:'魔龙城终极重装 · 战戒'},
- {id:'molong_mg',n:'魔龙法戒',slot:'ring',cls:'all',tier:5,st:{matk:[13,18],mp:[78,104]},d:'魔龙城终极重装 · 法戒'},
- {id:'molong_dz',n:'魔龙道戒',slot:'ring',cls:'all',tier:5,st:{datk:[10,14],hp:[78,104]},d:'魔龙城终极重装 · 道戒'}
+ {id:'molong_blade',n:'魔龙战刃',slot:'weapon',cls:'w',tier:5,st:{atk:[34,85]},d:'魔龙城终极重装 · 屠龙之上的传说'},
+ {id:'molong_staff',n:'魔龙法杖',slot:'weapon',cls:'m',tier:5,st:{matk:[22,56]},d:'魔龙城终极重装 · 汇聚灭世魔力'},
+ {id:'molong_fan',n:'魔龙宝扇',slot:'weapon',cls:'t',tier:5,st:{datk:[21,52]},d:'魔龙城终极重装 · 一扇定山河'},
+ {id:'molong_w',n:'魔龙战甲',slot:'armor',cls:'w',tier:5,st:{def:[13,32],hp:[98,244]},d:'魔龙城终极重装 · 战神之甲'},
+ {id:'molong_m',n:'魔龙法衣',slot:'armor',cls:'m',tier:5,st:{def:[8,21],matk:[10,25],hp:[58,146]},d:'魔龙城终极重装 · 法神之衣'},
+ {id:'molong_t',n:'魔龙道袍',slot:'armor',cls:'t',tier:5,st:{def:[9,22],datk:[8,20],hp:[72,179]},d:'魔龙城终极重装 · 天尊法衣'},
+ {id:'molong_wr',n:'魔龙战戒',slot:'ring',cls:'all',tier:5,st:{atk:[9,22],hp:[39,97]},d:'魔龙城终极重装 · 战戒'},
+ {id:'molong_mg',n:'魔龙法戒',slot:'ring',cls:'all',tier:5,st:{matk:[9,22],mp:[52,130]},d:'魔龙城终极重装 · 法戒'},
+ {id:'molong_dz',n:'魔龙道戒',slot:'ring',cls:'all',tier:5,st:{datk:[7,17],hp:[52,130]},d:'魔龙城终极重装 · 道戒'}
 ];
 const EQMAP={};EQUIPS.forEach(e=>EQMAP[e.id]=e);
 const TIER_NAME=['','普通','沃玛','祖玛','赤月','魔龙'];
@@ -1724,7 +1724,7 @@ function botDropLoot(m){
       &&e.tier>=3&&(e.cls==='all'||e.cls===player.cls));
     if(jew.length){
       const jd=pick(jew);
-      MAP.drops.push({x:m.x+rnd(-24,24),y:m.y+rnd(-16,16),item:{id:jd.id,q:2,pid:0,n:1,roll:rollEqStat(jd)},t:150,bob:0,beam:4});
+      MAP.drops.push({x:m.x+rnd(-24,24),y:m.y+rnd(-16,16),item:{id:jd.id,q:2,pid:0,n:1},t:150,bob:0,beam:4});
       banner('★ 极品首饰 ★','散人「'+m.botName+'」掉落了 『小极品·'+jd.n+'』');
       addLog('✦ 击败散人「'+m.botName+'」（'+BOT_CLS_CN[m.botCls]+' Lv.'+m.botLv+'），爆出极品首饰 『小极品·'+jd.n+'』');
     }
@@ -1942,55 +1942,61 @@ let projectiles=[],aoes=[],particles=[],texts=[],slashes=[];
 /* BOSS 灼烧地带（地面持续伤害区域，如赤月恶魔的熔岩、天气 BOSS 的领域） */
 let zones=[];
 
-/* ============ 装备数值区间（2026-10 请求 Q）============
-   1.76 经典设定：装备数值是一个区间（如「攻击 3-8」），掉出来才定值。
-   本作实现：
-     · 定义层 st:{atk:[3,8]}  —— 数组即区间 [min,max]
-     · 实例层 it.roll={atk:6} —— 掉落瞬间 rollEqStat 定值（整数）
-     · 最终值 = round(roll × 品质q × 强化plus)，再套硬上限保护
-   为什么 roll 在乘算之前：品质与强化是"玩家投入"的放大器，
-   应该放大"这件装备的底子"，而不是反过来。这样一件 roll 满值的装备
-   强化起来收益更高，玩家才有"值得投入的底子"这个判断。
+/* ============ 装备数值区间（2026-10 请求 S · 范围化）============
+   1.76 经典设定：装备数值是一个区间（如「攻击 4-11」），**打出来每一下都在区间内浮动**。
+   本作实现（请求 S 重构）：
+     · 定义层 st:{atk:[4,11]}  —— 数组即区间 [min,max]，下限 = 上限 × 0.4
+     · 实例层 **不再有 it.roll** —— 旧的一次性「掷定值」机制已废弃（决策 D3）
+     · 每刀结算：区间内随机取值 × 品质q × 强化plus（见 eqRand）
+     · 面板/战力分/对比：用**区间均值**（见 statsOf），保证判定稳定
+   
+   为什么需要三个不同口径：
+     · eqRand()   每刀随机 —— 「实际触发以范围为准」，打出的数字会浮动
+     · statsOf()  区间均值 —— 面板展示、eqScore 战力分、「↑可装」角标、
+                              装备对比 delta 都走它，避免随机导致判定抖动
+   为什么品质/强化在随机之后乘：
+     品质与强化是"玩家投入"的放大器，应该放大"这一击的底子"，
+     而不是反过来。强化 +5 的装备，随机区间的每一档都被同等放大。
    
    极值分析（为什么需要硬上限）：
-     roll ≤ max（区间上限），q ≤ 2.0（小极品），plus ≤ +12（1.12^12=3.896）
-     → 理论最高 = max × 7.79。这是"区间满值 + 小极品 + 满强化"三重天胡。
-   EQ_STAT_CAP=6.0 把这个天花板压到 max × 6.0：
-     · 正常情况下（q=1、+N 有限）永远够不到，不影响任何现有玩家
-     · 只在"区间满值 × 小极品 × 高强化"同时叠加时生效 —— 正是要防的数值怪
-     · 旧版固定值装备不含 roll，实际上限是 max×7.79，新上限 6.0 相当于
-       对极限值略微收紧（但旧版能达到该极值的装备本身也极罕见） */
+     roll ≤ max（区间上限），q ≤ 1.32（小极品），plus ≤ +12（1.12^12=3.896）
+     → 理论最高 = max × 5.14。
+   EQ_STAT_CAP=6.0 作为天花板，正常情况下（q=1、+N 有限）永远够不到，
+   只在"区间满值 × 小极品 × 高强化"同时叠加时生效 —— 正是要防的数值怪。 */
 const EQ_STAT_CAP=6.0;
-/* 掉落瞬间定值：把定义层区间摊平成整数实例值 → {atk:6,hp:120}
-   非区间（固定值字段）原样保留，保证旧数据格式仍可用。 */
-function rollEqStat(def){
-  if(!def||!def.st)return null;
-  const out={};
-  for(const k in def.st){
-    const v=def.st[k];
-    out[k]=Array.isArray(v)?rndi(v[0],v[1]):v;
-  }
-  return out;
+/* 兼容占位：旧的一次性掷定机制已废弃（请求 S · 决策 D3）。
+   保留函数名以免外部调用报错，恒返回 null（调用方均已移除 roll 赋值）。 */
+function rollEqStat(def){return null;}
+/* 单次结算的区间随机取值：区间内随机 × 品质 × 强化。
+   用于战斗伤害（C1 每刀随机），是「以范围为准」的落地点。 */
+function eqRand(def,k,e){
+  const raw=def&&def.st?def.st[k]:undefined;
+  if(raw===undefined)return 0;
+  const lo=Array.isArray(raw)?raw[0]:raw;
+  const hi=Array.isArray(raw)?raw[1]:raw;
+  const base=Array.isArray(raw)?rnd(lo,hi):raw;
+  const q=qmul(e||{}),pm=Math.pow(1.12,(e&&e.plus)||0);
+  let v=base*q*pm;
+  const hard=hi*EQ_STAT_CAP;
+  if(v>hard)v=hard;
+  return v;
 }
 function statsOf(e){
-  /* 实例 → 最终属性贡献（含区间定值、品质、强化、硬上限）。
-     e.roll 缺失时按定义层上限处理（旧存档装备 → 不削弱老玩家）。 */
+  /* 实例 → 最终属性贡献（**区间均值**口径 · 请求 S）。
+     用于面板展示 / eqScore 战力分 / 装备对比 —— 必须是确定性值，
+     否则「↑可装」角标与智能排序会随随机数抖动。
+     ⚠️ 战斗伤害不走这里，走 eqRand()（每刀在区间内随机）。 */
   const out={atk:0,matk:0,datk:0,def:0,mdef:0,hp:0,mp:0};
   if(!e)return out;
   const d=EQMAP[e.id];if(!d)return out;
   const q=qmul(e),pm=Math.pow(1.12,e.plus||0);
   for(const k in d.st){
     const raw=d.st[k];
-    const maxV=Array.isArray(raw)?raw[1]:raw;      // 区间取上限作基准
-    const base=(e.roll&&e.roll[k]!==undefined)?e.roll[k]:maxV;
+    const lo=Array.isArray(raw)?raw[0]:raw;
+    const hi=Array.isArray(raw)?raw[1]:raw;
+    const base=Array.isArray(raw)?(lo+hi)/2:raw;   // ★ 区间取均值（请求 S）
     let v=base*q*pm;
-    /* 硬上限（防极端叠加）：上限锚定在「区间上限」，倍数 EQ_STAT_CAP=6。
-       含义：单件装备任一属性最多做到其白板上限的 6 倍。
-       正常情况下 +12 小极品 = 1.12^12×1.32 ≈ 5.15 倍，仍在 6 倍以内不受影响；
-       只有未来出现"品质+强化+额外乘区"三重叠加时才会触发，起兜底作用。
-       ★ 旧写法 hard=maxV*q*pm*6/(2×1.12^12) 是错的：plus=0 时 pm=1，
-         系数退化成 maxV*q*0.77，会把**所有**未强化装备砍掉两成多。 */
-    const hard=maxV*EQ_STAT_CAP;
+    const hard=hi*EQ_STAT_CAP;
     if(v>hard)v=hard;
     out[k]=(out[k]||0)+v;
   }
@@ -2098,11 +2104,52 @@ function calcDamage(atk,def,mult){
      道士  datk → 怪物 mdef  （道术）
    matk 与 datk 完全独立：道士装备只给 datk、法师装备只给 matk，
    通用装备给两条，但每个职业只取自己那一条 —— 混装不会"两头都吃"。
-   技能伤害一律用这里的 atkSrc()，保证普攻/技能/毒伤口径一致。 */
+   技能伤害一律用这里的 atkSrc()，保证普攻/技能/毒伤口径一致。
+
+   ★ 请求 S：装备贡献的部分改为**每刀在区间内随机**（C1）。
+     基础值 = 职业成长（CLASSES 的 atk/atkG×lv 等），走 eqRand 的只有身上装备。
+     player.atk 等字段由 recalcStats 按**区间均值**算出（面板口径），
+     这里减去均值再加随机值 → 期望不变、每刀有浮动。
+     宠物/毒/治疗也走 atkSrc()，因此同样获得区间浮动（一致性）。 */
+function eqRandContribution(){
+  /* 把已穿戴装备的属性重新按区间随机取一遍，返回 {atk,matk,datk} */
+  const out={atk:0,matk:0,datk:0};
+  if(!equip)return out;
+  for(const s in equip){
+    const e=equip[s];if(!e)continue;
+    const d=EQMAP[e.id];if(!d||!d.st)continue;
+    if(d.st.atk!==undefined)out.atk+=eqRand(d,'atk',e);
+    if(d.st.matk!==undefined)out.matk+=eqRand(d,'matk',e);
+    if(d.st.datk!==undefined)out.datk+=eqRand(d,'datk',e);
+  }
+  return out;
+}
+/* 已穿戴装备的**均值**贡献（与 statsOf 同口径，但只取攻击类） */
+function eqMeanContribution(){
+  const out={atk:0,matk:0,datk:0};
+  if(!equip)return out;
+  for(const s in equip){
+    const e=equip[s];if(!e)continue;
+    const d=EQMAP[e.id];if(!d||!d.st)continue;
+    const st=statsOf(e);
+    out.atk+=st.atk||0;out.matk+=st.matk||0;out.datk+=st.datk||0;
+  }
+  return out;
+}
 function atkSrc(){
-  if(player.cls==='mage')return player.matk;
-  if(player.cls==='taoist')return player.datk;
-  return player.atk;
+  /* 面板值（= 职业成长 + 装备**区间均值** + 套装 + 天赋乘区）
+     → 把装备均值部分替换为本击的随机值 → 装备数值每刀浮动。
+     ★ 关键：只替换装备的贡献，不动职业成长/套装/天赋 —— 那些不是随机源。
+     期望不变（随机值期望 = 均值），因此 DPS 平衡不受影响（B2）。 */
+  const key=player.cls==='mage'?'matk':(player.cls==='taoist'?'datk':'atk');
+  const base=player[key];
+  if(!equip)return base;
+  const m=eqMeanContribution()[key]||0, r=eqRandContribution()[key]||0;
+  if(m<=0)return base;                 // 装备无该属性贡献 → 原样返回
+  /* 加上「随机值 − 均值」的偏差：期望为 0，只引入浮动不改变均值。
+     ⚠️ 不要乘天赋倍率 —— 天赋是乘法，加性偏差乘上去会被放大成数值怪
+        （旧写法 base/m 在天赋倍率≠1 或装备占比小时会指数级爆炸）。 */
+  return Math.max(1,Math.floor(base+(r-m)));
 }
 function defSrc(m){
   /* 怪物物防/魔防：法师与道士吃 mdef，战士吃 def */
@@ -3147,7 +3194,7 @@ function dropLoot(m){
       const wp=EQUIPS.filter(e=>e.slot==='weapon'&&e.tier===4&&(e.cls==='all'||CLS_FULL[e.cls]===player.cls));
       if(wp.length){
         const wd=pick(wp);itemId=wd.id;q=2;
-        MAP.drops.push({x:m.x+rnd(-20,20),y:m.y+rnd(-14,14),item:{id:itemId,q,roll:rollEqStat(wd)},t:120,bob:0,beam:4});
+        MAP.drops.push({x:m.x+rnd(-20,20),y:m.y+rnd(-14,14),item:{id:itemId,q},t:120,bob:0,beam:4});
         banner('★ 极品武器 ★',d.n+' 掉落了 『小极品·'+wd.n+'』');
         addLog('✦✦ '+d.n+' 爆出了极品武器 『小极品·'+wd.n+'』');
         return;
@@ -3159,7 +3206,7 @@ function dropLoot(m){
       const pool=EQUIPS.filter(e=>e.tier===tier&&(e.cls==='all'||CLS_FULL[e.cls]===player.cls));
       itemId=pool.length?pick(pool).id:'wood_sword';
     }
-    MAP.drops.push({x:m.x+rnd(-20,20),y:m.y+rnd(-14,14),item:{id:itemId,q,roll:rollEqStat(EQMAP[itemId])},t:90,bob:0,
+    MAP.drops.push({x:m.x+rnd(-20,20),y:m.y+rnd(-14,14),item:{id:itemId,q},t:90,bob:0,
       beam:EQMAP[itemId].tier});
     const eq=EQMAP[itemId];
     if(eq.tier>=3)addLog('✦ '+d.n+' 掉落了 『'+(q===2?'小极品·':q===0?'劣质·':'')+eq.n+'』');
@@ -3183,7 +3230,6 @@ function addInv(item){
   if(item.plus)it2.plus=item.plus;
   /* ★ 保留掉落瞬间的数值 roll（请求 Q）：丢失它会让「掉出来是攻击 4」的装备
      一进背包就变回理论上限，区间随机形同虚设。 */
-  if(item.roll)it2.roll=item.roll;
   inv.push(it2);
   return true;
 }
@@ -3606,7 +3652,7 @@ function giveQuestReward(q){
   if(q.rw.loot){
     const pool=EQUIPS.filter(e=>e.tier===q.rw.loot&&(e.cls==='all'||CLS_FULL[e.cls]===player.cls));
     const eq=pool.length?pick(pool):EQMAP.wood_sword;
-    const inst={id:eq.id,q:rollEqQ(),roll:rollEqStat(eq)};
+    const inst={id:eq.id,q:rollEqQ()};
     const r=addOrConvert(inst,{silent:true});
     if(r.ok)addLog('额外奖励 『'+eqName(inst)+'』');
     else if(r.conv>0)addLog('背包已满，奖励折算为 '+r.conv+' 金币');
@@ -4560,29 +4606,21 @@ const CMP_W={atk:2.0,matk:2.0,datk:2.0,def:1.2,mdef:1.0,hp:.15,mp:.10};
    标量则原样返回。instance 层用 statsOf() 读实值。 */
 function stMax(v){return Array.isArray(v)?v[1]:v;}
 function stMin(v){return Array.isArray(v)?v[0]:v;}
-/* ============ 装备数值区间渲染（请求 R）============
-   显示形如「+51-53-68」：区间两端 + 玩家实掷值（亮金高亮）。
-   ★ 旧版是「+53 (51-68)」—— 实值与范围并列，同一个数字出现两次，
-     玩家分不清"53 是这件装备的值"还是"53 是区间的一部分"。
-     现在实值直接落在区间里，位置一眼可见（掷到哪一目了然）。
-   ① 区间端点也乘品质×强化，与实值同口径 —— 否则 +5 强化时实值 93
-      会落在未乘算的 51-68 之外，显示自相矛盾（旧版的隐藏不一致）。
-   ② 掷到端点时不显示「51-51-68」这种丑形式，直接给两端上色。
-   ③ 无 roll（旧存档）/ 非区间（标量）→ 返回空串，调用方回退单值，
-      保证老装备的展示完全不变。 */
+/* ============ 装备数值区间渲染（请求 S · 纯区间）============
+   显示形如「+4~11」：区间两端，**不再有亮金掷值**。
+   ★ 请求 R 曾显示「+4-7-11」（两端 + 一件装备的固定掷定值）。
+     请求 S 决策 C1 改为「每刀在区间内随机」后，单件装备不再有固定值，
+     那个中间数字失去意义 → 直接去掉，区间就是区间。
+   ① 区间端点乘品质×强化，与战斗结算同口径（eqRand 也是先随机后乘）。
+   ② 非区间（标量）→ 返回空串，调用方回退单值，兼容旧格式。 */
 function statRangeHtml(def,k,it,q,plus){
   const raw=def.st&&def.st[k];
   if(!Array.isArray(raw))return '';
-  const hasRoll=it&&it.roll&&it.roll[k]!==undefined;
-  if(!hasRoll)return '';
   const mul=qmul({q:(q==null?1:q)})*plusMul({plus:plus||0});
   const lo=Math.floor(raw[0]*mul), hi=Math.floor(raw[1]*mul);
-  const real=it.roll[k]*mul;
-  const sLo='<span style="color:#a89058">'+lo+'</span>';    // 下限：暗金
-  const sHi='<span style="color:#8ad8ff">'+hi+'</span>';    // 上限：青（与旧版"掷到上限"同色）
-  let body;
-  if(real<=raw[0]*mul||real>=raw[1]*mul)body=sLo+'-'+sHi;  // 掷到端点：两段式，端点自带颜色
-  else body=lo+'-<b style="color:#ffd84a">'+Math.floor(real)+'</b>-'+hi;  // 中间值：三段式，掷值亮金
+  const body='<span style="color:#a89058">'+lo+'</span>'+
+             '<span style="color:#6a5a38">~</span>'+
+             '<span style="color:#8ad8ff">'+hi+'</span>';
   return ' <span style="font-size:11px;white-space:nowrap">+'+body+'</span>';
 }
 /* 兼容旧调用点（MF176 仍导出 rollTag） */
@@ -4600,14 +4638,15 @@ function statCompareRows(def,q,plus,it){
        品质用 qmul()、强化对所有部位生效。
        旧写法把 plus 系数限定在 weapon 上，导致两件只差强化等级的头盔/戒指
        在详情页显示"基本持平"，而背包角标也用同一套错误系数 → 玩家永远换不掉旧装。
-     ★ 候选装备若带 roll（掉落实例）用实值，否则取区间上限（理论值）。 */
+     ★ 请求 S：候选装备统一按**区间均值**折算（与 statsOf 同口径）。
+       决策 C1 后单件装备已无固定实值，用均值才能保证"综合评估"结论稳定。 */
   const myMul=qmul({q})*plusMul({plus});
   const keys=['atk','matk','datk','def','mdef','hp','mp'];
   let rows='',score=0,nUp=0,nDown=0,nSame=0;
   for(const k of keys){
     const rawV=(def.st&&def.st[k]!==undefined)?def.st[k]:0;
-    /* 本件数值：优先用实例 roll 的实值，退化为区间上限 */
-    const base=(it&&it.roll&&it.roll[k]!==undefined)?it.roll[k]:stMax(rawV);
+    /* 本件数值：区间取均值（statsOf 同口径），标量原样 */
+    const base=Array.isArray(rawV)?(rawV[0]+rawV[1])/2:rawV;
     const nv=base*myMul;
     const cv=cur?(statsOf(cur)[k]||0):0;
     if(!nv&&!cv)continue;
@@ -4618,8 +4657,8 @@ function statCompareRows(def,q,plus,it){
     }
     /* delta=0 时不给箭头：同数值标「▲+0」会让玩家误以为有提升 */
     const dTxt=!curDef?'':(delta>0?' <span class="up">▲+'+delta+'</span>':delta<0?' <span class="down">▼'+delta+'</span>':'');
-    /* 数值主体：有区间的装备走「范围 + 掷值高亮」，否则回退单值（旧装备展示不变）。
-       注意 delta/箭头仍按实值算 —— 对比口径不变，只改展示形式。 */
+    /* 数值主体：区间装备走「纯区间」，否则回退单值。
+       delta/箭头同样按区间均值算 —— 三处口径统一（展示 = 对比 = 战力分）。 */
     const tag=(it&&Array.isArray(rawV))?statRangeHtml(def,k,it,q,plus):'';
     const shown=tag?tag:('+'+Math.floor(nv));
     rows+='<div class="row"><span>'+STAT_NAMES[k]+'</span><b>'+shown+dTxt+'</b></div>';
@@ -4814,10 +4853,10 @@ function showItemDetailOff(def,slot){
   if(!cur){hideItemDetail();return;}      /* 槽位在打开瞬间被清空（如卸下后重绘）→ 安全退出 */
   const q=qOf(cur);
   let stats='';
-  /* 用 statsOf 读实值（含掉落区间 roll），与穿戴后的真实面板一致 */
+  /* 用 statsOf 读区间均值，与穿戴后的面板口径一致（请求 S） */
   const realSt=statsOf(cur);
   if(def.st)for(const k in def.st){
-    /* 有区间 → 「范围 + 掷值高亮」；无区间（标量）→ 回退实值单值 */
+    /* 有区间 → 纯区间「+4~11」；无区间（标量）→ 回退单值 */
     const tag=statRangeHtml(def,k,cur,q,cur.plus||0);
     const shown=tag?tag:('+'+Math.floor(realSt[k]||0));
     stats+='<div class="row"><span>'+STAT_NAMES[k]+'</span><b>'+shown+'</b></div>';
@@ -5454,13 +5493,14 @@ const GUIDE_CATS=[
    ['·','<s>但你被击杀也有几率掉落身上装备</s>——等级越高的人机越危险，遇到高等级人机建议绕开'],
    ['·','人机掉落物会留在原地一段时间，跑远就没了，要回头捡']
  ],tip:'死亡掉落按「背包 + 已穿戴」随机抽 1~3 件，越贵重越肉疼。挂机时确保自动喝药配置到位，这是最便宜的保险。'},
- {ico:'💾',n:'存档与挂机收益',s:'关掉网页也在变强',rows:[
+ {ico:'💾',n:'存档与挂机收益',s:'关掉网页也在攒钱',rows:[
    ['·','三个<b>独立存档槽</b>，互相不干扰，各自记录进度'],
    ['·','游戏每 3 秒自动存档一次，关闭页面也会保存'],
-   ['·','离线期间按挂机速率结算收益，<b>下次进入游戏时自动弹出结算面板</b>'],
+   ['·','离线期间按挂机速率结算<b>金币与黑铁矿石</b>，<b>下次进入游戏时自动弹出结算面板</b>'],
+   ['不产经验','<b>离线不给经验</b>。升级必须回到游戏内打怪 / 做任务 / 打天气 BOSS —— 挂机只供金币与材料'],
    ['切档','点右上角 <b>「设」</b> → 设置页<b>最顶部的 💾 存档</b> → 「切换 / 管理存档」，选中任一槽位即切换角色（当前进度会先自动存回原槽位）'],
    ['·','设置 → 存档管理 可切换 / 删除槽位；也可以从上次成功的备份回滚']
- ],tip:'离线收益有上限，回来记得领。离开前把「自动拾取」和「自动出售满包白装」配好，不然离线期间装备会溢出。'}
+ ],tip:'离线收益有上限（8 小时），回来记得领。离开前把「自动拾取」和「自动出售满包白装」配好，不然离线期间装备会溢出。'}
 ];
 function genGuideHtml(openSet){
   const lv=player.level;
@@ -5804,6 +5844,9 @@ function normItem(it){
   if(!isFinite(n)||n<1)n=1;                  // 0 / NaN / Infinity → 1
   if(n>STACK_MAX)n=STACK_MAX;                // 药水堆叠封顶，防 999999
   const out={id:it.id,pid:it.pid?1:0,n:n};
+  /* ★ 请求 S · 决策 D3：旧存档的 it.roll（一次性掷定值）在此被**自动清除** ——
+     out 是全新对象，只挑 id/pid/n/q/plus 五个字段，roll 不参与拷贝。
+     因此老玩家读档后第一次存档，历史 roll 就彻底消失，数值改走区间随机。 */
   if(!out.pid){
     out.q=normQ(it.q);
     const p=Math.floor(Number(it.plus)||0);
@@ -6079,8 +6122,6 @@ function reforgeDo(item,after){
   item.q=nq;
   /* ★ 数值区间（请求 Q）：重铸一并重掷 roll —— 品质是"投入放大器"，
      数值是"掉落运气"，两者一起重掷才符合"把装备洗一次"的直觉。 */
-  const nr=rollEqStat(d);
-  if(nr)item.roll=nr;
   const onBody=Object.values(equip).includes(item);
   if(onBody)recalcStats();
   if(nq>before){SFX.lvl();banner('✦ 重铸提升 ✦',EQQ[before].n+' → '+EQQ[nq].n+' · '+eqName(item));}
@@ -6129,29 +6170,30 @@ function rerollProb(cur,target){return REROLL_PROB[clamp(cur,0,2)][target];}
 /* ============ 离线挂机收益 ============ */
 const OFFLINE_MAX=8*3600;         // 最多结算 8 小时
 const OFFLINE_MIN=120;            // 低于 2 分钟不弹结算
-/* 依据等级与当前地图推算每秒收益（与掉落表量级匹配） */
+/* 依据等级与当前地图推算每秒收益（与掉落表量级匹配）
+   ★ 离线不产经验（产品决策）：升级必须靠在线打怪/任务/天气BOSS，
+     挂机只解决"金币与材料的持续供给"，不解决"成长"。
+     这样玩家无法靠放置绕过等级门槛（装备穿戴门槛 / 地图进入门槛）。 */
 function offlineRate(){
   const lv=player.level||1;
   const mapDef=MAPMAP[player.mapId]||MAPMAP.village;
   const lvBand=(mapDef&&mapDef.lv?mapDef.lv[0]:1);
   const scale=Math.max(1,lvBand/6);
   const goldPerSec=(1.6+lv*0.55)*scale;
-  const expPerSec=(2.2+lv*0.85)*scale;
   const orePerMin=0.06*scale*(1+(lv>=30?1:.5));
-  return{gold:goldPerSec,exp:expPerSec,ore:orePerMin};
+  return{gold:goldPerSec,exp:0,ore:orePerMin};
 }
-/* 计算离线收益（seconds 已截断） */
+/* 计算离线收益（seconds 已截断）。exp 恒为 0 —— 保留字段以兼容旧存档结算面板 */
 function calcOffline(seconds){
   const s=clamp(Math.floor(seconds),0,OFFLINE_MAX);
   const r=offlineRate();
-  return{sec:s,gold:Math.floor(r.gold*s),exp:Math.floor(r.exp*s),
+  return{sec:s,gold:Math.floor(r.gold*s),exp:0,
     ore:Math.floor(r.ore*s/60)};
 }
 function doOfflineSettle(seconds){
   const o=calcOffline(seconds);
-  if(o.sec<OFFLINE_MIN||(o.gold<=0&&o.exp<=0&&o.ore<=0))return null;
+  if(o.sec<OFFLINE_MIN||(o.gold<=0&&o.ore<=0))return null;
   ST.gold=clampGold((ST.gold||0)+o.gold);ST.stat.goldEarn=(ST.stat.goldEarn||0)+o.gold;
-  gainExp(o.exp);
   if(o.ore>0){
     ST.stat.oreGet=(ST.stat.oreGet||0)+o.ore;
     /* 满包不再静默丢弃：统一走 addOrConvert 折算金币 */
@@ -6171,11 +6213,11 @@ function showOfflinePanel(o,back){
    '<div style="font-size:12px;color:#a89058;margin-top:5px">您离开了 '+tTxt+'，替身持续在 '+
    (MAPMAP[player.mapId]?MAPMAP[player.mapId].n:'玛法大陆')+' 奋战</div>'+
    '<div style="margin-top:12px;font-size:14px;line-height:2;text-align:left">'+
-   '<div class="row"><span>获得经验</span><b style="color:#ffd84a">+'+o.exp+'</b></div>'+
    '<div class="row"><span>获得金币</span><b style="color:#ffd84a">+'+o.gold+'</b></div>'+
    '<div class="row"><span>黑铁矿石</span><b style="color:#ffd84a">+'+o.ore+'</b></div>'+
    '</div>'+
-   '<div style="font-size:11px;color:#6a5a38;margin-top:8px">离线收益最多累计 8 小时，开启「自动挂机」并留在高等级地图可提升收益</div>'+
+   '<div style="font-size:11px;color:#6a5a38;margin-top:8px">离线收益最多累计 8 小时，开启「自动挂机」并留在高等级地图可提升金币与材料产出</div>'+
+   '<div style="font-size:11px;color:#c0784a;margin-top:5px">※ 离线不产经验 —— 升级请回游戏内挑战</div>'+
    '<button class="goldbtn" style="margin-top:12px;padding:9px 34px" id="ofOk">领 取</button></div>';
   d.innerHTML=html;
   SFX.gold();
@@ -6187,7 +6229,7 @@ function checkOffline(save){
   const off=(Date.now()-save.ts)/1000;
   if(off<OFFLINE_MIN)return null;
   const o=doOfflineSettle(off);
-  if(o){addLog('🎁 离线 '+Math.floor(o.sec/60)+' 分钟，获得 '+o.exp+' 经验 / '+o.gold+' 金币');}
+  if(o){addLog('🎁 离线 '+Math.floor(o.sec/60)+' 分钟，获得 '+o.gold+' 金币'+(o.ore>0?' / '+o.ore+' 黑铁矿石':''));}
   return o;
 }
 
@@ -6293,7 +6335,7 @@ function towerFloorReward(floor){
       return pool.length?pick(pool):null;
     };
     const d=pickFrom(4)||pickFrom(3);
-    if(d)eqItem={id:d.id,q:2,pid:0,n:1,plus:TOWER_EQ_PLUS,roll:rollEqStat(d)};
+    if(d)eqItem={id:d.id,q:2,pid:0,n:1,plus:TOWER_EQ_PLUS};
   }
   return {dan,eqItem};
 }
@@ -7362,7 +7404,6 @@ function startGameInner(cls,save,slot,broken){
     recalcStats();player.hp=player.maxHp;player.mp=player.maxMp;
     // 初始武器（补 q:1，避免初始装备品质为 undefined 导致属性倍率异常）
     const w=player.cls==='warrior'?{id:'wood_sword',q:1}:player.cls==='mage'?{id:'wood_staff',q:1}:{id:'yinshe',q:1};
-    w.roll=rollEqStat(EQMAP[w.id]);   // 初始武器也走区间 roll，与掉落口径一致
     equip.weapon=w;recalcStats();
     $('title').classList.add('hidden');$('gameUI').classList.remove('hidden');
     switchMap('village');
@@ -7452,9 +7493,13 @@ function init(){
     towerFloorReward,danEligible,TOWER_DAN_STEP,TOWER_EQ_P,TOWER_EQ_PLUS,
     ORE_P_NORMAL,ORE_P_ELITE,DAN_P_BOSS,DAN_MIN_MAP_LV,
     POT_P_DROP,EQ_P_NORMAL,EQ_P_ELITE,EQ_P_BOSS,
-    /* 魔法/道术分离 + 装备数值区间（请求 Q）：
-       statsOf 读实例实值、rollEqStat 掉落实测、atkSrc/defSrc 决定伤害用哪条属性 */
+    /* 魔法/道术分离 + 装备数值区间（请求 S · 范围化）：
+       statsOf 读**区间均值**（面板/战力分/对比同一口径）、
+       eqRand 每次伤害在区间内随机（C1 每刀随机，滚落地）、
+       atkSrc/defSrc 决定伤害用哪条属性。
+       rollEqStat 为兼容占位，已废弃恒返回 null（决策 D3）。 */
     STAT_NAMES,CMP_W,stMax,stMin,EQ_STAT_CAP,rollEqStat,statsOf,atkSrc,defSrc,rollTag,statRangeHtml,
+    eqRand,eqRandContribution,eqMeanContribution,
     maxCastOf,AUTO_ACQUIRE,
     /* 背包整理（请求 E）：排序键 + 主函数，供自动化断言 */
     tidyBag,bagCatOf,bagItemLess,BAG_SLOT_ORDER,

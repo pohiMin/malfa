@@ -18,7 +18,7 @@
 
    注意：CACHE_VERSION 由 deploy.py 自动写入时间戳，无需手动改。
    ============================================================ */
-const CACHE_VERSION = 'malfa-20261002-110650';
+const CACHE_VERSION = 'malfa-20261002-114631';
 const PAGE_ASSETS = ['./', './index.html'];
 const STATIC_ASSETS = [
   './manifest.json',
